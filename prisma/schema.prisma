@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String      @id @default(uuid())
+  email       String      @unique
+  firstName   String
+  lastName    String
+  phone       String
+  gender      String
+  role       Role     @default(USER)
+  employment  Employment?
+  invite      Invite?     @relation(fields: [inviteId], references: [id])
+  inviteId    String?     @unique
+}
+
+model Employment {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  role           String
+  department     String
+  jobType        String
+  contractLetter String?
+  nda            String?
+  guarantorForm  String?
+  otherDocs      String?
+
+  user           User     @relation(fields: [userId], references: [id])
+}
+
+model Invite {
+  id         String        @id @default(uuid())
+  email      String
+  token      String        @unique
+  status     InviteStatus  @default(PENDING)
+  createdAt  DateTime      @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+
+  user       User?
+  userId     String?       @unique 
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  USER
+  MANAGER
+  FACILITY
+}
