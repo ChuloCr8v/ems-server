@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
-import { CreateUserDto } from './dto/createUser.dto';
+import { CreateUserDto, UpdateUserDto } from './dto/createUser.dto';
 
 @Injectable()
 export class UserService {
@@ -57,5 +57,59 @@ export class UserService {
         status: 'ACCEPTED',
       },
     });
+  }
+
+  async updateUser(id: string, data: UpdateUserDto) {
+    try {
+      // First find active user
+    const user = await this.__findActiveUser(data.email);
+    return await this.prisma.user.update({
+      where: { id },
+      data: {
+        email: data.email || user.email,
+        firstName: data.firstName || user.firstName,
+        lastName: data.lastName || user.lastName,
+        phone: data.phone || user.phone,
+        gender: data.gender || user.gender,
+        role: (data.role as Role) || user.role,
+
+        employment: {
+          update: {
+            role: data.employmentRole || user.employment.role,
+            department: data.department || user.employment.department,
+            jobType: data.jobType || user.employment.jobType,
+            contractLetter: data.contractLetter || user.employment.contractLetter,
+            nda: data.nda || user.employment.nda,
+            guarantorForm: data.guarantorForm || user.employment.guarantorForm,
+             },       
+          },
+       },
+       include: { employment: true }, // optional, helpful for response
+    });
+    
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+
+
+  //////////////////////////////// HELPER METHODS ////////////////////////////////
+
+  async __findActiveUser(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+        active: true,
+      },
+      include: { employment: true },  
+    });
+    if (!user) {
+      throw new Error('User not found');
+    }
+    if (!user.active) {
+      throw new Error('User is not active');
+    }
+    return user;  
   }
 }

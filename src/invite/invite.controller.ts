@@ -1,11 +1,14 @@
 import { Controller, Post, Body, Query, UploadedFiles, UseInterceptors, Get, Param } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('invite')
 export class InviteController {
   constructor(private inviteService: InviteService) {}
 
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post('send')
   send(@Body('email') email: string) {
     return this.inviteService.sendInvite(email);
@@ -47,12 +50,14 @@ export class InviteController {
     return this.inviteService.rejectInvite(token);
   }
   // ✅ Get all invites
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get()
   findAll() {
     return this.inviteService.findAll();
   }
 
   // ✅ Get invite by ID
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.inviteService.findOne(id);
