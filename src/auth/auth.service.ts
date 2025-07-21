@@ -28,12 +28,12 @@ export class AuthService {
   }
 
   async azureLogin({ token }: AzureAuthDto) {
-    const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');
+    try {
+          const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');
     if (!azureClientId) {
       throw new InternalServerErrorException('Azure authentication not configured');
     }
-
-    const decoded = decode(token, { complete: true });
+     const decoded = decode(token, { complete: true });
 
     if (!decoded || typeof decoded.payload === 'string') {
       throw new UnauthorizedException('Invalid token');
@@ -43,8 +43,7 @@ export class AuthService {
     if (iss !== this.graphParams.iss || aud !== this.graphParams.aud) {
       throw new UnauthorizedException('Invalid token issuer or audience');
     }
-
-    const response = await axios
+      const response = await axios
       .get(this.graphParams.endpoint, {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -52,11 +51,11 @@ export class AuthService {
         throw new UnauthorizedException('Failed to fetch user info from Microsoft');
       });
 
-    const email = response.data?.mail;
+       const email = response.data?.mail;
     if (!email) {
       throw new UnauthorizedException('Email not found in Microsoft account');
     }
-
+    
     const user = await this.prisma.user.findUnique({
       where: { email },
       select: {
@@ -68,7 +67,7 @@ export class AuthService {
       },
     });
 
-    if (!user) {
+     if (!user) {
       throw new UnauthorizedException('User does not exist in the system');
     }
 
@@ -77,5 +76,9 @@ export class AuthService {
       access_token: this.jwt.sign(payload),
       user,
     };
+    } catch (error) {
+      throw new UnauthorizedException('Authentication failed: ' + error.message);
+    }
+   
   }
 }
