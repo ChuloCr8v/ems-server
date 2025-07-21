@@ -17,6 +17,7 @@ export class InviteService {
 
     const invite = await this.prisma.invite.create({
       data: { email, token, expiresAt },
+
     });
 
   //     const contractPdf = await this.pdfGen.generatePdfFromHtmlFile('contract.html');

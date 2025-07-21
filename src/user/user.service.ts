@@ -40,9 +40,6 @@ export class UserService {
             role: data.employmentRole,
             department: data.department,
             jobType: data.jobType,
-            contractLetter: data.contractLetter,
-            nda: data.nda,
-            guarantorForm: data.guarantorForm,
           },
         },
       },
@@ -59,38 +56,38 @@ export class UserService {
     });
   }
 
-  async updateUser(id: string, data: UpdateUserDto) {
-    try {
-      // First find active user
-    const user = await this.__findActiveUser(data.email);
-    return await this.prisma.user.update({
-      where: { id },
-      data: {
-        email: data.email || user.email,
-        firstName: data.firstName || user.firstName,
-        lastName: data.lastName || user.lastName,
-        phone: data.phone || user.phone,
-        gender: data.gender || user.gender,
-        role: (data.role as Role) || user.role,
+  // async updateUser(id: string, data: UpdateUserDto) {
+  //   try {
+  //     // First find active user
+  //   const user = await this.__findActiveUser(data.email);
+  //   return await this.prisma.user.update({
+  //     where: { id },
+  //     data: {
+  //       email: data.email || user.email,
+  //       firstName: data.firstName || user.firstName,
+  //       lastName: data.lastName || user.lastName,
+  //       phone: data.phone || user.phone,
+  //       gender: data.gender || user.gender,
+  //       role: (data.role as Role) || user.role,
 
-        employment: {
-          update: {
-            role: data.employmentRole || user.employment.role,
-            department: data.department || user.employment.department,
-            jobType: data.jobType || user.employment.jobType,
-            contractLetter: data.contractLetter || user.employment.contractLetter,
-            nda: data.nda || user.employment.nda,
-            guarantorForm: data.guarantorForm || user.employment.guarantorForm,
-             },       
-          },
-       },
-       include: { employment: true }, // optional, helpful for response
-    });
+  //       employment: {
+  //         update: {
+  //           role: data.employmentRole || user.employment.role,
+  //           department: data.department || user.employment.department,
+  //           jobType: data.jobType || user.employment.jobType,
+  //           contractLetter: data.contractLetter || user.employment.contractLetter,
+  //           nda: data.nda || user.employment.nda,
+  //           guarantorForm: data.guarantorForm || user.employment.guarantorForm,
+  //            },       
+  //         },
+  //      },
+  //      include: { employment: true }, // optional, helpful for response
+  //   });
     
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
+  //   } catch (error) {
+  //     throw new BadRequestException(error.message);
+  //   }
+  // }
 
 
 

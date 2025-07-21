@@ -39,13 +39,13 @@ export class UserController {
     return this.userService.create(createUserDto);
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Put(':id')
-  async update(@Param('id') id: string, @Body() data: UpdateUserDto, @Res() res: Response) {
-    const update = await this.userService.updateUser(id, data);
-    return res.status(200).json({
-      message: 'User updated successfully',
-      user: update,   
-   });
-  }
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Put(':id')
+  // async update(@Param('id') id: string, @Body() data: UpdateUserDto, @Res() res: Response) {
+  //   const update = await this.userService.updateUser(id, data);
+  //   return res.status(200).json({
+  //     message: 'User updated successfully',
+  //     user: update,   
+  //  });
+  // }
 }
