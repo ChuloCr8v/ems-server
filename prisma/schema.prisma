@@ -8,36 +8,41 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
+model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
   firstName    String
   lastName     String
   phone        String
   gender       String
-  active       Boolean     @default(true)
-  role         Role        @default(USER)
-  employment   Employment?
-  invite       Invite?     @relation(fields: [inviteId], references: [id])
-  inviteId     String?     @unique @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
+  role         String
+  duration     String
   departmentId String?     @db.Uuid
-  level        Level?      @relation(fields: [levelId], references: [id])
-  levelId      String?     @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+  jobType      JobType
+  user         User?
+  invite       Invite[]
+  upload       Upload[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
-model Employment {
-  id             String  @id @default(uuid()) @db.Uuid
-  userId         String  @unique @db.Uuid
-  role           String
-  department     String
-  jobType        String
-  contractLetter String?
-  nda            String?
-  guarantorForm  String?
-  otherDocs      String?
-
-  user User @relation(fields: [userId], references: [id])
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  email         String        @unique
+  country       String
+  state         String
+  address       String
+  userRole      Role
+  maritalStatus MaritalStatus
+  contacts      Contacts?
+  levelId       String        @db.Uuid
+  level         Level         @relation(fields: [levelId], references: [id])
+  prospectId    String?       @unique @db.Uuid
+  prospect      Prospect?     @relation(fields: [prospectId], references: [id])
+  upload        Upload[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model Invite {
@@ -48,17 +53,16 @@ model Invite {
   createdAt  DateTime     @default(now())
   expiresAt  DateTime
   acceptedAt DateTime?
-
-  user   User?
-  userId String? @unique
+  prospectId String       @db.Uuid
+  prospect   Prospect     @relation(fields: [prospectId], references: [id])
 }
 
 model Department {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String     @id @default(uuid()) @db.Uuid
   name      String
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAT DateTime @updatedAt
+  prospect  Prospect[]
+  createdAt DateTime   @default(now())
+  updatedAT DateTime   @updatedAt
 }
 
 model Level {
@@ -70,10 +74,68 @@ model Level {
   updatedAt DateTime @updatedAt
 }
 
+model Upload {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  size       Int
+  type       String
+  bytes      Bytes?
+  prospectId String?   @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id])
+  userId     String?   @db.Uuid
+  user       User?     @relation(fields: [userId], references: [id])
+  createdAt  DateTime  @default(now())
+}
+
+model Contacts {
+  id               String            @id @default(uuid()) @db.Uuid
+  gurantorContact  GurantorContact?
+  emergencyContact EmergencyContact?
+  userId           String            @unique @db.Uuid
+  user             User              @relation(fields: [userId], references: [id])
+}
+
+model EmergencyContact {
+  id          String   @id @default(uuid()) @db.Uuid
+  firstName   String
+  lastName    String
+  email       String
+  phoneNumber String
+  contacts    Contacts @relation(fields: [contactId], references: [id])
+  contactId   String   @unique @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GurantorContact {
+  id          String   @id @default(uuid()) @db.Uuid
+  firstName   String
+  lastName    String
+  email       String
+  phoneNumber String
+  contacts    Contacts @relation(fields: [contactId], references: [id])
+  contactId   String   @unique @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/////////////////////////////////// ENUMS  /////////////////////////////////////////////
+
 enum InviteStatus {
   PENDING
   ACCEPTED
   REJECTED
+}
+
+enum JobType {
+  FULL_TIME
+  CONTRACT
+  INTERN
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
 }
 
 enum Role {

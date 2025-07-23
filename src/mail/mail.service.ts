@@ -4,46 +4,40 @@ import * as nodemailer from 'nodemailer';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as handlebars from 'handlebars';
+import { MailerService } from '@nestjs-modules/mailer';
+import { SendMailParams } from './dto/mail.dto';
+import { MAIL_SUBJECT } from './mail.constants';
+import { Send } from 'express';
 
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter;
+  // private transporter: nodemailer.Transporter;
 
-  constructor(private configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('EMAIL_HOST'),
-      port: this.configService.get<number>('EMAIL_PORT'),
-      secure: this.configService.get<string>('EMAIL_SECURE') === 'true',
-      auth: {
-        user: this.configService.get<string>('EMAIL_ID'),
-        pass: this.configService.get<string>('EMAIL_PASS'),
-      },
-    });
-  }
+  constructor(private mailerService: MailerService) {}
 
-  private compileTemplate(templateName: string, context: any): string {
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+  //  async sendMail(input: ProspectInvitationDto) {
+  //   const { email, firstName, token, attachments } = input;
+  //   const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  //   const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
+  //   await this.mailerService.sendMail({
+  //     from: process.env.EMAIL_HOST,
+  //     to: email,
+  //     subject: MAIL_SUBJECT.INVITATION_OFFER,
+  //     template: 'invite', // Assuming you have a template named 'invite.hbs'
+  //     // attachments,
+  //     context: { firstName, link, attachments}
+  //   });
+  // }
+  
 
-    const basePath = isProduction
-      ? path.join(__dirname, 'templates') // dist/mail/templates
-      : path.join(process.cwd(), 'src', 'mail', 'templates'); // src/mail/templates
-
-    const filePath = path.join(basePath, `${templateName}.hbs`);
-    const source = fs.readFileSync(filePath, 'utf-8');
-    const template = handlebars.compile(source);
-    return template(context);
-  }
-
-  async sendInviteEmail(to: string, token: string) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5173';
-    const inviteLink = `${frontendUrl}/onboarding/invitation?token=${token}`;
-    const html = this.compileTemplate('invite', { inviteLink });
-
-    await this.transporter.sendMail({
-      from: this.configService.get<string>('EMAIL_FROM'),
+  async sendMail(input: SendMailParams) {
+    const { html, subject, to, attachments } = input;
+    await this.mailerService.sendMail({
+      from: process.env.EMAIL_HOST,
       to,
-      subject: 'You have been invited to EMS',
+      subject,
       html,
-    });
+      attachments,
+    })
   }
 }
