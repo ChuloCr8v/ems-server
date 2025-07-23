@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { decode } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { AzureAuthDto } from './dto/auth.dto';
+import { AzureAuthDto, IAuthUser } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -61,9 +61,13 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
-        role: true, // role replaces isAdmin
+        userRole: true,
+        prospect: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
 
@@ -71,7 +75,7 @@ export class AuthService {
       throw new UnauthorizedException('User does not exist in the system');
     }
 
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, role: user.userRole };
     return {
       access_token: this.jwt.sign(payload),
       user,
@@ -80,5 +84,17 @@ export class AuthService {
       throw new UnauthorizedException('Authentication failed: ' + error.message);
     }
    
+  }
+
+  async authUser(user: IAuthUser) {
+    return this.prisma.user.findUnique({
+      where: { id: user.sub },
+      include: {
+        prospect: true,
+        contacts: true,
+        upload: true,
+        level: true,
+      },
+    });
   }
 }

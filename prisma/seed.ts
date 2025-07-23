@@ -27,18 +27,18 @@ async function main() {
   //   include: { employment: true },
   // });
 
-  const user = await prisma.user.create({
-    data: {
-      email: "stephanie@zoracom.com",
-      firstName: "Stephanie",
-      lastName: "Alfred",
-      phone: "09088776543",
-      gender: "Female",
-      role: Role.ADMIN
-    }
-  })
+  // const user = await prisma.user.create({
+  //   data: {
+  //     email: "stephanie@zoracom.com",
+  //     firstName: "Stephanie",
+  //     lastName: "Alfred",
+  //     phone: "09088776543",
+  //     gender: "Female",
+  //     role: Role.ADMIN
+  //   }
+  // })
 
-  console.log('✅ Seeded user:', user);
+  // console.log('✅ Seeded user:', user);
 }
 
 main()
