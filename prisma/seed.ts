@@ -38,7 +38,7 @@ async function main() {
     }
   })
 
-  console.log('✅ Seeded user:', user);
+  // console.log('✅ Seeded user:', user);
 }
 
 main()
