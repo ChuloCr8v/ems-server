@@ -11,8 +11,8 @@ datasource db {
 model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
-  firstName    String
-  lastName     String
+  firstName    String      @default("Bonaventure")
+  lastName     String      @default("Nkematu")
   phone        String
   gender       String
   role         String
@@ -30,14 +30,16 @@ model Prospect {
 model User {
   id            String        @id @default(uuid()) @db.Uuid
   email         String        @unique
+  firstName     String        @default("Bonaventure")
+  lastName      String        @default("Nkematu")
   country       String
   state         String
   address       String
   userRole      Role
   maritalStatus MaritalStatus
   contacts      Contacts?
-  levelId       String        @db.Uuid
-  level         Level         @relation(fields: [levelId], references: [id])
+  levelId       String?       @db.Uuid
+  level         Level?        @relation(fields: [levelId], references: [id])
   prospectId    String?       @unique @db.Uuid
   prospect      Prospect?     @relation(fields: [prospectId], references: [id])
   upload        Upload[]

@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { MaritalStatus, PrismaClient, Role } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -30,11 +30,17 @@ async function main() {
   const user = await prisma.user.create({
     data: {
       email: "bonaventure@zoracom.com",
-      firstName: "Bona",
-      lastName: "Venture",
-      phone: "09088776543",
-      gender: "Male",
-      role: Role.ADMIN
+      country: "Nigeria",
+      state: "Lagos",
+      address: "Ibeju Lekki",
+      userRole: Role.ADMIN,
+      maritalStatus: MaritalStatus.SINGLE,
+
+      // firstName: "Bona",
+      // lastName: "Venture",
+      // phone: "09088776543",
+      // gender: "Male",
+      // role: Role.ADMIN
     }
   })
 
