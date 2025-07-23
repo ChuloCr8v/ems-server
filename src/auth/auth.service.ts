@@ -16,7 +16,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) { }
 
   private get graphParams() {
     const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');
@@ -27,58 +27,59 @@ export class AuthService {
     };
   }
 
+
   async azureLogin({ token }: AzureAuthDto) {
     try {
-          const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');
-    if (!azureClientId) {
-      throw new InternalServerErrorException('Azure authentication not configured');
-    }
-     const decoded = decode(token, { complete: true });
+      const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');
+      if (!azureClientId) {
+        throw new InternalServerErrorException('Azure authentication not configured');
+      }
+      const decoded = decode(token, { complete: true });
 
-    if (!decoded || typeof decoded.payload === 'string') {
-      throw new UnauthorizedException('Invalid token');
-    }
+      if (!decoded || typeof decoded.payload === 'string') {
+        throw new UnauthorizedException('Invalid token');
+      }
 
-    const { iss, aud } = decoded.payload as any;
-    if (iss !== this.graphParams.iss || aud !== this.graphParams.aud) {
-      throw new UnauthorizedException('Invalid token issuer or audience');
-    }
+      const { iss, aud } = decoded.payload as any;
+      if (iss !== this.graphParams.iss || aud !== this.graphParams.aud) {
+        throw new UnauthorizedException('Invalid token issuer or audience');
+      }
       const response = await axios
-      .get(this.graphParams.endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .catch(() => {
-        throw new UnauthorizedException('Failed to fetch user info from Microsoft');
+        .get(this.graphParams.endpoint, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .catch(() => {
+          throw new UnauthorizedException('Failed to fetch user info from Microsoft');
+        });
+
+      const email = response.data?.mail;
+      if (!email) {
+        throw new UnauthorizedException('Email not found in Microsoft account');
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true, // role replaces isAdmin
+        },
       });
 
-       const email = response.data?.mail;
-    if (!email) {
-      throw new UnauthorizedException('Email not found in Microsoft account');
-    }
-    
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true, // role replaces isAdmin
-      },
-    });
+      if (!user) {
+        throw new UnauthorizedException('User does not exist in the system');
+      }
 
-     if (!user) {
-      throw new UnauthorizedException('User does not exist in the system');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    return {
-      access_token: this.jwt.sign(payload),
-      user,
-    };
+      const payload = { sub: user.id, email: user.email, role: user.role };
+      return {
+        access_token: this.jwt.sign(payload),
+        user,
+      };
     } catch (error) {
       throw new UnauthorizedException('Authentication failed: ' + error.message);
     }
-   
+
   }
 }
