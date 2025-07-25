@@ -17,6 +17,7 @@ model Prospect {
   gender       String
   role         String
   duration     String
+  startDate    DateTime
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id])
   jobType      JobType
@@ -29,13 +30,21 @@ model Prospect {
 
 model User {
   id            String        @id @default(uuid()) @db.Uuid
-  email         String        @unique
-  firstName     String        @default("Bonaventure")
-  lastName      String        @default("Nkematu")
+  email         String?       @unique
+  firstName     String
+  lastName      String
+  phone         String
+  role          String
+  gender        String
+  duration      String
+  jobType       JobType
+  departmentId  String?       @db.Uuid
+  department    Department?   @relation(fields: [departmentId], references: [id])
   country       String
   state         String
   address       String
-  userRole      Role
+  startDate     DateTime
+  userRole      Role          @default(USER)
   maritalStatus MaritalStatus
   contacts      Contacts?
   levelId       String?       @db.Uuid
@@ -63,6 +72,7 @@ model Department {
   id        String     @id @default(uuid()) @db.Uuid
   name      String
   prospect  Prospect[]
+  user      User[]
   createdAt DateTime   @default(now())
   updatedAT DateTime   @updatedAt
 }
@@ -90,35 +100,35 @@ model Upload {
 }
 
 model Contacts {
-  id               String            @id @default(uuid()) @db.Uuid
-  gurantorContact  GurantorContact?
-  emergencyContact EmergencyContact?
-  userId           String            @unique @db.Uuid
-  user             User              @relation(fields: [userId], references: [id])
+  id        String            @id @default(uuid()) @db.Uuid
+  gurantor  GurantorContact?
+  emergency EmergencyContact?
+  userId    String            @unique @db.Uuid
+  user      User              @relation(fields: [userId], references: [id])
 }
 
 model EmergencyContact {
-  id          String   @id @default(uuid()) @db.Uuid
-  firstName   String
-  lastName    String
-  email       String
-  phoneNumber String
-  contacts    Contacts @relation(fields: [contactId], references: [id])
-  contactId   String   @unique @db.Uuid
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  firstName String
+  lastName  String
+  email     String
+  phone     String
+  contacts  Contacts @relation(fields: [contactId], references: [id])
+  contactId String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model GurantorContact {
-  id          String   @id @default(uuid()) @db.Uuid
-  firstName   String
-  lastName    String
-  email       String
-  phoneNumber String
-  contacts    Contacts @relation(fields: [contactId], references: [id])
-  contactId   String   @unique @db.Uuid
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid()) @db.Uuid
+  firstName String
+  lastName  String
+  email     String
+  phone     String
+  contacts  Contacts @relation(fields: [contactId], references: [id])
+  contactId String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////

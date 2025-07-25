@@ -63,7 +63,13 @@ export class AuthService {
           id: true,
           email: true,
           userRole: true,
-          prospect: true,
+          prospect: true
+          // prospect: {
+          //   select: {
+          //     firstName: true,
+          //     lastName: true,
+          //   },
+          // },
         },
       });
 
