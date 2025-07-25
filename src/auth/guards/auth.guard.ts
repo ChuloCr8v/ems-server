@@ -7,7 +7,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { bad } from 'src/utils/error.util';
+import { bad } from 'src/utils/error.utils';
 import { AuthPayload } from '../dto/auth.dto';
 
 @Injectable()

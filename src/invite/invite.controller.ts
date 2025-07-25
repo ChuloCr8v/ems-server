@@ -1,10 +1,10 @@
-import { Controller, Post, Body, Query, UploadedFiles, UseInterceptors, Get, Param, Res } from '@nestjs/common';
+import { Controller, Post, Body, Query, UploadedFiles, UseInterceptors, Get, Param, Res, Put } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
-import { CreateProspectDto } from './dto/invite.dto';
+import { AcceptInviteDto, CreateProspectDto } from './dto/invite.dto';
 
 @Controller('invite')
 export class InviteController {
@@ -16,6 +16,18 @@ export class InviteController {
   async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response) {
     const prospect = await this.inviteService.createProspect(input, uploads);
     return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect});
+  }
+
+  @Put('accept')
+  async acceptInvite(@Param('token') token: AcceptInviteDto, @Res() res: Response) {
+    const prospect =  this.inviteService.acceptInvite(token);
+    return res.status(200).json({ message: `Prospect has accepted the Invitation`, prospect});
+  }
+
+  @Get('prospect')
+  async getAllProspects(@Res() res: Response) {
+    const prospects = await this.inviteService.getAllProspects();
+    return res.status(200).json({ message: `All Prospects`, prospects });
   }
 
 //  @Post('accept')
