@@ -1,108 +1,112 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { JobType, MaritalStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 
-export class CreateUserDto {
-  @IsEmail()
-  email: string;
+export class EmergencyContactDto {
+    @IsNotEmpty({ message: 'First Name is Required'})
+    @IsString()
+    firstName: string;
 
-  @IsString()
-  firstName: string;
+    @IsNotEmpty({ message: 'Last Name is Required'})
+    @IsString()
+    lastName: string;
 
-  @IsString()
-  lastName: string;
+    @IsNotEmpty({ message: 'Email is Required'})
+    @IsEmail()
+    email: string;
 
-  @IsString()
-  phone: string;
-
-  @IsString()
-  gender: string;
-
-  @IsOptional()
-  @IsString()
-  role?: string; // e.g. 'ADMIN', 'USER'
-
-  // Employment fields
-  @IsOptional()
-  @IsString()
-  employmentRole?: string;
-
-  @IsOptional()
-  @IsString()
-  department?: string;
-
-  @IsOptional()
-  @IsString()
-  jobType?: string;
-
-  @IsOptional()
-  @IsString()
-  duration?: string;
-
-  @IsOptional()
-  @IsString()
-  contractLetter?: string;
-
-  @IsOptional()
-  @IsString()
-  nda?: string;
-
-  @IsOptional()
-  @IsString()
-  guarantorForm?: string;
+    @IsNotEmpty({ message: 'Phone Number is Required'})
+    @IsString()
+    phone: string;
 }
 
+export class GuarantorContactDto {
+    @IsNotEmpty({ message: 'First Name is Required'})
+    @IsString()
+    firstName: string;
 
-export class UpdateUserDto {
-  @IsOptional()
-  @IsEmail()
-  email?: string;
+    @IsNotEmpty({ message: 'Last Name is Required'})
+    @IsString()
+    lastName: string;
 
-  @IsOptional()
-  @IsString()
-  firstName?: string;
+    @IsNotEmpty({ message: 'Email is Required'})
+    @IsEmail()
+    email: string;
 
-  @IsOptional()
-  @IsString()
-  lastName?: string;
+    @IsNotEmpty({ message: 'Phone Number is Required'})
+    @IsString()
+    phone: string;
+}
 
-  @IsOptional()
-  @IsString()
-  phone?: string;
+export class ContactDto {
+    @ValidateNested()
+    @Type(() => GuarantorContactDto)
+    guarantor: GuarantorContactDto;
 
-  @IsOptional()
-  @IsString()
-  gender?: string;
+    @ValidateNested()
+    @Type(() => EmergencyContactDto)
+    emergency: EmergencyContactDto;
+}
 
-  @IsOptional()
-  @IsString()
-  role?: string; 
+export class CreateUserDto {
+    @IsNotEmpty({ message: 'First Name is Required'})
+    @IsString()
+    firstName: string;
 
- 
-  // Employment fields
-  @IsOptional()
-  @IsString()
-  employmentRole?: string;
+    @IsNotEmpty({ message: 'Last Name is Required'})
+    @IsString()
+    lastName: string;
 
-  @IsOptional()
-  @IsString()
-  department?: string;
+    @IsNotEmpty({ message: 'Phone Number is Required'})
+    @IsString()
+    phone: string;
 
-  @IsOptional()
-  @IsString()
-  jobType?: string;
+    @IsNotEmpty({ message: 'Role is Required'})
+    @IsString()
+    role: string
 
-  @IsOptional()
-  @IsString()
-  duration?: string;
+    // @IsNotEmpty({ message: 'Department is Required'})
+    // @IsString()
+    // departmentId: string;
 
-  @IsOptional()
-  @IsString()
-  contractLetter?: string;
+    @IsNotEmpty({ message: 'Job Type is Required'})
+    @IsEnum(JobType, { each: true, message: 'Job Type must be one of the following: FULL_TIME, PART_TIME, CONTRACT' })
+    jobType: JobType;
 
-  @IsOptional()
-  @IsString()
-  nda?: string;
+    @IsNotEmpty({ message: 'Gender is Required'})
+    @IsString()
+    gender: string;
 
-  @IsOptional()
-  @IsString()
-  guarantorForm?: string;
+    @IsNotEmpty({ message: 'Duration is Required'})
+    @IsString()
+    duration: string;
+
+    @IsNotEmpty({ message: 'Start Date is Required'})
+    @IsString()
+    startDate: Date;
+
+    @ValidateNested()
+    @Type(() => GuarantorContactDto)
+    guarantor: GuarantorContactDto;
+
+    @ValidateNested()
+    @Type(() => EmergencyContactDto)
+    emergency: EmergencyContactDto;
+
+    @IsNotEmpty({ message: 'Marital Status is Required'})
+    @IsEnum(MaritalStatus, {each: true,  message: 'Marital Status must be one of the following: SINGLE, MARRIED' })
+    maritalStatus: MaritalStatus;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Address is Required'})
+    address: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Country is Required'})
+    country: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'State is Required'})
+    state: string;
+
 }

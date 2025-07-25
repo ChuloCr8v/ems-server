@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
+import { AcceptInviteDto, CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
+import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class InviteService {
@@ -67,8 +68,11 @@ export class InviteService {
       });
       return true;
     } catch (error) {
-      console.error("Failed to send invite:", error);
-      throw new Error(`Failed to send invite link: ${error.message}`);
+      // console.error("Failed to send invite:", error);
+      // throw new Error(`Failed to send invite link: ${error.message}`);
+      mustHave('message', error)
+      bad('Failed to send invite link', 500);
+     
     }
   }
 
@@ -83,7 +87,8 @@ export class InviteService {
         gender,
         duration,
         phone,
-        role
+        role,
+        startDate,
     } = input;
 
     try {
@@ -100,6 +105,7 @@ export class InviteService {
                     duration,
                     jobType,
                     departmentId,
+                    startDate,
                 },
                 include: { upload: true },
             });
@@ -163,6 +169,43 @@ export class InviteService {
         throw new Error(`Failed to create prospect: ${error.message}`);
     }
 }
+
+async acceptInvite(input: AcceptInviteDto) {
+  const { token } = input
+  //Find the invite by token
+  const invite = await this.prisma.invite.findUnique({
+    where: { token },
+    include: { prospect: true },
+  });
+  if (!invite || invite.expiresAt < new Date()) {
+    throw new BadRequestException('Invalid or expired invite');
+  }
+  if (invite.status !== 'PENDING') {
+    throw new BadRequestException('Invite has already been accepted or declined');
+  }
+
+  //Update the invite status to ACCEPTED
+ const prospect = await this.prisma.invite.update({
+    where: { token },
+    data: {
+      status: 'ACCEPTED',
+    },
+  }) 
+  return prospect;
+}
+
+    async getAllProspects() {
+        try {
+            const prospects = await this.prisma.prospect.findMany({
+                include: { upload: true },
+            });
+            return prospects;
+        } catch (error) {
+            throw new Error(`Failed to fetch prospects: ${error.message}`);
+        }
+    }
+
+// async createUser(){}
 
 //   async acceptInvite(body: any, files: any) {
 //     const {
@@ -250,7 +293,18 @@ async __findProspectByEmail(email: string) {
     include: { upload: true },
   });
   if(!prospect) {
-    throw new BadRequestException('Prospect Not Found');
+    throw new HttpException(`Prospect not found for Email: ${email}`, HttpStatus.NOT_FOUND);
+  }
+  return prospect;
+}
+
+async __findProspectById(id: string) {
+  const prospect = await this.prisma.prospect.findUnique({
+    where: { id },
+    include: { upload: true },
+  });
+  if(!prospect) {
+     throw new HttpException(`Prospect not found for id: ${id}`, HttpStatus.NOT_FOUND);
   }
   return prospect;
 }

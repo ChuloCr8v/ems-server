@@ -8,5 +8,6 @@ import { MailModule } from 'src/mail/mail.module';
   imports: [PrismaModule, MailModule],
   providers: [InviteService],
   controllers: [InviteController],
+  exports: [InviteService],
 })
 export class InviteModule {}
