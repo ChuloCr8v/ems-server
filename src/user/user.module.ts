@@ -4,9 +4,10 @@ import { UserService } from './user.service';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { InviteService } from 'src/invite/invite.service';
 import { InviteModule } from 'src/invite/invite.module';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, InviteModule], // ✅ Add this
+  imports: [PrismaModule, InviteModule,], // ✅ Add this
   providers: [UserService],
   controllers: [UserController],
   exports: [UserService],
