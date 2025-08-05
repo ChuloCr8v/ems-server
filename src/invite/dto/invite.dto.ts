@@ -44,6 +44,7 @@ export class CreateProspectDto {
     @IsString()
     readonly gender: string;
 
+    //Duration for CONTRACT-STAFF
     @IsNotEmpty({ message: 'Duration is Required' })
     @IsString()
     readonly duration: string;

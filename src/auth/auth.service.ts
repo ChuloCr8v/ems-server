@@ -64,12 +64,6 @@ export class AuthService {
           email: true,
           userRole: true,
           prospect: true
-          // prospect: {
-          //   select: {
-          //     firstName: true,
-          //     lastName: true,
-          //   },
-          // },
         },
       });
 
@@ -92,7 +86,7 @@ export class AuthService {
     return this.prisma.user.findUnique({
       where: { id: user.sub },
       include: {
-        prospect: true,
+        // prospect: true,
         contacts: true,
         upload: true,
         level: true,

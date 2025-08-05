@@ -2,9 +2,14 @@ interface prospect {
     firstName: string,
     link: string
 }
+interface acceptance {
+    firstName: string,
+    lastName: string,
+}
 
 export const MAIL_SUBJECT = {
     PROSPECT_INVITATION: 'Prospect Invitation',
+    OFFER_ACCEPTANCE: 'Offer Acceptance'
 }
 
 export const MAIL_MESSAGE ={
@@ -80,4 +85,72 @@ export const MAIL_MESSAGE ={
 </body>
 </html>
     `,
+
+    OFFER_ACCEPTANCE: (firstName: string, lastName: string)=>
+        `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Zoracom</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0066cc;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+            margin-top: 40px;
+            border-top: 1px solid #eeeeee;
+            padding-top: 20px;
+        }
+        .signature {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+         <h2>${firstName} ${lastName} has accepted their offer!</h2>
+    </div>
+     <p>Dear Admin</p>
+    
+    <div class="content">
+        <p>${firstName} ${lastName} has accepted the invitation and submitted their onboarding details.</p>
+        <p>You can now review their submission and finalize approval.</p>
+    </div>
+    
+    <div class="signature">
+        <p>Cheers,<br>The HR Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>Copyright 2024 @ Zora Communications Limited All Rights Reserved.</p>
+    </div>
+</body>
+</html>
+`
 }

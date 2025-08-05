@@ -16,7 +16,7 @@ model Prospect {
   phone        String
   gender       String
   role         String
-  duration     String
+  duration     String?
   startDate    DateTime
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -34,17 +34,19 @@ model User {
   firstName     String
   lastName      String
   phone         String
+  workPhone     String?
   role          String
   gender        String
-  duration      String
+  duration      String?
   jobType       JobType
   departmentId  String?       @db.Uuid
   department    Department?   @relation(fields: [departmentId], references: [id])
   country       String
   state         String
   address       String
-  startDate     DateTime
-  userRole      Role          @default(USER)
+  startDate     DateTime?
+  status        Status        @default(PENDING)
+  userRole      Role?
   maritalStatus MaritalStatus
   contacts      Contacts?
   levelId       String?       @db.Uuid
@@ -52,20 +54,23 @@ model User {
   prospectId    String?       @unique @db.Uuid
   prospect      Prospect?     @relation(fields: [prospectId], references: [id])
   upload        Upload[]
+  invite        Invite[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
 
 model Invite {
-  id         String       @id @default(uuid()) @db.Uuid
+  id         String    @id @default(uuid()) @db.Uuid
   email      String
-  token      String       @unique
-  status     InviteStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
+  token      String    @unique
+  status     Status    @default(PENDING)
+  createdAt  DateTime  @default(now())
   expiresAt  DateTime
   acceptedAt DateTime?
-  prospectId String       @db.Uuid
-  prospect   Prospect     @relation(fields: [prospectId], references: [id])
+  sentById   String   @db.Uuid
+  sentBy     User     @relation(fields: [sentById], references: [id])
+  prospectId String    @db.Uuid
+  prospect   Prospect  @relation(fields: [prospectId], references: [id])
 }
 
 model Department {
@@ -133,16 +138,18 @@ model GurantorContact {
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
-enum InviteStatus {
+enum Status {
   PENDING
   ACCEPTED
-  REJECTED
+  DECLINED
+  ISSUE_REPORTED
+  ACTIVE
+  CONFIRMED
 }
 
 enum JobType {
   FULL_TIME
   CONTRACT
-  INTERN
 }
 
 enum MaritalStatus {

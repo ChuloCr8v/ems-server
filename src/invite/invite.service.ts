@@ -4,80 +4,69 @@ import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { AcceptInviteDto, CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
-import { bad, mustHave } from 'src/utils/error.utils';
+import { bad } from 'src/utils/error.utils';
+import { AuthService } from 'src/auth/auth.service';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { JobType } from '@prisma/client';
 
 @Injectable()
 export class InviteService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private auth: AuthService,
   ) { }
 
-  // async sendInvite(email: string) {
-  //   const token = randomUUID();
-  //   const expiresAt = new Date();
-  //   expiresAt.setDate(expiresAt.getDate() + 2); // expires in 2 days
 
-  //   const invite = await this.prisma.invite.create({
-  //     data: { email, token, expiresAt },
-
-  //   });
-  //   await this.mailService.sendInviteEmail(email, token);
-
-  //   return invite;
-  // }
-
-  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }) {
+  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },
+    adminUser: IAuthUser
+  ) {
+    const { email, uploads } = input;
     try {
-      const { email, uploads } = input;
       const token = randomUUID();
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 2); // expires in 2 days
-      await this.prisma.$transaction(async (prisma) => {
-        const prospect = await this.__findProspectByEmail(email);
 
-        await this.prisma.invite.create({
-          data: {
-            email: email,
-            expiresAt,
-            token,
-            prospectId: prospect.id,
-          },
-        });
-
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
-
-        const allAttachments = [
-          ...(uploads.map(upload => ({
-            filename: upload.originalname,
-            content: upload.buffer,
-            contentType: upload.mimetype,
-          })) || []),
-        ];
-
-        await this.mail.sendMail({
-          to: email,
-          subject: MAIL_SUBJECT.PROSPECT_INVITATION,
-          html: MAIL_MESSAGE.PROSPECT_INVITATION({
-            firstName: prospect.firstName,
-            link: link
-          }),
-          attachments: allAttachments,
-        });
+      // 1. Find Prospect by email
+      const prospect = await this.__findProspectByEmail(email);
+      await this.prisma.invite.create({
+        data: {
+          email: email,
+          expiresAt,
+          token,
+          prospectId: prospect.id,
+          sentById: adminUser.sub, //This will track the who is sending the invite
+        },
       });
+
+      // 2. Send email 
+      const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+      const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
+      const allAttachments = uploads?.map(upload => ({
+        filename: upload.originalname,
+        content: upload.buffer,
+        contentType: upload.mimetype,
+      })) || [];
+
+      await this.mail.sendMail({
+        to: email,
+        subject: MAIL_SUBJECT.PROSPECT_INVITATION,
+        html: MAIL_MESSAGE.PROSPECT_INVITATION({
+          firstName: prospect.firstName,
+          link: link
+        }),
+        attachments: allAttachments,
+      });
+
       return true;
     } catch (error) {
-      // console.error("Failed to send invite:", error);
-      // throw new Error(`Failed to send invite link: ${error.message}`);
-      mustHave('message', error)
-      bad('Failed to send invite link', 500);
-
+      bad("Invite was not sent")
     }
   }
 
 
-  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[]) {
+
+  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: IAuthUser) {
     const {
       firstName,
       lastName,
@@ -85,16 +74,23 @@ export class InviteService {
       departmentId,
       jobType,
       gender,
-      duration,
+      duration, //This is conditional
       phone,
       role,
       startDate,
     } = input;
 
     try {
-      const result = await this.prisma.$transaction(async (prisma) => {
-        // 1. Create prospect
-        const prospect = await prisma.prospect.create({
+
+      if (jobType === JobType.CONTRACT && !duration) {
+        throw new BadRequestException('Duration is required for CONTRACT positions');
+      }
+      if (jobType !== JobType.CONTRACT && duration) {
+        throw new BadRequestException('Duration should only be provided for CONTRACT positions')
+      }
+      // 1. Create prospect and uploads
+      const prospect = await this.prisma.$transaction(async (prisma) => {
+        const createdProspect = await prisma.prospect.create({
           data: {
             firstName,
             lastName,
@@ -102,22 +98,22 @@ export class InviteService {
             gender,
             phone,
             email,
-            duration,
-            jobType,
             departmentId,
+            jobType,
             startDate,
+            // Conditionally include duration
+            ...(jobType === JobType.CONTRACT ? { duration } : {}),
           },
           include: { upload: true },
         });
 
-        // 2. Handle uploads within the same transaction
         if (uploads?.length > 0) {
           const prospectUploads = uploads.map((upload) => ({
             name: upload.originalname,
             size: upload.size,
             type: upload.mimetype,
             bytes: upload.buffer,
-            prospectId: prospect.id,
+            prospectId: createdProspect.id,
           }));
 
           await prisma.upload.createMany({
@@ -125,58 +121,39 @@ export class InviteService {
           });
         }
 
-        // 3. Modified sendInvite call that works within transaction
-        const token = randomUUID();
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 2);
-
-        // Create invite record
-        await prisma.invite.create({
-          data: {
-            email: prospect.email,
-            expiresAt,
-            token,
-            prospectId: prospect.id,
-          },
-        });
-
-        // Send email - if this fails, the transaction will roll back
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
-
-        await this.mail.sendMail({
-          to: prospect.email,
-          subject: MAIL_SUBJECT.PROSPECT_INVITATION,
-          html: MAIL_MESSAGE.PROSPECT_INVITATION({
-            firstName: prospect.firstName,
-            link: link
-          }),
-          attachments: uploads?.map(upload => ({
-            filename: upload.originalname,
-            content: upload.buffer,
-            contentType: upload.mimetype,
-          })) || [],
-        });
-
-        return prospect;
+        return createdProspect;
       }, {
-        timeout: 30000, // Extended timeout for email sending
-        maxWait: 30000
+        timeout: 30000,
+        maxWait: 30000,
       });
 
-      return result;
+      // 2. Send invite email
+      await this.sendInvite({
+        email: prospect.email,
+        uploads: uploads,
+      }, adminUser);
+
+      return prospect;
     } catch (error) {
       throw new Error(`Failed to create prospect: ${error.message}`);
+      // console.log(error.message);
+      bad("Prospect Not Invited")
     }
   }
 
-  async acceptInvite(token: string) {
+
+
+  async acceptInvite(input: AcceptInviteDto, user: IAuthUser) {
+    const { token } = input;
+    const acceptedAt = new Date()
     //Find the invite by token
     const invite = await this.prisma.invite.findUnique({
       where: { token },
-      include: { prospect: true },
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
     });
-
     if (!invite || invite.expiresAt < new Date()) {
       throw new BadRequestException('Invalid or expired invite');
     }
@@ -185,13 +162,27 @@ export class InviteService {
     }
 
     //Update the invite status to ACCEPTED
-    const prospect = await this.prisma.invite.update({
+    const updatedInvite = await this.prisma.invite.update({
       where: { token },
       data: {
         status: 'ACCEPTED',
+        acceptedAt: acceptedAt,
       },
-    })
-    return prospect;
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
+    });
+
+    await this.mail.sendMail({
+      to: updatedInvite.sentBy.email,
+      subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
+      html: MAIL_MESSAGE.OFFER_ACCEPTANCE(
+        updatedInvite.prospect.firstName,
+        updatedInvite.prospect.lastName,
+      ),
+    });
+    return updatedInvite;
   }
 
   async getAllProspects() {
@@ -205,84 +196,15 @@ export class InviteService {
     }
   }
 
-  // async createUser(){}
+  async getOneProspect(id: string) {
+    try {
+      return await this.__findProspectById(id);
+    } catch (error) {
+      console.log(error.message);
+      throw new Error(`Failed to fetch Prospect: ${error.message}`);
+    }
+  }
 
-  //   async acceptInvite(body: any, files: any) {
-  //     const {
-  //       token,
-  //       firstName,
-  //       lastName,
-  //       email,
-  //       phone,
-  //       gender,
-  //       role,
-  //       department,
-  //       jobType,
-  //       // duration,
-  //     } = body;
-
-  //     const invite = await this.prisma.invite.findUnique({ where: { token } });
-
-  //     if (!invite || invite.expiresAt < new Date()) {
-  //       throw new Error('Invalid or expired invite');
-  //     }
-  //     if (invite.status !== 'PENDING') {
-  //       throw new Error('Invite has already been accepted or declined');
-  //     }
-  //     // Create user and nested employment
-  //     const user = await this.prisma.user.create({
-  //       data: {
-  //         email,
-  //         firstName,
-  //         lastName,
-  //         phone,
-  //         gender,
-  //         employment: {
-  //           create: {
-  //             role,
-  //             department,
-  //             jobType,
-  //             contractLetter: contractUrl,
-  //             nda: ndaUrl,
-  //             guarantorForm: guarantorUrl,
-  //           },
-  //         },
-  //       },
-  //     });
-
-  //     // ✅ Correct way to set userId via relation
-  //     await this.prisma.invite.update({
-  //       where: { token },
-  //        data: {
-  //       status: 'ACCEPTED',
-  //       userId: user.id, // ✅ Assign userId directly
-  //       acceptedAt: new Date(),
-  //   },
-  //     });
-
-  //     return { message: 'Invite accepted successfully' };
-  //   }
-
-  //   async rejectInvite(token: string) {
-  //     return this.prisma.invite.update({
-  //       where: { token },
-  //       data: { status: 'REJECTED' },
-  //     });
-  //   }
-
-  //   async findAll() {
-  //     return this.prisma.invite.findMany({
-  //       orderBy: { createdAt: 'desc' },
-  //       include: { user: true }, // optional: include related user
-  //     });
-  //   }
-
-  //   async findOne(id: string) {
-  //   return this.prisma.invite.findUnique({
-  //     where: { id },
-  //     include: { user: true },
-  //   });
-  // }
 
 
   ///////////////////////////////// HELPERS ///////////////////////////////
