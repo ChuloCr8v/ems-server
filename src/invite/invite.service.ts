@@ -22,6 +22,7 @@ export class InviteService {
     adminUser: IAuthUser
   ) {
     const { email, uploads } = input;
+
     try {
       const token = randomUUID();
       const expiresAt = new Date();
@@ -60,6 +61,7 @@ export class InviteService {
 
       return true;
     } catch (error) {
+      console.log(error)
       bad("Invite was not sent")
     }
   }
@@ -127,6 +129,8 @@ export class InviteService {
         maxWait: 30000,
       });
 
+      console.log(prospect.email, uploads, adminUser)
+
       // 2. Send invite email
       await this.sendInvite({
         email: prospect.email,
@@ -143,8 +147,7 @@ export class InviteService {
 
 
 
-  async acceptInvite(input: AcceptInviteDto, user: IAuthUser) {
-    const { token } = input;
+  async acceptInvite(token: string, user: IAuthUser) {
     const acceptedAt = new Date()
     //Find the invite by token
     const invite = await this.prisma.invite.findUnique({

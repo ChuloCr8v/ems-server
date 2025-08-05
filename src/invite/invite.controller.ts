@@ -20,8 +20,9 @@ export class InviteController {
   }
 
   @Put('accept/:token')
-  async acceptInvite(@Param('token') token: string, @Res() res: Response) {
-    const prospect = this.inviteService.acceptInvite(token);
+  @Put('accept')
+  async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser }) {
+    const prospect = this.inviteService.acceptInvite(token, req.user);
     return res.status(200).json({ message: `Prospect has accepted the Invitation`, prospect });
   }
 
