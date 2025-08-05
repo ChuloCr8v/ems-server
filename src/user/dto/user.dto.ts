@@ -1,4 +1,4 @@
-import { JobType, MaritalStatus } from '@prisma/client';
+import { JobType, MaritalStatus, Role } from '@prisma/client';
 import { Type } from 'class-transformer';
 import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 
@@ -65,12 +65,8 @@ export class CreateUserDto {
     @IsString()
     role: string
 
-    // @IsNotEmpty({ message: 'Department is Required'})
-    // @IsString()
-    // departmentId: string;
-
     @IsNotEmpty({ message: 'Job Type is Required'})
-    @IsEnum(JobType, { each: true, message: 'Job Type must be one of the following: FULL_TIME, PART_TIME, CONTRACT' })
+    @IsEnum(JobType, { each: true, message: 'Job Type must be one of the following: FULL_TIME, CONTRACT' })
     jobType: JobType;
 
     @IsNotEmpty({ message: 'Gender is Required'})
@@ -109,4 +105,22 @@ export class CreateUserDto {
     @IsNotEmpty({ message: 'State is Required'})
     state: string;
 
+}
+
+export class ApproveUserDto {
+    @IsEmail()
+    @IsNotEmpty({ message: 'Work Email is Required'})
+    email: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Work Phone Number is Required'})
+    workPhone: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Level is Required'})
+    levelId: string;
+
+    @IsEnum(Role, { each: true })
+    @IsNotEmpty({ message: 'User Role is Required'})
+    userRole: Role;
 }

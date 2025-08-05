@@ -2,10 +2,10 @@ import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class LevelDto {
     @IsString()
-    @IsNotEmpty()
+    @IsNotEmpty({ message: 'Level Name is Required'})
     readonly name: string;
 
-    @IsNotEmpty()
+    @IsNotEmpty({ message: "Level Rank is Required"})
     @IsNumber()
     readonly rank: number;
 }

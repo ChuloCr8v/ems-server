@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
-import { CreateUserDto } from './dto/user.dto';
+import { Role, Status } from '@prisma/client';
+import { ApproveUserDto, CreateUserDto } from './dto/user.dto';
 import { InviteService } from 'src/invite/invite.service';
+import { bad } from 'src/utils/error.utils';
 
 @Injectable()
 export class UserService {
@@ -85,7 +86,38 @@ export class UserService {
       
       return result;
     } catch (error) {
-      throw new BadRequestException(error.message);
+        console.log(error.message)
+       bad("User Not Created")
+    }
+  }
+
+  async approveUser(id: string, data: ApproveUserDto) {
+    const { email, workPhone, userRole, levelId } = data;
+    try {
+         //Check if User Exists And Is Not Already ACTIVE
+            const user = await this.__findUserById(id);
+            const userStatus = Status.ACTIVE;
+            if(user.status === userStatus) {
+                bad("User is already ACTIVE")
+            }
+            const approveUser = await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    email,
+                    workPhone,
+                    userRole,
+                    level: {
+                        connect: {
+                            id: levelId,
+                        },
+                    },
+                    status: userStatus,
+                },
+            });
+    return approveUser;
+    } catch (error) {
+        console.log(error.message)
+        bad("User could not be Approved");
     }
   }
 
@@ -112,6 +144,27 @@ export class UserService {
 
 
   //////////////////////////////// HELPER METHODS ////////////////////////////////
+
+  async __findUserById(id: string) {
+    try {
+        const user  = await this.prisma.user.findUnique({
+        where: { id },
+        include: {
+            level: true,
+            upload: true,
+            contacts: true,
+            department: true,
+        },
+    });
+    if(!user) {
+        throw new NotFoundException("User Not Found");
+    };
+    return user;
+    } catch (error) {
+        bad("Unable to find user")
+    }
+
+  }
 
   // async __findActiveUser(email: string) {
   //   const user = await this.prisma.user.findUnique({
