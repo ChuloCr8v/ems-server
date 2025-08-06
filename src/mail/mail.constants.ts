@@ -7,7 +7,7 @@ interface acceptance {
     lastName: string,
 }
 
-interface updateUser{
+interface updateUser {
     comment: string,
     firstName: string,
     link: string
@@ -19,7 +19,7 @@ export const MAIL_SUBJECT = {
     UPDATE_USER_INFO: 'Update User Information',
 }
 
-export const MAIL_MESSAGE ={
+export const MAIL_MESSAGE = {
     PROSPECT_INVITATION: (prospect: prospect) => `
         <!DOCTYPE html>
 <html lang="en">
@@ -93,7 +93,7 @@ export const MAIL_MESSAGE ={
 </html>
     `,
 
-    OFFER_ACCEPTANCE: (acceptance: acceptance)=>
+    OFFER_ACCEPTANCE: (acceptance: acceptance) =>
         `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -160,8 +160,8 @@ export const MAIL_MESSAGE ={
 </body>
 </html>
 `,
-     
-    UPDATE_USER_INFO: (user: updateUser)=>
+
+    UPDATE_USER_INFO: (user: updateUser) =>
         `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -259,5 +259,5 @@ export const MAIL_MESSAGE ={
 
 
 `
-   
+
 }

@@ -7,10 +7,11 @@ import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class InviteService {
-   private readonly logger = new Logger();
+  private readonly logger = new Logger();
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
@@ -108,7 +109,7 @@ export class InviteService {
           },
           include: { upload: true },
         });
-        
+
         if (uploads?.length > 0) {
           const prospectUploads = uploads.map((upload) => ({
             name: upload.originalname,
@@ -180,8 +181,12 @@ export class InviteService {
       to: "bonaventure@zoracom.com",
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       html: MAIL_MESSAGE.OFFER_ACCEPTANCE(
-        updatedInvite.prospect.firstName,
-        updatedInvite.prospect.lastName,
+        {
+          firstName: updatedInvite.prospect.firstName,
+          lastName: updatedInvite.prospect.lastName
+
+        }
+
       ),
     });
     return updatedInvite;

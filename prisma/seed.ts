@@ -22,7 +22,7 @@ async function main() {
       // departmentId: "cf9ac736-ba22-4629-8093-db31b4008cfd",
       contacts: {
         create: {
-          gurantor: {
+          guarantor: {
             create: {
               firstName: "Precious",
               lastName: "Green",
