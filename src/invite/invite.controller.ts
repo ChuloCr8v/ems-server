@@ -11,8 +11,7 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 export class InviteController {
   constructor(private inviteService: InviteService) { }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
-
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post('send')
   @UseInterceptors(FilesInterceptor('uploads'))
   async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response) {
