@@ -11,8 +11,8 @@ datasource db {
 model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
-  firstName    String
-  lastName     String
+  firstName    String      @default("")
+  lastName     String      @default("")
   phone        String
   gender       String
   role         String
@@ -68,8 +68,8 @@ model Invite {
   createdAt  DateTime  @default(now())
   expiresAt  DateTime
   acceptedAt DateTime?
-  sentById   String?    @db.Uuid
-  sentBy     User?      @relation(fields: [sentById], references: [id])
+  sentById   String    @db.Uuid
+  sentBy     User      @relation(fields: [sentById], references: [id])
   prospectId String    @db.Uuid
   prospect   Prospect  @relation(fields: [prospectId], references: [id])
 }
