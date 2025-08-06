@@ -12,15 +12,16 @@ export class InviteController {
   constructor(private inviteService: InviteService) { }
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN])
+
   @Post('send')
   @UseInterceptors(FilesInterceptor('uploads'))
-  async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response, @Request() req: { user: IAuthUser }) {
-    const prospect = await this.inviteService.createProspect(input, uploads, req.user);
+  async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response) {
+    // console.log(req.user, "user req")
+    const prospect = await this.inviteService.createProspect(input, uploads);
     return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect });
   }
 
   @Put('accept/:token')
-  @Put('accept')
   async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser }) {
     const prospect = this.inviteService.acceptInvite(token, req.user);
     return res.status(200).json({ message: `Prospect has accepted the Invitation`, prospect });
@@ -33,7 +34,7 @@ export class InviteController {
     return res.status(200).json({ message: `All Prospects`, prospects });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get(':id')
   async getOneProspect(@Param('id') id: string) {
     return await this.inviteService.getOneProspect(id);

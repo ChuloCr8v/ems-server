@@ -6,9 +6,9 @@ async function main() {
 
   await prisma.user.create({
     data: {
-      firstName: "Benedict",
-      lastName: "Nwosu",
-      email: "benedict@zoracom.com",
+      firstName: "Bona",
+      lastName: "Wewo",
+      email: "bonaventure@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
