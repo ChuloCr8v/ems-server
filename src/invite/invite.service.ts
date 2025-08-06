@@ -230,7 +230,7 @@ export class InviteService {
   async __findProspectById(id: string) {
     const prospect = await this.prisma.prospect.findUnique({
       where: { id },
-      include: { upload: true, department: true },
+      include: { upload: true, department: true, user: true },
     });
     if (!prospect) {
       throw new HttpException(`Prospect not found for id: ${id}`, HttpStatus.NOT_FOUND);

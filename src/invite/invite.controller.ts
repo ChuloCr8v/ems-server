@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Query, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request } from '@nestjs/common';
+import { Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
@@ -33,7 +33,7 @@ export class InviteController {
     return res.status(200).json({ message: `All Prospects`, prospects });
   }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get(':id')
   async getOneProspect(@Param('id') id: string) {
     return await this.inviteService.getOneProspect(id);
