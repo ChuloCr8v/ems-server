@@ -57,6 +57,7 @@ model User {
   invite        Invite[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  comment       Comment[]
 }
 
 model Invite {
@@ -67,8 +68,8 @@ model Invite {
   createdAt  DateTime  @default(now())
   expiresAt  DateTime
   acceptedAt DateTime?
-  sentById   String   @db.Uuid
-  sentBy     User     @relation(fields: [sentById], references: [id])
+  sentById   String?    @db.Uuid
+  sentBy     User?      @relation(fields: [sentById], references: [id])
   prospectId String    @db.Uuid
   prospect   Prospect  @relation(fields: [prospectId], references: [id])
 }
@@ -102,11 +103,14 @@ model Upload {
   userId     String?   @db.Uuid
   user       User?     @relation(fields: [userId], references: [id])
   createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([userId, name])
 }
 
 model Contacts {
   id        String            @id @default(uuid()) @db.Uuid
-  gurantor  GurantorContact?
+  guarantor  GuarantorContact?
   emergency EmergencyContact?
   userId    String            @unique @db.Uuid
   user      User              @relation(fields: [userId], references: [id])
@@ -124,7 +128,7 @@ model EmergencyContact {
   updatedAt DateTime @updatedAt
 }
 
-model GurantorContact {
+model GuarantorContact {
   id        String   @id @default(uuid()) @db.Uuid
   firstName String
   lastName  String
@@ -132,6 +136,15 @@ model GurantorContact {
   phone     String
   contacts  Contacts @relation(fields: [contactId], references: [id])
   contactId String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  comment   String
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

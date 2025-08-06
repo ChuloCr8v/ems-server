@@ -9,7 +9,6 @@ import { DepartmentModule } from './department/department.module';
 import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -20,7 +19,6 @@ import { EventsModule } from './events/events.module';
     ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     LevelModule,
-    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,26 +1,23 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { AcceptInviteDto, CreateProspectDto, SendInviteDto } from './dto/invite.dto';
+import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
-import { AuthService } from 'src/auth/auth.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
 
 @Injectable()
 export class InviteService {
+   private readonly logger = new Logger();
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
-    private auth: AuthService,
+    // private auth: AuthService,
   ) {}
 
-
-     async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },
-      adminUser: IAuthUser
-     ) {
+     async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },) {
       const { email, uploads } = input;
       try {
         const token = randomUUID();
@@ -35,13 +32,14 @@ export class InviteService {
             expiresAt,
             token,
             prospectId: prospect.id,
-            sentById: adminUser.sub, //This will track the who is sending the invite
+            // sentById: adminUser.sub, //This will track the who is sending the invite
           },
         });
 
         // 2. Send email 
         const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
         const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
+
         const allAttachments = uploads?.map(upload => ({
           filename: upload.originalname,
           content: upload.buffer,
@@ -66,7 +64,7 @@ export class InviteService {
        
 
 
-        async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: IAuthUser) {
+        async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], ) {
           const {
               firstName,
               lastName,
@@ -120,31 +118,25 @@ export class InviteService {
                           data: prospectUploads,
                       });
                   }
-
                   return createdProspect;
-              }, {
-                  timeout: 30000,
-                  maxWait: 30000,
               });
 
               // 2. Send invite email
               await this.sendInvite({
                   email: prospect.email,
                   uploads: uploads,
-              }, adminUser);
+              }, );
 
               return prospect;
           } catch (error) {
               throw new Error(`Failed to create prospect: ${error.message}`);
               // console.log(error.message);
-              bad("Prospect Not Invited")
+              // bad("Prospect Not Invited")
           }
       }
-
       
 
-    async acceptInvite(input: AcceptInviteDto, user: IAuthUser) {
-      const { token } = input;
+    async acceptInvite(token: string, user: IAuthUser) {
       const acceptedAt = new Date()
       //Find the invite by token
       const invite = await this.prisma.invite.findUnique({
@@ -177,10 +169,10 @@ export class InviteService {
       await this.mail.sendMail({
         to: updatedInvite.sentBy.email,
         subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
-        html: MAIL_MESSAGE.OFFER_ACCEPTANCE(
-          updatedInvite.prospect.firstName,
-          updatedInvite.prospect.lastName,
-        ),
+        html: MAIL_MESSAGE.OFFER_ACCEPTANCE({
+          firstName: updatedInvite.prospect.firstName,
+          lastName: updatedInvite.prospect.lastName,
+        }),
       });
       return updatedInvite;
     }
