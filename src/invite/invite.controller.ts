@@ -4,7 +4,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
-import { AcceptInviteDto, CreateProspectDto } from './dto/invite.dto';
+import { CreateProspectDto } from './dto/invite.dto';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @Controller('invite')

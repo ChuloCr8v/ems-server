@@ -7,9 +7,16 @@ interface acceptance {
     lastName: string,
 }
 
+interface updateUser{
+    comment: string,
+    firstName: string,
+    link: string
+}
+
 export const MAIL_SUBJECT = {
     PROSPECT_INVITATION: 'Prospect Invitation',
-    OFFER_ACCEPTANCE: 'Offer Acceptance'
+    OFFER_ACCEPTANCE: 'Offer Acceptance',
+    UPDATE_USER_INFO: 'Update User Information',
 }
 
 export const MAIL_MESSAGE ={
@@ -86,7 +93,7 @@ export const MAIL_MESSAGE ={
 </html>
     `,
 
-    OFFER_ACCEPTANCE: (firstName: string, lastName: string)=>
+    OFFER_ACCEPTANCE: (acceptance: acceptance)=>
         `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,12 +141,12 @@ export const MAIL_MESSAGE ={
 </head>
 <body>
     <div class="header">
-         <h2>${firstName} ${lastName} has accepted their offer!</h2>
+         <h2>${acceptance.firstName} ${acceptance.lastName} has accepted their offer!</h2>
     </div>
      <p>Dear Admin</p>
     
     <div class="content">
-        <p>${firstName} ${lastName} has accepted the invitation and submitted their onboarding details.</p>
+        <p>${acceptance.firstName} ${acceptance.lastName} has accepted the invitation and submitted their onboarding details.</p>
         <p>You can now review their submission and finalize approval.</p>
     </div>
     
@@ -152,5 +159,105 @@ export const MAIL_MESSAGE ={
     </div>
 </body>
 </html>
+`,
+     
+    UPDATE_USER_INFO: (user: updateUser)=>
+        `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Zoracom</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0066cc;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+            margin-top: 40px;
+            border-top: 1px solid #eeeeee;
+            padding-top: 20px;
+        }
+        .signature {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Update Onboarding Information!</h1>
+         <h2>Hello ${user.firstName},</h2>
+    </div>
+     <!-- <p> Admin</p> -->
+    <div class="content">
+        <!-- <p>We're excited to welcome you to Zoracom</p> -->
+        <p>Thanks for submitting your onboarding details. Upon review, we need a few updates.</p>
+        <p>${user.comment}.</p>
+        <p>Click below to update your information. Your previous answers will be pre-filled</p>
+        
+        <p><a href="${user.link}" class="button">Update my Information</a></p>
+
+        <p>Looking forward to having you fully onboarded</p>
+        
+    </div>
+    
+    <div class="signature">
+        <p>Cheers,<br>The HR Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>Copyright 2024 @ Zora Communications Limited All Rights Reserved.</p>
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 `
+   
 }
