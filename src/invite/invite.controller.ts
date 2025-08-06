@@ -4,7 +4,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
-import { AcceptInviteDto, CreateProspectDto } from './dto/invite.dto';
+import { CreateProspectDto } from './dto/invite.dto';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @Controller('invite')
@@ -20,7 +20,6 @@ export class InviteController {
   }
 
   @Put('accept/:token')
-  @Put('accept')
   async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser }) {
     const prospect = this.inviteService.acceptInvite(token, req.user);
     return res.status(200).json({ message: `Prospect has accepted the Invitation`, prospect });

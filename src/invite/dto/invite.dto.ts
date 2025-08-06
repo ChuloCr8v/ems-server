@@ -50,12 +50,6 @@ export class CreateProspectDto {
     readonly duration: string;
 }
 
-export class AcceptInviteDto {
-    @IsNotEmpty({ message: 'Token is required' })
-    @IsString()
-    token: string;
-}
-
 export class CreateUserDto {
     @IsString()
     @IsNotEmpty({ message: 'Country is Required' })

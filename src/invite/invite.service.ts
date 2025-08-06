@@ -1,19 +1,20 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { AcceptInviteDto, CreateProspectDto, SendInviteDto } from './dto/invite.dto';
+import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
-import { AuthService } from 'src/auth/auth.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
 
 @Injectable()
 export class InviteService {
+   private readonly logger = new Logger();
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+
     private auth: AuthService,
   ) { }
 
@@ -108,7 +109,7 @@ export class InviteService {
           },
           include: { upload: true },
         });
-
+        
         if (uploads?.length > 0) {
           const prospectUploads = uploads.map((upload) => ({
             name: upload.originalname,

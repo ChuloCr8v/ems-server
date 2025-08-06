@@ -6,9 +6,11 @@ import { MailModule } from 'src/mail/mail.module';
 import { AuthService } from 'src/auth/auth.service';
 
 @Module({
-  imports: [PrismaModule, MailModule],
+  imports: [
+    PrismaModule, 
+    MailModule,],
   providers: [InviteService, AuthService],
   controllers: [InviteController],
-  exports: [InviteService],
+  exports: [InviteService,],
 })
 export class InviteModule {}
