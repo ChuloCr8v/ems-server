@@ -7,10 +7,11 @@ import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class InviteService {
-   private readonly logger = new Logger();
+  private readonly logger = new Logger();
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
@@ -19,8 +20,7 @@ export class InviteService {
   ) { }
 
 
-  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },
-    adminUser: IAuthUser
+  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }
   ) {
     const { email, uploads } = input;
 
@@ -37,7 +37,7 @@ export class InviteService {
           expiresAt,
           token,
           prospectId: prospect.id,
-          sentById: adminUser.sub, //This will track the who is sending the invite
+          // sentById: adminUsser.sub, //This will track the who is sending the invite
         },
       });
 
@@ -69,7 +69,7 @@ export class InviteService {
 
 
 
-  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: IAuthUser) {
+  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[]) {
     const {
       firstName,
       lastName,
@@ -109,7 +109,7 @@ export class InviteService {
           },
           include: { upload: true },
         });
-        
+
         if (uploads?.length > 0) {
           const prospectUploads = uploads.map((upload) => ({
             name: upload.originalname,
@@ -130,13 +130,12 @@ export class InviteService {
         maxWait: 30000,
       });
 
-      console.log(prospect.email, uploads, adminUser)
 
       // 2. Send invite email
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
-      }, adminUser);
+      });
 
       return prospect;
     } catch (error) {
@@ -155,7 +154,7 @@ export class InviteService {
       where: { token },
       include: {
         prospect: true,
-        sentBy: true,
+        // sentBy: true,
       },
     });
     if (!invite || invite.expiresAt < new Date()) {
@@ -174,16 +173,20 @@ export class InviteService {
       },
       include: {
         prospect: true,
-        sentBy: true,
+        // sentBy: true,
       },
     });
 
     await this.mail.sendMail({
-      to: updatedInvite.sentBy.email,
+      to: "bonaventure@zoracom.com",
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       html: MAIL_MESSAGE.OFFER_ACCEPTANCE(
-        updatedInvite.prospect.firstName,
-        updatedInvite.prospect.lastName,
+        {
+          firstName: updatedInvite.prospect.firstName,
+          lastName: updatedInvite.prospect.lastName
+
+        }
+
       ),
     });
     return updatedInvite;
@@ -192,7 +195,7 @@ export class InviteService {
   async getAllProspects() {
     try {
       const prospects = await this.prisma.prospect.findMany({
-        include: { upload: true, invite: true },
+        include: { invite: true },
       });
       return prospects;
     } catch (error) {
@@ -227,7 +230,7 @@ export class InviteService {
   async __findProspectById(id: string) {
     const prospect = await this.prisma.prospect.findUnique({
       where: { id },
-      include: { upload: true },
+      include: { upload: true, department: true, user: true },
     });
     if (!prospect) {
       throw new HttpException(`Prospect not found for id: ${id}`, HttpStatus.NOT_FOUND);

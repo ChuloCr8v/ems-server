@@ -5,9 +5,9 @@ const prisma = new PrismaClient();
 async function main() {
   await prisma.user.create({
     data: {
-      firstName: "Benedict",
-      lastName: "Nwosu",
-      email: "benedict@zoracom.com",
+      firstName: "Bona",
+      lastName: "Wewo",
+      email: "bonaventure@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
@@ -22,7 +22,7 @@ async function main() {
       // departmentId: "cf9ac736-ba22-4629-8093-db31b4008cfd",
       contacts: {
         create: {
-          gurantor: {
+          guarantor: {
             create: {
               firstName: "Precious",
               lastName: "Green",
