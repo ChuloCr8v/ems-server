@@ -7,7 +7,7 @@ interface response {
     lastName: string,
 }
 
-interface updateUser{
+interface updateUser {
     comment: string,
     firstName: string,
     link: string
@@ -20,7 +20,7 @@ export const MAIL_SUBJECT = {
     DECLINE_OFFER: 'Declined Offer',
 }
 
-export const MAIL_MESSAGE ={
+export const MAIL_MESSAGE = {
     PROSPECT_INVITATION: (prospect: prospect) => `
         <!DOCTYPE html>
 <html lang="en">
@@ -161,8 +161,8 @@ export const MAIL_MESSAGE ={
 </body>
 </html>
 `,
-     
-    UPDATE_USER_INFO: (user: updateUser)=>
+
+    UPDATE_USER_INFO: (user: updateUser) =>
         `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -305,5 +305,4 @@ DECLINE_OFFER: (decline: response) =>
 </body>
 </html>
 `,
-   
 }

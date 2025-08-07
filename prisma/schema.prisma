@@ -11,8 +11,8 @@ datasource db {
 model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
-  firstName    String
-  lastName     String
+  firstName    String      @default("")
+  lastName     String      @default("")
   phone        String
   gender       String
   role         String
@@ -76,6 +76,8 @@ model Invite {
   prospectId String    @db.Uuid
   prospect   Prospect  @relation(fields: [prospectId], references: [id])
   comment    Comment[]
+
+
 }
 
 model Department {

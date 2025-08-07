@@ -7,7 +7,7 @@ import { Role } from '@prisma/client';
 
 @Controller('level')
 export class LevelController {
-  constructor(private readonly levelService: LevelService) {}
+  constructor(private readonly levelService: LevelService) { }
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post()
@@ -32,6 +32,6 @@ export class LevelController {
   @Put(':id')
   async updateLevel(@Param('id') id: string, @Body() update: UpdateLevelDto, @Res() res: Response) {
     const level = await this.levelService.updateLevel(id, update);
-    return res.status(200).json({ message: 'A Level Has Been Updated', level});
+    return res.status(200).json({ message: 'A Level Has Been Updated', level });
   }
 }
