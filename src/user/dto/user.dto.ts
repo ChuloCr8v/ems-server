@@ -98,7 +98,7 @@ export class CreateUserDto {
     state: string;
 }
 
-export class UpdateUserDto extends CreateUserDto {}
+export class UpdateUserDto extends CreateUserDto { }
 
 export class ApproveUserDto {
     @IsEmail()
@@ -114,7 +114,7 @@ export class ApproveUserDto {
     levelId: string;
 
     @IsString()
-    @IsNotEmpty({ message: 'Employee ID Number is Required'})
+    @IsNotEmpty({ message: 'Employee ID Number is Required' })
     eId: string;
 
     @IsEnum(Role, { each: true })
