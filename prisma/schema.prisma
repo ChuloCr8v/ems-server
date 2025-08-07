@@ -58,6 +58,7 @@ model User {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   comment       Comment[]
+  assets        Asset[]
 }
 
 model Invite {
@@ -110,7 +111,7 @@ model Upload {
 
 model Contacts {
   id        String            @id @default(uuid()) @db.Uuid
-  guarantor  GuarantorContact?
+  guarantor GuarantorContact?
   emergency EmergencyContact?
   userId    String            @unique @db.Uuid
   user      User              @relation(fields: [userId], references: [id])
@@ -149,6 +150,20 @@ model Comment {
   updatedAt DateTime @updatedAt
 }
 
+model Asset {
+  id             String      @id @default(uuid()) @db.Uuid
+  name           String
+  category       AssetCategory
+  status         AssetStatus
+  dateAssigned   DateTime
+  dateRetrieved  DateTime?
+  assignedTo     User        @relation(fields: [assignedToId], references: [id])
+  assignedToId   String      @db.Uuid
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -176,4 +191,19 @@ enum Role {
   USER
   MANAGER
   FACILITY
+}
+
+enum AssetCategory {
+  HARDWARE
+  ACCESSORY
+  LOGISTICS
+  SAFETYEKITS
+ 
+}
+
+enum AssetStatus {
+  ACTIVE
+  RETURNED
+  DAMAGED
+  LOST
 }
