@@ -111,7 +111,7 @@ export class UserService {
   }
 
   async approveUser(id: string, data: ApproveUserDto) {
-    const { email, workPhone, userRole, levelId } = data;
+    const { email, workPhone, userRole, levelId, eId } = data;
     try {
          //Check if User Exists And Is Not Already ACTIVE
             const user = await this.__findUserById(id);
@@ -125,6 +125,7 @@ export class UserService {
                     email,
                     workPhone,
                     userRole,
+                    eId,
                     level: {
                         connect: {
                             id: levelId,
@@ -186,7 +187,7 @@ export class UserService {
     const user = await this.__findUserById(id);
     
     // Main user update transaction
-    const updateUser = await this.prisma.beginTransaction(async (tx) => {
+    const updateUser = await this.prisma.$transaction(async (tx) => {
         // 1. Update user details
         const updatedUser = await tx.user.update({
             where: { id },
@@ -271,7 +272,7 @@ export class UserService {
 
   async findAllUsers() {
     return this.prisma.user.findMany({ include: {
-        prospect: true,
+        // prospect: true,
         upload: {
             select: {
                 name: true,
@@ -321,6 +322,10 @@ export class UserService {
   }
 
   async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
+        if (!uploads?.length) {
+        this.logger.debug('No files to upload');
+        return;
+    }
     return await this.prisma.$transaction(async (tx) => {
         //First delete the uploads that are being replaced
         const filenames = uploads.map(u => u.originalname);

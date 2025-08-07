@@ -5,7 +5,7 @@ import { Role } from '@prisma/client';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(private reflector: Reflector) { }
 
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -19,6 +19,7 @@ export class RolesGuard implements CanActivate {
     // You can also get user from this {user, actions}
     const { user } = context.switchToHttp().getRequest();
 
-    return (user.roles ?? []).some((r: Role) => requiredRoles.includes(r));
-  }
+    // return (user.roles ?? []).some((r: Role) => requiredRoles.includes(r));
+    return (requiredRoles.includes(user.userRole));
+  }
 }

@@ -2,7 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
+import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
 import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -137,7 +137,7 @@ export class InviteService {
       
 
     async acceptInvite(token: string, user: IAuthUser) {
-      const acceptedAt = new Date()
+      const currentDate = new Date();
       //Find the invite by token
       const invite = await this.prisma.invite.findUnique({
         where: { token },
@@ -146,11 +146,11 @@ export class InviteService {
           sentBy: true,
         },
       });
-      if (!invite || invite.expiresAt < new Date()) {
-        throw new BadRequestException('Invalid or expired invite');
+      if (!invite || invite.expiresAt < currentDate) {
+        throw new BadRequestException('Invalid or Expired Invitation');
       }
       if (invite.status !== 'PENDING') {
-        throw new BadRequestException('Invite has already been accepted or declined');
+        throw new BadRequestException('Invitation Has Already Been Accepted or Declined');
       }
 
       //Update the invite status to ACCEPTED
@@ -158,7 +158,7 @@ export class InviteService {
         where: { token },
         data: {
           status: 'ACCEPTED',
-          acceptedAt: acceptedAt,
+          acceptedAt: currentDate,
         },
         include: {
           prospect: true,
@@ -177,10 +177,65 @@ export class InviteService {
       return updatedInvite;
     }
 
+    async declineInvite(token: string, data: DeclineComment, user: IAuthUser) {
+      const {comment} = data;
+      const currentDate = new Date();
+
+      //Find the invitation by token
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+          sentBy: true
+        },
+      });
+      if(!invite || invite.expiresAt < currentDate) {
+        throw new BadRequestException('Invalid or Expired Invitation')
+      }
+      if(invite.status !== 'PENDING') {
+        throw new BadRequestException('Invitation Has Already Been Accepted or Declined')
+      }
+
+      //Update Invite Status to DECLINED
+      const updatedInvite = await this.prisma.invite.update({
+        where: { token },
+        data: {
+          status: 'DECLINED',
+          declinedAt: currentDate,
+          comment: {
+            create: { comment },
+          },
+        },
+        include: {
+          prospect: true,
+          sentBy: true,
+        },
+      });
+
+      await this.mail.sendMail({
+        // to: "stephanie@zoracom.com",
+        to: updatedInvite.sentBy.email,
+        subject: MAIL_SUBJECT.DECLINE_OFFER,
+        html: MAIL_MESSAGE.DECLINE_OFFER({
+          firstName: updatedInvite.prospect.firstName,
+          lastName: updatedInvite.prospect.lastName,
+        }),
+      });
+      return updatedInvite;
+    }
+
     async getAllProspects() {
         try {
             const prospects = await this.prisma.prospect.findMany({
-                include: { upload: true },
+                include: {
+                  upload: {
+                    select: {
+                      name: true,
+                      size: true,
+                      type: true
+                    }
+                  }
+                },
             });
             return prospects;
         } catch (error) {

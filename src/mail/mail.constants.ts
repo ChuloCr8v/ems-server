@@ -2,7 +2,7 @@ interface prospect {
     firstName: string,
     link: string
 }
-interface acceptance {
+interface response {
     firstName: string,
     lastName: string,
 }
@@ -17,6 +17,7 @@ export const MAIL_SUBJECT = {
     PROSPECT_INVITATION: 'Prospect Invitation',
     OFFER_ACCEPTANCE: 'Offer Acceptance',
     UPDATE_USER_INFO: 'Update User Information',
+    DECLINE_OFFER: 'Declined Offer',
 }
 
 export const MAIL_MESSAGE ={
@@ -93,7 +94,7 @@ export const MAIL_MESSAGE ={
 </html>
     `,
 
-    OFFER_ACCEPTANCE: (acceptance: acceptance)=>
+    OFFER_ACCEPTANCE: (acceptance: response)=>
         `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,30 +235,75 @@ export const MAIL_MESSAGE ={
     </div>
 </body>
 </html>
+`,
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-`
+DECLINE_OFFER: (decline: response) => 
+    `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Zoracom</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        .content {
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #0066cc;
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .footer {
+            font-size: 12px;
+            color: #777777;
+            text-align: center;
+            margin-top: 40px;
+            border-top: 1px solid #eeeeee;
+            padding-top: 20px;
+        }
+        .signature {
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+         <h2>${decline.firstName} ${decline.lastName} Declined The Offer!</h2>
+    </div>
+     <p>Dear Admin</p>
+    
+    <div class="content">
+        <!-- <p>We're excited to welcome you to Zoracom</p> -->
+        <p>{firstName lastName} has declined the offer to join Zoracom.</p>
+        <p>You may archive their record or reach out for clarification.</p>
+    </div>
+    
+    <div class="signature">
+        <p>Cheers,<br>The HR Team</p>
+    </div>
+    
+    <div class="footer">
+        <p>Copyright 2024 @ Zora Communications Limited All Rights Reserved.</p>
+    </div>
+</body>
+</html>
+`,
    
 }
