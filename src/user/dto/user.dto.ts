@@ -39,15 +39,6 @@ export class GuarantorContactDto {
     phone: string;
 }
 
-// export class ContactDto {
-//     @ValidateNested()
-//     @Type(() => GuarantorContactDto)
-//     guarantor: GuarantorContactDto;
-
-//     @ValidateNested()
-//     @Type(() => EmergencyContactDto)
-//     emergency: EmergencyContactDto;
-// }
 
 export class CreateUserDto {
     @IsNotEmpty({ message: 'First Name is Required' })
@@ -107,7 +98,7 @@ export class CreateUserDto {
     state: string;
 }
 
-export class UpdateUserDto extends CreateUserDto {}
+export class UpdateUserDto extends CreateUserDto { }
 
 export class ApproveUserDto {
     @IsEmail()
@@ -121,6 +112,10 @@ export class ApproveUserDto {
     @IsString()
     @IsNotEmpty({ message: 'Level is Required' })
     levelId: string;
+
+    @IsString()
+    @IsNotEmpty({ message: 'Employee ID Number is Required' })
+    eId: string;
 
     @IsEnum(Role, { each: true })
     @IsNotEmpty({ message: 'User Role is Required' })
