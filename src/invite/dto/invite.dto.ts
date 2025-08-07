@@ -62,7 +62,10 @@ export class CreateUserDto {
     @IsString()
     @IsNotEmpty({ message: 'Address is Required' })
     readonly address: string;
+}
 
-
-
+export class DeclineComment {
+    @IsString()
+    @IsNotEmpty()
+    comment: string;
 }

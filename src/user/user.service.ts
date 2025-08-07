@@ -110,10 +110,11 @@ export class UserService {
         }
     }
 
-    async approveUser(id: string, data: ApproveUserDto) {
-        const { email, workPhone, userRole, levelId } = data;
-        try {
-            //Check if User Exists And Is Not Already ACTIVE
+
+  async approveUser(id: string, data: ApproveUserDto) {
+    const { email, workPhone, userRole, levelId, eId } = data;
+    try {
+         //Check if User Exists And Is Not Already ACTIVE
             const user = await this.__findUserById(id);
             const userStatus = Status.ACTIVE;
             if (user.status === userStatus) {
@@ -125,6 +126,7 @@ export class UserService {
                     email,
                     workPhone,
                     userRole,
+                    eId,
                     level: {
                         connect: {
                             id: levelId,
@@ -175,34 +177,34 @@ export class UserService {
         }
     }
 
-    async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
-        //    console.log('[DEBUG] Raw uploads:', uploads?.map(u => ({
-        //     name: u.originalname,
-        //     size: u.size,
-        //     type: u.mimetype,
-        //     buffer: u.buffer ? 'EXISTS' : 'MISSING' // Critical check
-        //   })));
-        const { duration, jobType } = data;
-        const user = await this.__findUserById(id);
 
-        // Main user update transaction
-        const updateUser = await this.prisma.beginTransaction(async (tx) => {
-            // 1. Update user details
-            const updatedUser = await tx.user.update({
-                where: { id },
-                data: {
-                    firstName: data.firstName,
-                    lastName: data.lastName,
-                    gender: data.gender,
-                    phone: data.phone,
-                    role: data.role,
-                    country: data.country,
-                    address: data.address,
-                    maritalStatus: data.maritalStatus,
-                    state: data.state,
-                    department: {
-                        connect: {
-                            id: user.departmentId,
+  async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
+//    console.log('[DEBUG] Raw uploads:', uploads?.map(u => ({
+//     name: u.originalname,
+//     size: u.size,
+//     type: u.mimetype,
+//     buffer: u.buffer ? 'EXISTS' : 'MISSING' // Critical check
+//   })));
+    const { duration, jobType } = data;
+    const user = await this.__findUserById(id);
+   
+    const updateUser = await this.prisma.$transaction(async (tx) => {
+        //  Update user details
+        const updatedUser = await tx.user.update({
+            where: { id },
+            data: {
+                firstName: data.firstName,
+                lastName: data.lastName,
+                gender: data.gender,
+                phone: data.phone,
+                role: data.role,
+                country: data.country,
+                address: data.address,
+                maritalStatus: data.maritalStatus,
+                state: data.state,
+                department: {
+                    connect: {
+                        id: user.departmentId,
                         },
                     },
                     ...(jobType === JobType.CONTRACT ? { duration } : {}),
@@ -260,7 +262,7 @@ export class UserService {
                 },
             });
 
-            // 2. Handle file uploads if they exist
+            //Handle file uploads if they exist
             await this.handleUserUploads(user.id, uploads)
             return updatedUser;
         });
@@ -269,33 +271,27 @@ export class UserService {
     }
 
 
-    async findAllUsers() {
-        return this.prisma.user.findMany({
-            include: {
-                prospect: true,
-                upload: {
-                    select: {
-                        name: true,
-                        size: true,
-                        type: true
-                    }
-                },
-                level: true,
-                department: true,
-                contacts: {
-                    include: {
-                        emergency: true,
-                        guarantor: true,
-                    }
-                },
-                comment: true,
-
+  async findAllUsers() {
+    return this.prisma.user.findMany({ include: {
+        // prospect: true,
+        upload: {
+            select: {
+                name: true,
+                size: true,
+                type: true
             }
-        });
-    }
-
-
-
+        },
+        level: true,
+        department: true,
+        contacts: {
+            include: {
+                emergency: true,
+                guarantor: true,
+            }
+        },
+        comment: true,
+    } });
+  }
 
 
 
@@ -323,16 +319,20 @@ export class UserService {
 
     }
 
-    async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
-        return await this.prisma.$transaction(async (tx) => {
-            //First delete the uploads that are being replaced
-            const filenames = uploads.map(u => u.originalname);
-            await tx.upload.deleteMany({
-                where: {
-                    userId,
-                    name: { in: filenames }
-                }
-            });
+  async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
+        if (!uploads?.length) {
+        this.logger.debug('No files to upload');
+        return;
+    }
+    return await this.prisma.$transaction(async (tx) => {
+        //First delete the uploads that are being replaced
+        const filenames = uploads.map(u => u.originalname);
+        await tx.upload.deleteMany({
+            where: {
+                userId,
+                name: { in: filenames }
+            }
+        });
 
             //Add all the new uploads
             await tx.upload.createMany({

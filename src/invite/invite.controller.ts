@@ -4,59 +4,44 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
-import { CreateProspectDto } from './dto/invite.dto';
+import { CreateProspectDto, DeclineComment } from './dto/invite.dto';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @Controller('invite')
 export class InviteController {
   constructor(private inviteService: InviteService) { }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Post('send')
-  @UseInterceptors(FilesInterceptor('uploads'))
-  async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response) {
-    // console.log(req.user, "user req")
-    const prospect = await this.inviteService.createProspect(input, uploads);
-    return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect });
-  }
+    @Auth([Role.ADMIN, Role.SUPERADMIN])
+    @Post('send')
+    @UseInterceptors(FilesInterceptor('uploads'))
+    async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response,) {
+      const prospect = await this.inviteService.createProspect(input, uploads, );
+      return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect});
+    }
 
-  @Put('accept/:token')
-  async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser }) {
-    const prospect = this.inviteService.acceptInvite(token, req.user);
-    return res.status(200).json({ message: `Prospect has accepted the Invitation`, prospect });
-  }
+    @Put('accept/:token')
+    async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser}) {
+      const prospect = await this.inviteService.acceptInvite(token, req.user);
+      return res.status(200).json({ message: `Prospect Has Accepted The Invitation`, prospect});
+    }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Get()
-  async getAllProspects(@Res() res: Response) {
-    const prospects = await this.inviteService.getAllProspects();
-    return res.status(200).json({ message: `All Prospects`, prospects });
-  }
+    @Put('decline/:token')
+    async declineInvite(@Param('token') token: string, @Body() data: DeclineComment, @Res() res: Response, @Request() req: { user: IAuthUser}) {
+      const prospect = await this.inviteService.declineInvite(token, data, req.user);
+      return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect});
+    }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Get(':id')
-  async getOneProspect(@Param('id') id: string) {
-    return await this.inviteService.getOneProspect(id);
-  }
+    @Auth([Role.ADMIN, Role.SUPERADMIN])
+    @Get()
+    async getAllProspects(@Res() res: Response) {
+      const prospects = await this.inviteService.getAllProspects();
+      return res.status(200).json({ message: `All Prospects`, prospects });
+    }
 
-
-
-  // @Post('reject')
-  // reject(@Query('token') token: string) {
-  //   return this.inviteService.rejectInvite(token);
-  // }
-  // // ✅ Get all invites
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
-  // @Get()
-  // findAll() {
-  //   return this.inviteService.findAll();
-  // }
-
-  // // ✅ Get invite by ID
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.inviteService.findOne(id);
-  // }
+    @Auth([Role.ADMIN, Role.SUPERADMIN])
+    @Get(':id')
+    async getOneProspect(@Param('id') id: string) {
+      return await this.inviteService.getOneProspect(id);
+    }
 
 }
