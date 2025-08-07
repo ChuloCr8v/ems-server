@@ -7,6 +7,7 @@ import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
+import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class InviteService {
