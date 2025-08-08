@@ -291,6 +291,7 @@ export class UserService {
                     }
                 },
                 comment: true,
+                invite: true,
             }
         });
     }
