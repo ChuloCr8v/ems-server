@@ -45,14 +45,17 @@
 </head>
 <body>
     <div class="header">
-         <h2>{firstName lastName} Declined The Offer!</h2>
+         <h2>{{name}} has accepted their offer!</h2>
     </div>
      <p>Dear Admin</p>
     
     <div class="content">
         <!-- <p>We're excited to welcome you to Zoracom</p> -->
-        <p>{firstName lastName} has declined the offer to join Zoracom.</p>
-        <p>You may archive their record or reach out for clarification.</p>
+        <p>{{firstName lastName}} has accepted the invitation and submitted their onboarding details.</p>
+        <p>You can now review their submission and finalize approval.</p>
+        
+        <p><a href="{{link}}" class="button">View Details</a></p>
+        
     </div>
     
     <div class="signature">

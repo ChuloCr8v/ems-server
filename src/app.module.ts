@@ -9,6 +9,7 @@ import { DepartmentModule } from './department/department.module';
 import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AssetsModule } from './assets/asset.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AppService } from './app.service';
     ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     LevelModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

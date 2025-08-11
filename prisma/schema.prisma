@@ -13,7 +13,7 @@ model Prospect {
   email        String      @unique
   firstName    String
   lastName     String
-  phone        String
+  phone        String      @unique
   gender       String
   role         String
   duration     String?
@@ -24,18 +24,17 @@ model Prospect {
   user         User?
   invite       Invite[]
   upload       Upload[]
-  // comment      Comment[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
 
 model User {
   id            String        @id @default(uuid()) @db.Uuid
-  eId           String        @unique
+  eId           String?       @unique
   email         String?       @unique
   firstName     String
   lastName      String
-  phone         String
+  phone         String        @unique
   workPhone     String?
   role          String
   gender        String
@@ -60,6 +59,7 @@ model User {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   comment       Comment[]
+  assets        Asset[]
 }
 
 model Invite {
@@ -151,8 +151,20 @@ model Comment {
   user      User?    @relation(fields: [userId], references: [id])
   inviteId  String?  @db.Uuid
   invite    Invite?  @relation(fields: [inviteId], references: [id])
-  // prospectId String?   @db.Uuid
-  // prospect   Prospect? @relation(fields: [prospectId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Asset {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  category      AssetCategory
+  status        AssetStatus
+  dateAssigned  DateTime
+  dateRetrieved DateTime?
+  assignedTo    User          @relation(fields: [assignedToId], references: [id])
+  assignedToId  String        @db.Uuid
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -183,5 +195,19 @@ enum Role {
   ADMIN
   USER
   MANAGER
-  FACILITY
+  SENIOR_MANAGER
+}
+
+enum AssetCategory {
+  HARDWARE
+  ACCESSORY
+  LOGISTICS
+  SAFETYEKITS
+}
+
+enum AssetStatus {
+  ACTIVE
+  RETURNED
+  DAMAGED
+  LOST
 }

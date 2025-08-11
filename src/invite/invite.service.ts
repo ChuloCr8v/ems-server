@@ -3,7 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
-import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
+// import { MAIL_SUBJECT } from 'src/mail/mail.types';
+// import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
@@ -46,13 +47,10 @@ export class InviteService {
           contentType: upload.mimetype,
         })) || [];
 
-        await this.mail.sendMail({
-          to: email,
-          subject: MAIL_SUBJECT.PROSPECT_INVITATION,
-          html: MAIL_MESSAGE.PROSPECT_INVITATION({
-            firstName: prospect.firstName,
-            link: link
-          }),
+        await this.mail.sendProspectMail({
+          email: prospect.email,
+          firstName: `${prospect.firstName}`,
+          token: link,
           attachments: allAttachments,
         });
 
@@ -165,15 +163,15 @@ export class InviteService {
           sentBy: true,
         },
       });
+
+        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const link = `${frontendUrl}/onboarding/invitations`;
+        await this.mail.sendAcceptanceMail({
+          email: user.email,
+          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+          link: link,
+        });
       
-      await this.mail.sendMail({
-        to: updatedInvite.sentBy.email,
-        subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
-        html: MAIL_MESSAGE.OFFER_ACCEPTANCE({
-          firstName: updatedInvite.prospect.firstName,
-          lastName: updatedInvite.prospect.lastName,
-        }),
-      });
       return updatedInvite;
     }
 
@@ -212,15 +210,15 @@ export class InviteService {
         },
       });
 
-      await this.mail.sendMail({
-        // to: "stephanie@zoracom.com",
-        to: updatedInvite.sentBy.email,
-        subject: MAIL_SUBJECT.DECLINE_OFFER,
-        html: MAIL_MESSAGE.DECLINE_OFFER({
-          firstName: updatedInvite.prospect.firstName,
-          lastName: updatedInvite.prospect.lastName,
-        }),
-      });
+        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        const link = `${frontendUrl}/onboarding/invitations`;
+
+        await this.mail.sendDeclinedMail({
+          email: user.email,
+          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+          link: link
+        });
+
       return updatedInvite;
     }
 

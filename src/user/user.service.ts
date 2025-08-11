@@ -5,7 +5,6 @@ import { ApproveUserDto, CreateUserDto, UpdateUserDto, UpdateUserInfo } from './
 import { InviteService } from 'src/invite/invite.service';
 import { bad } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { MAIL_MESSAGE, MAIL_SUBJECT } from 'src/mail/mail.constants';
 
 @Injectable()
 export class UserService {
@@ -160,15 +159,22 @@ export class UserService {
         const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
         const link = `${frontendUrl}/onboarding/invitation?id=${id}`;
 
-        await this.mail.sendMail({
-            to: user.prospect.email,
-            subject: MAIL_SUBJECT.UPDATE_USER_INFO,
-            html: MAIL_MESSAGE.UPDATE_USER_INFO({
-                firstName: user.firstName,
-                comment: editUser.comment,
-                link: link
-            }),
-        });
+        await this.mail.sendProspectUpdateMail({
+            email: user.email,
+            name: `${user.firstName}`,
+            comment: editUser.comment,
+            link: link,
+        })
+
+        // await this.mail.sendMail({
+        //     to: user.prospect.email,
+        //     subject: MAIL_SUBJECT.UPDATE_USER_INFO,
+        //     html: MAIL_MESSAGE.UPDATE_USER_INFO({
+        //         firstName: user.firstName,
+        //         comment: editUser.comment,
+        //         link: link
+        //     }),
+        // });
         return editUser;
     } catch (error) {
          console.log(error.message)
@@ -186,9 +192,8 @@ export class UserService {
     const { duration, jobType } = data;
     const user = await this.__findUserById(id);
     
-    // Main user update transaction
     const updateUser = await this.prisma.$transaction(async (tx) => {
-        // 1. Update user details
+        // Update user details
         const updatedUser = await tx.user.update({
             where: { id },
             data: {
@@ -261,7 +266,7 @@ export class UserService {
             },
         });
 
-        // 2. Handle file uploads if they exist
+        //Handle file uploads if they exist
         await this.handleUserUploads(user.id, uploads)
         return updatedUser;
     });
