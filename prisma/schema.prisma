@@ -11,9 +11,9 @@ datasource db {
 model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
-  firstName    String      @default("")
-  lastName     String      @default("")
-  phone        String
+  firstName    String
+  lastName     String
+  phone        String      @unique
   gender       String
   role         String
   duration     String?
@@ -24,18 +24,17 @@ model Prospect {
   user         User?
   invite       Invite[]
   upload       Upload[]
-  // comment      Comment[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
 
 model User {
   id            String        @id @default(uuid()) @db.Uuid
-  eId           String?        @unique
+  eId           String?       @unique
   email         String?       @unique
   firstName     String
   lastName      String
-  phone         String
+  phone         String        @unique
   workPhone     String?
   role          String
   gender        String
@@ -154,25 +153,24 @@ model Comment {
   user      User?    @relation(fields: [userId], references: [id])
   inviteId  String?  @db.Uuid
   invite    Invite?  @relation(fields: [inviteId], references: [id])
-  // prospectId String?   @db.Uuid
-  // prospect   Prospect? @relation(fields: [prospectId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Asset {
-  id             String      @id @default(uuid()) @db.Uuid
-  name           String
-  category       AssetCategory
-  status         AssetStatus
-  dateAssigned   DateTime
-  dateRetrieved  DateTime?
-  assignedTo     User        @relation(fields: [assignedToId], references: [id])
-  assignedToId   String      @db.Uuid
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String
+  category      AssetCategory
+  status        AssetStatus
+  dateAssigned  DateTime
+  dateRetrieved DateTime?
+  assignedTo    User          @relation(fields: [assignedToId], references: [id])
+  assignedToId  String        @db.Uuid
 
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
+
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
@@ -200,7 +198,7 @@ enum Role {
   ADMIN
   USER
   MANAGER
-  FACILITY
+  SENIOR_MANAGER
 }
 
 enum AssetCategory {
@@ -208,7 +206,6 @@ enum AssetCategory {
   ACCESSORY
   LOGISTICS
   SAFETYEKITS
- 
 }
 
 enum AssetStatus {
