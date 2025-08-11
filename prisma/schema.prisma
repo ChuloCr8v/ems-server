@@ -76,6 +76,8 @@ model Invite {
   prospectId String    @db.Uuid
   prospect   Prospect  @relation(fields: [prospectId], references: [id])
   comment    Comment[]
+
+
 }
 
 model Department {
@@ -168,6 +170,7 @@ model Asset {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 

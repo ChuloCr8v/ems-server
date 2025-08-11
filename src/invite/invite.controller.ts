@@ -9,9 +9,9 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @Controller('invite')
 export class InviteController {
-  constructor(private inviteService: InviteService) {}
+  constructor(private inviteService: InviteService) { }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+    @Auth([Role.ADMIN, Role.SUPERADMIN])
     @Post('send')
     @UseInterceptors(FilesInterceptor('uploads'))
     async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response,) {
@@ -31,7 +31,7 @@ export class InviteController {
       return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect});
     }
 
-    // @Auth([Role.ADMIN, Role.SUPERADMIN])
+    @Auth([Role.ADMIN, Role.SUPERADMIN])
     @Get()
     async getAllProspects(@Res() res: Response) {
       const prospects = await this.inviteService.getAllProspects();

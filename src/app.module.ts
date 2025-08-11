@@ -9,7 +9,7 @@ import { DepartmentModule } from './department/department.module';
 import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AssetsModule } from './assets/asset.module';
+import { AssetModule } from './assets/asset.module';
 
 @Module({
   imports: [
@@ -20,9 +20,9 @@ import { AssetsModule } from './assets/asset.module';
     ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     LevelModule,
-    AssetsModule,
+    AssetModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
