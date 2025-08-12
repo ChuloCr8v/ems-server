@@ -10,7 +10,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
       transport: {
         host: process.env.EMAIL_HOST,
         port: +process.env.EMAIL_PORT,
-        secure: true, // true for 465, false for other ports
+        secure: false, // true for 465, false for other ports
         ignoreTLS: false,
         auth: {
           user: process.env.EMAIL_ID, // generated ethereal user
@@ -18,7 +18,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
         },
       },
       defaults: {
-        from: process.env.EMAIL_HOST,
+        from: process.env.EMAIL_FROM,
       },
       template: {
         dir: join(__dirname, './templates'),

@@ -10,6 +10,7 @@ import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AssetModule } from './assets/asset.module';
+import { OffboardingModule } from './offboarding/offboarding.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AssetModule } from './assets/asset.module';
     DepartmentModule,
     LevelModule,
     AssetModule,
+    OffboardingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

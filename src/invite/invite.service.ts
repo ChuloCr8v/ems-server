@@ -1,10 +1,8 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
-// import { MAIL_SUBJECT } from 'src/mail/mail.types';
-// import { MAIL_MESSAGE, MAIL_SUBJECT } from '../mail/mail.constants';
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
@@ -128,10 +126,11 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-      throw new Error(`Failed to create prospect: ${error.message}`);
-      // console.log(error.message);
-      // bad("Prospect Not Invited")
-    }
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new InternalServerErrorException('Failed to create prospect');
+      }
   }
 
 
@@ -241,8 +240,11 @@ export class InviteService {
       });
       return prospects;
     } catch (error) {
-      throw new Error(`Failed to fetch prospects: ${error.message}`);
+    if (error instanceof BadRequestException) {
+      throw error;
     }
+    throw new InternalServerErrorException('Failed to fetch prospects');
+  }
   }
 
   async getOneProspect(id: string) {
