@@ -11,9 +11,9 @@ datasource db {
 model Prospect {
   id           String      @id @default(uuid()) @db.Uuid
   email        String      @unique
-  firstName    String
-  lastName     String
-  phone        String      @unique
+  firstName    String      @default("")
+  lastName     String      @default("")
+  phone        String
   gender       String
   role         String
   duration     String?
@@ -24,6 +24,7 @@ model Prospect {
   user         User?
   invite       Invite[]
   upload       Upload[]
+  // comment      Comment[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -34,7 +35,7 @@ model User {
   email         String?       @unique
   firstName     String
   lastName      String
-  phone         String        @unique
+  phone         String
   workPhone     String?
   role          String
   gender        String
@@ -60,7 +61,8 @@ model User {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   comment       Comment[]
-  assets        Asset[]
+  assignments   Assignment[]
+  faults        Fault[]
 }
 
 model Invite {
@@ -109,8 +111,8 @@ model Upload {
   user          User?        @relation(fields: [userId], references: [id])
   offboardingId String?      @db.Uuid
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  assetId       String?      @db.Uuid
-  asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
+  // assetId       String?      @db.Uuid
+  // asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -156,24 +158,54 @@ model Comment {
   user      User?    @relation(fields: [userId], references: [id])
   inviteId  String?  @db.Uuid
   invite    Invite?  @relation(fields: [inviteId], references: [id])
+  // prospectId String?   @db.Uuid
+  // prospect   Prospect? @relation(fields: [prospectId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Asset {
-  id            String        @id @default(uuid()) @db.Uuid
-  name          String
-  category      AssetCategory
-  status        AssetStatus
-  dateAssigned  DateTime
-  dateRetrieved DateTime?
-  isReturned    Boolean       @default(false)
-  paymentProof  Upload[]      @relation("AssetProof")
-  assignedTo    User          @relation(fields: [assignedToId], references: [id])
-  assignedToId  String        @db.Uuid
+  id           String        @id @default(uuid())  @db.Uuid
+  name         String
+  serialNo     String        @unique
+  category     AssetCategory
+  purchaseDate DateTime
+  vendor       String
+  cost         Float
+  assetImage   String?
+  barcodeImage String?
+  description  String?
+  isReturned   Boolean       @default(false)
+  // paymentProof  Upload[]      @relation("AssetProof")
+  status       AssetStatus   @default(AVAILABLE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  assignments  Assignment[]
+  faults       Fault[]
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Assignment {
+  id         String   @id @default(uuid())   @db.Uuid
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  assetId    String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String   @db.Uuid
+  assignedAt DateTime
+  notes      String?
+  condition  String
+}
+
+model Fault {
+  id         String      @id @default(uuid())   @db.Uuid
+  assetId    String      @db.Uuid
+  asset      Asset       @relation(fields: [assetId], references: [id])
+  reportedBy String      @db.Uuid
+  user       User        @relation(fields: [reportedBy], references: [id])
+  images     String[]
+  reason     String
+  status     FaultStatus @default(PENDING)
+  resolvedAt DateTime?
+  createdAt  DateTime    @default(now())
 }
 
 model Offboarding {
@@ -193,7 +225,7 @@ model Offboarding {
 }
 
 model OffboardingChecklist {
-  id            String      @id @default(uuid())
+  id            String      @id @default(uuid())   @db.Uuid
   task          String
   status        Status      @default(PENDING)
   // proof   Upload[]
@@ -229,34 +261,43 @@ enum Role {
   ADMIN
   USER
   MANAGER
-  SENIOR_MANAGER
+  FACILITY
 }
 
 enum AssetCategory {
   HARDWARE
   ACCESSORY
   LOGISTICS
-  SAFETYEKITS
+  OFFICE_FURNITURE
+  SOFTWARE
+  SAFETY_EQUIPMENT
 }
 
 enum AssetStatus {
-  ACTIVE
-  RETURNED
-  DAMAGED
-  LOST
+  AVAILABLE
+  ASSIGNED
+  REPORTED
+  FAULTY
+  RETIRED
+  ACCEPTED
+  MAINTENANCE
 }
 
-// enum OffboardingStatus {
-//   PENDING
-//   IN_PROGRESS
-//   COMPLETED
-// }
-
-// enum ChecklistStatus {
-//   PENDIN
-// }
+enum FaultStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
 
 enum ExitType {
   RESIGNATION
   TERMINATION
 }
+
+// enum AssetStatus {
+//   ACTIVE
+//   RETURNED
+//   DAMAGED
+//   LOST
+// }

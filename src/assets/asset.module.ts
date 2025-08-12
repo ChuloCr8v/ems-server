@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { AssetService } from './asset.service';
-import { AssetController } from './asset.controller';
 import { PrismaService } from '../prisma/prisma.service'; // adjust path if needed
+import { AssetsController } from './asset.controller';
+import { AssetService } from './asset.service';
 
 @Module({
-  controllers: [AssetController],
+  controllers: [AssetsController],
   providers: [AssetService, PrismaService],
 })
 export class AssetModule {}

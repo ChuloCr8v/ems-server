@@ -16,9 +16,6 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-     "esModuleInterop": true,
-    "moduleResolution": "node",
-    "types": ["node", "puppeteer", "express", "multer"],
     "noFallthroughCasesInSwitch": false
   }
 }

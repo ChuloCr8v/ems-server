@@ -1,5 +1,5 @@
 import { JobType } from "@prisma/client";
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class SendInviteDto {
     @IsNotEmpty()
@@ -45,7 +45,8 @@ export class CreateProspectDto {
     readonly gender: string;
 
     //Duration for CONTRACT-STAFF
-    @IsNotEmpty({ message: 'Duration is Required' })
+    // @IsNotEmpty({ message: 'Duration is Required' })
+    @IsOptional()
     @IsString()
     readonly duration: string;
 }
