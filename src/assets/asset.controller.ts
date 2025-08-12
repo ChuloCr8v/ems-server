@@ -10,7 +10,10 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
+import { join } from 'path';
 import {
   ApiTags,
   ApiOperation,
@@ -22,7 +25,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AssetService } from './asset.service';
@@ -46,38 +49,51 @@ export class AssetsController {
   })
   @ApiCreatedResponse({ description: 'Asset successfully created' })
   @UseInterceptors(
-    FilesInterceptor('files', 2, {
+    FileFieldsInterceptor([
+      { name: 'assetImage', maxCount: 1 },
+      { name: 'barcodeImage', maxCount: 1 },
+    ], {
       storage: diskStorage({
         destination: './uploads/assets',
         filename: (req, file, callback) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
-          const filename = `${uniqueSuffix}${ext}`;
+          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
           callback(null, filename);
         },
       }),
     }),
   )
-  create(
+  async create(
     @Body() createAssetDto: CreateAssetDto,
-    @UploadedFiles(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }), // 5MB
-          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-        ],
-        fileIsRequired: false,
-      }),
-    )
-    files: Array<Express.Multer.File>,
-  ) {
-    if (files && files.length > 0) {
-      createAssetDto.assetImage = files[0]?.path;
-      if (files.length > 1) {
-        createAssetDto.barcodeImage = files[1]?.path;
-      }
+    @UploadedFiles() files: {
+      assetImage?: Express.Multer.File[],
+      barcodeImage?: Express.Multer.File[]
     }
-    return this.assetsService.createAsset(createAssetDto);
+  ) {
+    return this.assetsService.createAsset(createAssetDto, files);
+  }
+
+  @Get('uploads/:filename')
+  @ApiOperation({ summary: 'Get uploaded asset image' })
+  @ApiParam({ name: 'filename', description: 'Image filename' })
+  async getAssetImage(
+    @Param('filename') filename: string,
+    @Res() res: Response
+  ) {
+    const filePath = join(process.cwd(), 'uploads', 'assets', filename);
+    res.sendFile(filePath);
+  }
+
+  @Get('faults/uploads/:filename')
+  @ApiOperation({ summary: 'Get uploaded fault image' })
+  @ApiParam({ name: 'filename', description: 'Image filename' })
+  async getFaultImage(
+    @Param('filename') filename: string,
+    @Res() res: Response
+  ) {
+    const filePath = join(process.cwd(), 'uploads', 'faults', filename);
+    res.sendFile(filePath);
   }
 
   @Get()
@@ -112,19 +128,19 @@ export class AssetsController {
   @ApiBody({ type: ReportFaultDto })
   @ApiCreatedResponse({ description: 'Fault successfully reported' })
   @UseInterceptors(
-    FilesInterceptor('images', 5, {
+    FileFieldsInterceptor([{ name: 'images', maxCount: 5 }], {
       storage: diskStorage({
         destination: './uploads/faults',
         filename: (req, file, callback) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
-          const filename = `${uniqueSuffix}${ext}`;
+          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
           callback(null, filename);
         },
       }),
     }),
   )
-  reportFault(
+  async reportFault(
     @Body() reportFaultDto: ReportFaultDto,
     @UploadedFiles(
       new ParseFilePipe({
@@ -136,8 +152,17 @@ export class AssetsController {
     )
     images: Array<Express.Multer.File>,
   ) {
-    reportFaultDto.images = images.map((image) => image.path);
-    return this.assetsService.reportFault(reportFaultDto);
+    const imageDetails = images.map(image => ({
+      url: `/assets/faults/uploads/${image.filename}`,
+      originalName: image.originalname,
+      size: image.size,
+      mimeType: image.mimetype
+    }));
+
+    return this.assetsService.reportFault({
+      ...reportFaultDto,
+      images: imageDetails,
+    });
   }
 
   @Put('faults/:id/status')
