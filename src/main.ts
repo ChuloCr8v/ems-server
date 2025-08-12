@@ -15,8 +15,8 @@ async function bootstrap() {
 
   // Swagger configuration
   const config = new DocumentBuilder()
-    .setTitle('Asset Management API')
-    .setDescription('API for managing assets, assignments, and fault reporting')
+    .setTitle('Employee Management System API')
+    .setDescription('API for managing onboarding and exit, leave, payroll, performance and reporting')
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -39,6 +39,6 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(3001);
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();

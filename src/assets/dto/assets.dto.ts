@@ -3,6 +3,33 @@ import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString, IsNumber, IsDateString, IsOptional, IsArray, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+
+export class ImageDto {
+  @ApiProperty({
+    description: 'URL to access the image',
+    example: 'https://example.com/uploads/asset-123.jpg'
+  })
+  url: string;
+
+  @ApiProperty({
+    description: 'Original filename',
+    example: 'laptop.jpg'
+  })
+  originalName: string;
+
+  @ApiProperty({
+    description: 'File size in bytes',
+    example: 102400
+  })
+  size: number;
+
+  @ApiProperty({
+    description: 'MIME type',
+    example: 'image/jpeg'
+  })
+  mimeType: string;
+}
+
 export class CreateAssetDto {
   @ApiProperty({
     description: 'Name of the asset',
@@ -64,23 +91,21 @@ export class CreateAssetDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({
-    description: 'URL or path to the asset image',
-    example: 'uploads/assets/asset-12345.jpg',
-    required: false,
+   @ApiPropertyOptional({
+    description: 'Asset image details',
+    type: ImageDto,
+    required: false
   })
   @IsOptional()
-  @IsString()
-  assetImage?: string;
+  assetImage?: ImageDto;
 
   @ApiPropertyOptional({
-    description: 'URL or path to the barcode image',
-    example: 'uploads/assets/barcode-12345.jpg',
-    required: false,
+    description: 'Barcode image details',
+    type: ImageDto,
+    required: false
   })
   @IsOptional()
-  @IsString()
-  barcodeImage?: string;
+  barcodeImage?: ImageDto;
 }
 
 export class AssignAssetDto {
@@ -159,7 +184,7 @@ export class ReportFaultDto {
   })
   @IsArray()
   @IsString({ each: true })
-  images: string[];
+  images: { url: string; originalName: string; size: number; mimeType: string }[];
 
   @ApiProperty({
     description: 'Reason for the fault report',
