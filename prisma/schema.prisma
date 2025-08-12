@@ -50,6 +50,7 @@ model User {
   userRole      Role?
   maritalStatus MaritalStatus
   contacts      Contacts?
+  offboarding   Offboarding?
   levelId       String?       @db.Uuid
   level         Level?        @relation(fields: [levelId], references: [id])
   prospectId    String?       @unique @db.Uuid
@@ -76,8 +77,6 @@ model Invite {
   prospectId String    @db.Uuid
   prospect   Prospect  @relation(fields: [prospectId], references: [id])
   comment    Comment[]
-
-
 }
 
 model Department {
@@ -99,17 +98,21 @@ model Level {
 }
 
 model Upload {
-  id         String    @id @default(uuid()) @db.Uuid
-  name       String
-  size       Int
-  type       String
-  bytes      Bytes?
-  prospectId String?   @db.Uuid
-  prospect   Prospect? @relation(fields: [prospectId], references: [id])
-  userId     String?   @db.Uuid
-  user       User?     @relation(fields: [userId], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  size          Int
+  type          String
+  bytes         Bytes?
+  prospectId    String?      @db.Uuid
+  prospect      Prospect?    @relation(fields: [prospectId], references: [id])
+  userId        String?      @db.Uuid
+  user          User?        @relation(fields: [userId], references: [id])
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  assetId       String?      @db.Uuid
+  asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@unique([userId, name])
 }
@@ -164,6 +167,8 @@ model Asset {
   status        AssetStatus
   dateAssigned  DateTime
   dateRetrieved DateTime?
+  isReturned    Boolean       @default(false)
+  paymentProof  Upload[]      @relation("AssetProof")
   assignedTo    User          @relation(fields: [assignedToId], references: [id])
   assignedToId  String        @db.Uuid
 
@@ -171,6 +176,30 @@ model Asset {
   updatedAt DateTime @updatedAt
 }
 
+model Offboarding {
+  id           String                 @id @default(uuid()) @db.Uuid
+  type         ExitType
+  lastWorkDate DateTime
+  reason       String
+  noticePeriod Boolean                @default(false)
+  userId       String                 @unique @db.Uuid
+  status       Status                 @default(PENDING)
+  user         User                   @relation(fields: [userId], references: [id])
+  uploads      Upload[]
+  checklist    OffboardingChecklist[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OffboardingChecklist {
+  id            String      @id @default(uuid())
+  task          String
+  status        Status      @default(PENDING)
+  // proof   Upload[]
+  offboardingId String      @db.Uuid
+  offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
+}
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
@@ -181,6 +210,8 @@ enum Status {
   ISSUE_REPORTED
   ACTIVE
   CONFIRMED
+  COMPLETED
+  IN_PROGRESS
 }
 
 enum JobType {
@@ -213,4 +244,19 @@ enum AssetStatus {
   RETURNED
   DAMAGED
   LOST
+}
+
+// enum OffboardingStatus {
+//   PENDING
+//   IN_PROGRESS
+//   COMPLETED
+// }
+
+// enum ChecklistStatus {
+//   PENDIN
+// }
+
+enum ExitType {
+  RESIGNATION
+  TERMINATION
 }

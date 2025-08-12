@@ -14,24 +14,37 @@ export class InviteController {
     @Auth([Role.ADMIN, Role.SUPERADMIN])
     @Post('send')
     @UseInterceptors(FilesInterceptor('uploads'))
-    async create(@Body() input: CreateProspectDto, @UploadedFiles() uploads: Express.Multer.File[], @Res() res: Response,) {
+    async create(
+       @Body() input: CreateProspectDto,
+       @UploadedFiles() uploads: Express.Multer.File[], 
+       @Res() res: Response,
+    ) {
       const prospect = await this.inviteService.createProspect(input, uploads, );
       return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect});
     }
 
     @Put('accept/:token')
-    async acceptInvite(@Param('token') token: string, @Res() res: Response, @Request() req: { user: IAuthUser}) {
+    async acceptInvite(
+      @Param('token') token: string, 
+      @Res() res: Response, 
+      @Request() req: { user: IAuthUser}
+    ) {
       const prospect = await this.inviteService.acceptInvite(token, req.user);
       return res.status(200).json({ message: `Prospect Has Accepted The Invitation`, prospect});
     }
 
     @Put('decline/:token')
-    async declineInvite(@Param('token') token: string, @Body() data: DeclineComment, @Res() res: Response, @Request() req: { user: IAuthUser}) {
+    async declineInvite(
+      @Param('token') token: string, 
+      @Body() data: DeclineComment, 
+      @Res() res: Response, 
+      @Request() req: { user: IAuthUser}
+    ) {
       const prospect = await this.inviteService.declineInvite(token, data, req.user);
       return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect});
     }
 
-    @Auth([Role.ADMIN, Role.SUPERADMIN])
+    // @Auth([Role.ADMIN, Role.SUPERADMIN])
     @Get()
     async getAllProspects(@Res() res: Response) {
       const prospects = await this.inviteService.getAllProspects();
