@@ -1,38 +1,64 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto } from './dto/assets.dto';
+import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto, ImageDto } from './dto/assets.dto';
 import { AssetStatus, FaultStatus } from '@prisma/client';
 
 @Injectable()
 export class AssetService {
   constructor(private prisma: PrismaService) {}
 
-  
-  async createAsset(createAssetDto: CreateAssetDto) {
-
-     const existing = await this.prisma.asset.findUnique({
-    where: { serialNo: createAssetDto.serialNo },
-  });
-
-  if (existing) {
-    throw new Error(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
+   private toImageObject(file: Express.Multer.File): ImageDto {
+    return {
+      url: `/assets/uploads/${file.filename}`,
+      originalName: file.originalname,
+      size: file.size,
+      mimeType: file.mimetype
+    };
   }
 
-    return this.prisma.asset.create({
-      data: {
-        name: createAssetDto.name,
-        serialNo: createAssetDto.serialNo,
-        category: createAssetDto.category,
-        purchaseDate: new Date(createAssetDto.purchaseDate),
-        vendor: createAssetDto.vendor,
-        cost: Number(createAssetDto.cost),
-        description: createAssetDto.description,
-        assetImage: createAssetDto.assetImage,
-        barcodeImage: createAssetDto.barcodeImage,
-        status: AssetStatus.AVAILABLE,
-      }
+  async createAsset(
+    createAssetDto: CreateAssetDto,
+    files?: {
+      assetImage?: Express.Multer.File[],
+      barcodeImage?: Express.Multer.File[]
+    }
+  ) {
+    const existing = await this.prisma.asset.findUnique({
+      where: { serialNo: createAssetDto.serialNo },
     });
+
+    if (existing) {
+      throw new BadRequestException(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
+    }
+
+    const data = {
+      name: createAssetDto.name,
+      serialNo: createAssetDto.serialNo,
+      category: createAssetDto.category,
+      purchaseDate: new Date(createAssetDto.purchaseDate),
+      vendor: createAssetDto.vendor,
+      cost: Number(createAssetDto.cost),
+      description: createAssetDto.description,
+      status: AssetStatus.AVAILABLE,
+      // Store as JSON string in database
+      assetImage: files?.assetImage?.[0] ? 
+        JSON.stringify(this.toImageObject(files.assetImage[0])) : 
+        createAssetDto.assetImage ? JSON.stringify(createAssetDto.assetImage) : null,
+      barcodeImage: files?.barcodeImage?.[0] ? 
+        JSON.stringify(this.toImageObject(files.barcodeImage[0])) : 
+        createAssetDto.barcodeImage ? JSON.stringify(createAssetDto.barcodeImage) : null,
+    };
+
+    const asset = await this.prisma.asset.create({ data });
+    
+    // Parse the JSON strings back to objects for response
+    return {
+      ...asset,
+      assetImage: asset.assetImage ? JSON.parse(asset.assetImage) : null,
+      barcodeImage: asset.barcodeImage ? JSON.parse(asset.barcodeImage) : null
+    };
   }
+
 
   async getAllAssets() {
     return this.prisma.asset.findMany({
@@ -234,7 +260,7 @@ export class AssetService {
             data: {
                 assetId: reportFaultDto.assetId,
                 reportedBy: reportFaultDto.reportedBy,
-                images: reportFaultDto.images,
+                images: reportFaultDto.images.map(img => img.url),
                 reason: reportFaultDto.reason,
                 status: FaultStatus.PENDING, // Explicit status
                 createdAt: new Date(), // Timestamp
