@@ -96,7 +96,7 @@ export class AssetsController {
     return this.assetsService.getAssetById(id);
   }
 
-  @Auth([Role.ADMIN, Role.FACILITY])
+  // @Auth([Role.ADMIN, Role.FACILITY])
   @Post('assign')
   @ApiOperation({ summary: 'Assign asset to user' })
   @ApiBody({ type: AssignAssetDto })

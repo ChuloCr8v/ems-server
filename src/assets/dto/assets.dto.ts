@@ -125,14 +125,14 @@ export class AssignAssetDto {
   @IsString()
   notes?: string;
 
-  @ApiProperty({
-    enum: AssetStatus,
-    description: 'Status of the asset after assignment',
-    example: 'ASSIGNED',
-  })
-  @IsNotEmpty()
-  @IsString()
-  status?: AssetStatus;
+  // @ApiProperty({
+  //   enum: AssetStatus,
+  //   description: 'Status of the asset after assignment',
+  //   example: 'ASSIGNED',
+  // })
+  // @IsNotEmpty()
+  // @IsString()
+  // status?: AssetStatus;
 }
 
 export class ReportFaultDto {

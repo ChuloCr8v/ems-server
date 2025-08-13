@@ -18,3 +18,14 @@ export class InitiateExit {
     @IsNotEmpty()
     noticePeriod: boolean;
 }
+
+
+export class ReturnAsset {
+    @IsString()
+    @IsNotEmpty()
+    condition: string;
+
+    @IsString()
+    @IsNotEmpty()
+    reason: string;
+}

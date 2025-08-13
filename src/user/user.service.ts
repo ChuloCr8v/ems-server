@@ -295,6 +295,7 @@ export class UserService {
                     contacts: true,
                     department: true,
                     prospect: true,
+                    assignments: true,
                 },
             });
             if (!user) {

@@ -65,7 +65,8 @@ export class CreateUserDto {
     @IsString()
     gender: string;
 
-    @IsNotEmpty({ message: 'Duration is Required' })
+    // @IsNotEmpty({ message: 'Duration is Required' })
+    @IsOptional()
     @IsString()
     duration: string;
 
@@ -113,8 +114,8 @@ export class ApproveUserDto {
     @IsNotEmpty({ message: 'Level is Required' })
     levelId: string;
 
-    @IsString()
     @IsNotEmpty({ message: 'Employee ID Number is Required' })
+    @IsString()
     eId: string;
 
     @IsEnum(Role, { each: true })

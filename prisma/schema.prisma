@@ -165,7 +165,7 @@ model Comment {
 }
 
 model Asset {
-  id           String        @id @default(uuid())  @db.Uuid
+  id           String        @id @default(uuid()) @db.Uuid
   name         String
   serialNo     String        @unique
   category     AssetCategory
@@ -185,18 +185,21 @@ model Asset {
 }
 
 model Assignment {
-  id         String   @id @default(uuid())   @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   asset      Asset    @relation(fields: [assetId], references: [id])
   assetId    String   @db.Uuid
   user       User     @relation(fields: [userId], references: [id])
   userId     String   @db.Uuid
   assignedAt DateTime
+  returnedAt DateTime?
   notes      String?
   condition  String
+  isVerified Boolean @default(false)
+  verifiedAt  DateTime?
 }
 
 model Fault {
-  id         String      @id @default(uuid())   @db.Uuid
+  id         String      @id @default(uuid()) @db.Uuid
   assetId    String      @db.Uuid
   asset      Asset       @relation(fields: [assetId], references: [id])
   reportedBy String      @db.Uuid
@@ -225,7 +228,7 @@ model Offboarding {
 }
 
 model OffboardingChecklist {
-  id            String      @id @default(uuid())   @db.Uuid
+  id            String      @id @default(uuid()) @db.Uuid
   task          String
   status        Status      @default(PENDING)
   // proof   Upload[]
@@ -262,6 +265,7 @@ enum Role {
   USER
   MANAGER
   FACILITY
+  ASSET_MANAGER
 }
 
 enum AssetCategory {
@@ -281,6 +285,7 @@ enum AssetStatus {
   RETIRED
   ACCEPTED
   MAINTENANCE
+  RETURNED
 }
 
 enum FaultStatus {
