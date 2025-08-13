@@ -23,6 +23,7 @@ export class InviteController {
     description: 'Prospect data with optional file uploads',
     type: CreateProspectDto,
   })
+
   @ApiResponse({ status: 200, description: 'A New Prospect Has Been Added' })
   @UseInterceptors(FilesInterceptor('uploads'))
   async create(
