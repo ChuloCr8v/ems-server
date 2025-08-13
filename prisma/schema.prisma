@@ -51,6 +51,7 @@ model User {
   userRole      Role?
   maritalStatus MaritalStatus
   contacts      Contacts?
+  offboarding   Offboarding?
   levelId       String?       @db.Uuid
   level         Level?        @relation(fields: [levelId], references: [id])
   prospectId    String?       @unique @db.Uuid
@@ -99,17 +100,21 @@ model Level {
 }
 
 model Upload {
-  id         String    @id @default(uuid()) @db.Uuid
-  name       String
-  size       Int
-  type       String
-  bytes      Bytes?
-  prospectId String?   @db.Uuid
-  prospect   Prospect? @relation(fields: [prospectId], references: [id])
-  userId     String?   @db.Uuid
-  user       User?     @relation(fields: [userId], references: [id])
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id            String       @id @default(uuid()) @db.Uuid
+  name          String
+  size          Int
+  type          String
+  bytes         Bytes?
+  prospectId    String?      @db.Uuid
+  prospect      Prospect?    @relation(fields: [prospectId], references: [id])
+  userId        String?      @db.Uuid
+  user          User?        @relation(fields: [userId], references: [id])
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  // assetId       String?      @db.Uuid
+  // asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@unique([userId, name])
 }
@@ -168,8 +173,13 @@ model Asset {
   vendor       String
   cost         Float
   assetImage   String?
+  vendor       String
+  cost         Float
+  assetImage   String?
   barcodeImage String?
   description  String?
+  isReturned   Boolean       @default(false)
+  // paymentProof  Upload[]      @relation("AssetProof")
   status       AssetStatus   @default(AVAILABLE)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -177,26 +187,16 @@ model Asset {
   faults       Fault[]
 }
 
-// model Assignment {
-//   id          String     @id @default(uuid())
-//   assetId     String
-//   asset       Asset      @relation(fields: [assetId], references: [id])
-//   userId      String
-//   user        User       @relation(fields: [userId], references: [id])
-//   assignedAt  DateTime
-//   condition   String
-//   notes       String?
-//   returnedAt  DateTime?
-//   createdAt   DateTime   @default(now())
-// }
-
 model Assignment {
   id         String   @id @default(uuid())
   asset      Asset    @relation(fields: [assetId], references: [id])
-  assetId    String
+  assetId    String   @db.Uuid
   user       User     @relation(fields: [userId], references: [id])
   userId     String   @db.Uuid
+  userId     String   @db.Uuid
   assignedAt DateTime
+  notes      String?
+  condition  String
   notes      String?
   condition  String
 }
@@ -214,21 +214,29 @@ model Fault {
   createdAt  DateTime    @default(now())
 }
 
-enum AssetStatus {
-  AVAILABLE
-  ASSIGNED
-  REPORTED
-  FAULTY
-  RETIRED
-  ACCEPTED
-  MAINTENANCE
+model Offboarding {
+  id           String                 @id @default(uuid()) @db.Uuid
+  type         ExitType
+  lastWorkDate DateTime
+  reason       String
+  noticePeriod Boolean                @default(false)
+  userId       String                 @unique @db.Uuid
+  status       Status                 @default(PENDING)
+  user         User                   @relation(fields: [userId], references: [id])
+  uploads      Upload[]
+  checklist    OffboardingChecklist[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-enum FaultStatus {
-  PENDING
-  IN_REVIEW
-  RESOLVED
-  REJECTED
+model OffboardingChecklist {
+  id            String      @id @default(uuid()) @db.Uuid
+  task          String
+  status        Status      @default(PENDING)
+  // proof   Upload[]
+  offboardingId String      @db.Uuid
+  offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
 }
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -240,6 +248,8 @@ enum Status {
   ISSUE_REPORTED
   ACTIVE
   CONFIRMED
+  COMPLETED
+  IN_PROGRESS
 }
 
 enum JobType {
@@ -267,6 +277,28 @@ enum AssetCategory {
   OFFICE_FURNITURE
   SOFTWARE
   SAFETY_EQUIPMENT
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  REPORTED
+  FAULTY
+  RETIRED
+  ACCEPTED
+  MAINTENANCE
+}
+
+enum FaultStatus {
+  PENDING
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum ExitType {
+  RESIGNATION
+  TERMINATION
 }
 
 // enum AssetStatus {
