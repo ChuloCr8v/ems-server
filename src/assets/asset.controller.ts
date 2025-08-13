@@ -34,9 +34,9 @@ import { Role } from '@prisma/client';
 @ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetService) {}
+  constructor(private readonly assetsService: AssetService) { }
 
-  @Auth([Role.ADMIN, Role.FACILITY])
+  // @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
   @ApiOperation({ summary: 'Create a new asset' })
   @ApiConsumes('multipart/form-data')

@@ -27,7 +27,7 @@ async function bootstrap() {
         description: 'Enter JWT token',
         in: 'header',
       },
-      'JWT-auth', 
+      'JWT-auth',
     )
     .build();
 
@@ -39,6 +39,6 @@ async function bootstrap() {
     },
   });
 
-  await app.listen(3001);
+  await app.listen(4000);
 }
 bootstrap();
