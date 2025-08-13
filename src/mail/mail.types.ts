@@ -1,10 +1,12 @@
-import { IsEmail, IsString } from "class-validator"
+import { IsEmail, IsOptional, IsString, IsUrl } from "class-validator"
 
 export const MAIL_SUBJECT = {
     PROSPECT_INVITATION: 'Prospect Invitation',
     OFFER_ACCEPTANCE: 'Offer Acceptance',
     UPDATE_USER_INFO: 'Update User Information',
     DECLINE_OFFER: 'Declined Offer',
+    WELCOME_EMAIL:  '',
+    
 }
 
 export class ProspectInviteDto {
@@ -58,3 +60,18 @@ export class UpdateProspectInfoDto {
     link: string;
 }
 
+export class WelcomeEmailDto {
+  @IsEmail({})
+  email: string;
+
+  @IsString({ message: 'Name must be a string' })
+  name: string;
+
+  @IsOptional()
+  @IsString({})
+  loginLink?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Temporary password must be a string' })
+  temporaryPassword?: string;
+}

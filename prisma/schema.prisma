@@ -62,6 +62,8 @@ model User {
   comment       Comment[]
   assignments    Assignment[]
   faults         Fault[]
+  // dept           Dept?
+  // rank           Rank?
 }
 
 model Invite {
@@ -269,6 +271,22 @@ enum AssetCategory {
   SOFTWARE
   SAFETY_EQUIPMENT
  
+}
+
+enum Dept {
+  PRODUCT_SERVICES
+  HR_ADMIN
+  FACILITY
+  CUSTOMER_SUCCESS
+  TECHNICAL_SALES
+  MANAGED_SERVICES
+  TECHNOLOGY_SOLUTIONS
+}
+
+enum Rank {
+  JUNIOR
+  MID
+  SENIOR
 }
 
 // enum AssetStatus {

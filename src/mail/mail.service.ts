@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, DeclinedInviteDto, MAIL_SUBJECT, ProspectInviteDto, UpdateProspectInfoDto } from './mail.types';
+import { AcceptanceInviteDto, DeclinedInviteDto, MAIL_SUBJECT, ProspectInviteDto, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MailService {
 
-  constructor(private mailerService: MailerService) {}
+  constructor(private mailerService: MailerService,
+      private config: ConfigService,
+  ) {}
 
    async sendProspectMail(input: ProspectInviteDto) {
     const { email, firstName, token, attachments } = input;
@@ -52,5 +55,24 @@ export class MailService {
       template: 'user',
       context: { name, comment, link },
     })
+  }
+
+   async sendWelcomeEmail(data: WelcomeEmailDto) {
+    const { email, name, loginLink, temporaryPassword } = data;
+    
+    await this.mailerService.sendMail({
+      from: this.config.get('EMAIL_FROM'),
+      to: email,
+      subject: MAIL_SUBJECT.WELCOME_EMAIL,
+      template: 'welcome',
+      context: {
+        name,
+        loginLink: loginLink || this.config.get('CLIENT_LOGIN_URL'),
+        temporaryPassword,
+        appName: this.config.get('APP_NAME'),
+        companyName: this.config.get('COMPANY_NAME'),
+        currentYear: new Date().getFullYear(),
+      },
+    });
   }
 }
