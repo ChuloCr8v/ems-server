@@ -15,19 +15,19 @@ export class ImageDto {
     description: 'Original filename',
     example: 'laptop.jpg'
   })
-  originalName: string;
+  originalName?: string;
 
   @ApiProperty({
     description: 'File size in bytes',
     example: 102400
   })
-  size: number;
+  size?: number;
 
   @ApiProperty({
     description: 'MIME type',
     example: 'image/jpeg'
   })
-  mimeType: string;
+  mimeType?: string;
 }
 
 export class CreateAssetDto {

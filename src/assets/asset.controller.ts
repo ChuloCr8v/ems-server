@@ -11,6 +11,8 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   Res,
+  ParseUUIDPipe,
+  UploadedFile,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { join } from 'path';
@@ -25,7 +27,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AssetService } from './asset.service';
@@ -50,8 +52,8 @@ export class AssetsController {
   @ApiCreatedResponse({ description: 'Asset successfully created' })
   @UseInterceptors(
     FileFieldsInterceptor([
-      { name: 'assetImage', maxCount: 1 },
-      { name: 'barcodeImage', maxCount: 1 },
+      { name: 'assetImage', maxCount: 5 },
+      { name: 'barcodeImage', maxCount: 5 },
     ], {
       storage: diskStorage({
         destination: './uploads/assets',
@@ -73,6 +75,31 @@ export class AssetsController {
   ) {
     return this.assetsService.createAsset(createAssetDto, files);
   }
+
+    @Post()
+    @UseInterceptors(
+      FilesInterceptor('files', 20, {
+        dest: './uploads',
+        fileFilter: (req, file, cb) => {
+          // You can add file filtering logic here
+          cb(null, true);
+        },
+        limits: {
+          fileSize: 1024 * 1024 * 5, // 5MB limit per file
+        },
+      }),
+    )
+    async createAsset(
+      @Body() createAssetDto: CreateAssetDto,
+      @UploadedFiles() files: Express.Multer.File[],
+    ) {
+      const processedFiles = {
+        assetImage: files?.filter(f => f.fieldname === 'assetImage'),
+        barcodeImage: files?.filter(f => f.fieldname === 'barcodeImage'),
+      };
+      return this.assetsService.createAsset(createAssetDto, processedFiles);
+    }
+    
 
   @Get('uploads/:filename')
   @ApiOperation({ summary: 'Get uploaded asset image' })
@@ -175,7 +202,7 @@ export class AssetsController {
     @Param('id') id: string,
     @Body() updateFaultStatusDto: UpdateFaultStatusDto,
   ) {
-    return this.assetsService.updateFaultStatus(id, updateFaultStatusDto);
+    return this.assetsService.resolveFault(id, updateFaultStatusDto);
   }
 
   @Get('faulty/list')
@@ -191,4 +218,54 @@ export class AssetsController {
   getAssignedAssets() {
     return this.assetsService.getAssignedAssets();
   }
+
+   @Get('assigned/:id')
+  @ApiOperation({ summary: 'Get assigned asset by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'UUID of the assigned asset',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the assigned asset with assignment history',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Asset not found or not currently assigned',
+  })
+     getAssignedAssetById(@Param('id', ParseUUIDPipe) assetId: string) {
+    return this.assetsService.getAssignedAssetById(assetId);
+  }
+
+   @Post('bulk-upload')
+  @UseInterceptors(FilesInterceptor('file'))
+  @ApiOperation({ summary: 'Bulk upload assets from Excel file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Excel file containing asset data',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Assets created successfully',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid file or missing required fields',
+  })
+  async createMultiAssets(@UploadedFile() file: Express.Multer.File) {
+    return this.assetsService.createMultiAssets(file);
+  }
+
 }
+
+ 
