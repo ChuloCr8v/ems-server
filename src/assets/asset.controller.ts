@@ -265,7 +265,6 @@ export class AssetsController {
   async createMultiAssets(@UploadedFile() file: Express.Multer.File) {
     return this.assetsService.createMultiAssets(file);
   }
-
 }
 
  

@@ -1,4 +1,4 @@
-import { Dept, JobType, MaritalStatus, Rank, Role } from '@prisma/client';
+import {  JobType, MaritalStatus, Role } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 
