@@ -22,7 +22,7 @@ import { OffboardingModule } from './offboarding/offboarding.module';
     DepartmentModule,
     LevelModule,
     AssetModule,
-    OffboardingModule,
+    OffboardingModule
   ],
   controllers: [AppController],
   providers: [AppService],

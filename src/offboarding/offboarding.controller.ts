@@ -21,3 +21,4 @@ export class OffboardingController {
     // return res.status(200).json({ message: `Offboarding has been initiated`, exit});
   }
 }
+
