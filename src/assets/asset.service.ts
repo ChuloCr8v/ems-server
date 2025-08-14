@@ -417,6 +417,7 @@ async updateAsset(
         };
       });
   }
+  
   async resolveFault(faultId: string, updateFaultStatusDto: UpdateFaultStatusDto) {
     const fault = await this.prisma.fault.findUnique({
       where: { id: faultId },
