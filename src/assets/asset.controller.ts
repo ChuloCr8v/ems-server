@@ -50,7 +50,7 @@ export class AssetsController {
   @ApiCreatedResponse({ description: 'Asset successfully created' })
   @UseInterceptors(
     FileFieldsInterceptor([
-      { name: 'assetImage', maxCount: 1 },
+      { name: 'assetImage', maxCount: 3 },
       { name: 'barcodeImage', maxCount: 1 },
     ], {
       storage: diskStorage({
@@ -71,6 +71,9 @@ export class AssetsController {
       barcodeImage?: Express.Multer.File[]
     }
   ) {
+
+    console.log(files)
+    // return files
     return this.assetsService.createAsset(createAssetDto, files);
   }
 
@@ -112,14 +115,14 @@ export class AssetsController {
     return this.assetsService.getAssetById(id);
   }
 
-  @Auth([Role.ADMIN, Role.FACILITY])
-  @Post('assign')
+  // @Auth([Role.ADMIN, Role.FACILITY])
+  @Put('assign/:id')
   @ApiOperation({ summary: 'Assign asset to user' })
   @ApiBody({ type: AssignAssetDto })
   @ApiCreatedResponse({ description: 'Asset successfully assigned' })
   @ApiResponse({ status: 400, description: 'Invalid assignment data' })
-  async assignAsset(@Body() assignAssetDto: AssignAssetDto) {
-    return this.assetsService.assignAsset(assignAssetDto);
+  async assignAsset(@Param("id") id: string, @Body() dto: AssignAssetDto) {
+    return this.assetsService.assignAsset(id, dto);
   }
 
   @Post('report-fault')

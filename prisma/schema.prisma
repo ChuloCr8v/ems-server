@@ -165,14 +165,11 @@ model Comment {
 }
 
 model Asset {
-  id           String        @id @default(uuid())
+  id           String        @id @default(uuid()) @db.Uuid
   name         String
   serialNo     String        @unique
   category     AssetCategory
   purchaseDate DateTime
-  vendor       String
-  cost         Float
-  assetImage   String?
   vendor       String
   cost         Float
   assetImage   String?
@@ -193,17 +190,13 @@ model Assignment {
   assetId    String   @db.Uuid
   user       User     @relation(fields: [userId], references: [id])
   userId     String   @db.Uuid
-  userId     String   @db.Uuid
   assignedAt DateTime
   notes      String?
-  condition  String
-  notes      String?
-  condition  String
 }
 
 model Fault {
   id         String      @id @default(uuid())
-  assetId    String
+  assetId    String      @db.Uuid
   asset      Asset       @relation(fields: [assetId], references: [id])
   reportedBy String      @db.Uuid
   user       User        @relation(fields: [reportedBy], references: [id])
