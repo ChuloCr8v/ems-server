@@ -1,6 +1,6 @@
-import { JobType, MaritalStatus, Role } from '@prisma/client';
-import { Type } from 'class-transformer';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import {  JobType, MaritalStatus, Role } from '@prisma/client';
+import { Transform, Type } from 'class-transformer';
+import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 
 export class EmergencyContactDto {
     @IsNotEmpty({ message: 'First Name is Required' })
@@ -127,4 +127,97 @@ export class UpdateUserInfo {
     @IsString()
     @IsNotEmpty()
     comment: string;
+}
+
+// add-employee.dto.ts
+
+export class AddEmployeeDto {
+  @IsNotEmpty()
+  @IsString()
+  firstName: string;
+
+  @IsNotEmpty()
+  @IsString()
+  lastName: string;
+
+  @IsNotEmpty()
+  @IsEmail()
+  email: string;
+
+  @IsNotEmpty()
+  @IsString()
+  phone: string;
+
+  @IsNotEmpty()
+  @IsString()
+  gender: string;
+
+//   @IsNotEmpty()
+//   @IsString()
+//   departmentId: string;
+
+  @IsNotEmpty()
+  @IsEnum(JobType)
+  jobType: JobType;
+
+  @IsNotEmpty()
+  @IsString()
+  role: string;
+
+  @IsNotEmpty()
+  @IsEnum(Role)
+  userRole: Role;
+
+//    @IsNotEmpty()
+//   @IsEnum(Dept)
+//   dept: Dept;  
+
+//   @IsOptional()
+//   @IsEnum(Rank)
+//   rank?: Rank;  
+
+  @IsNotEmpty()
+  @IsString()
+  country: string;
+
+  @IsNotEmpty()
+  @IsString()
+  state: string;
+
+  @IsNotEmpty()
+  @IsEnum(MaritalStatus)
+  maritalStatus: MaritalStatus;
+
+  @IsNotEmpty()
+  @IsString()
+  address: string;
+
+  @IsNotEmpty()
+  @IsDate()
+  @Transform(({ value }) => new Date(value))
+  startDate: Date;
+
+  @ValidateNested()
+  @Type(() => EmergencyContactDto)
+  emergencyContact: EmergencyContactDto;
+
+  @ValidateNested()
+  @Type(() => EmergencyContactDto)
+  guarantorContact: EmergencyContactDto;
+
+  @IsOptional()
+  @IsString()
+  workPhone?: string;
+
+//   @IsOptional()
+//   @IsString()
+//   levelId?: string;
+
+  @IsOptional()
+  @IsString()
+  eId?: string;
+
+  @IsOptional()
+  @IsString()
+  duration?: string;
 }
