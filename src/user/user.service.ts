@@ -496,137 +496,160 @@ export class UserService {
 //     throw new BadRequestException(error.message || 'Failed to add employee');
 //   }
 // }
-// async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
-//   const {
-//     jobType,
-//     duration,
-//     email,
-//     firstName,
-//     lastName,
-//     phone,
-//     // dept,
-//     role, // Position (string)
-//     userRole, // System role (enum)
-//     startDate,
-//     country,
-//     state,
-//     maritalStatus,
-//     address,
-//     emergencyContact,
-//     guarantorContact,
-//     workPhone,
-//     // rank,
-//     eId,
-//   } = data;
 
-//   try {
-//     // Validate contract duration if job type is CONTRACT
-//     if (jobType === JobType.CONTRACT && !duration) {
-//       throw new BadRequestException('Duration is required for contract employees');
-//     }
+async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
+  const {
+    jobType,
+    duration,
+    email,
+    firstName,
+    lastName,
+    phone,
+    departmentId,
+    levelId,
+    // dept,
+    role, // Position (string)
+    userRole, // System role (enum)
+    startDate,
+    country,
+    state,
+    maritalStatus,
+    address,
+    emergencyContact,
+    guarantorContact,
+    workPhone,
+    // rank,
+    eId,
+  } = data;
 
-//     // Check if email already exists
-//     const existingUser = await this.findByEmail(email);
-//     if (existingUser) {
-//       throw new BadRequestException('Email already exists in the system');
-//     }
+  try {
+    if (jobType === JobType.CONTRACT && !duration) {
+      throw new BadRequestException('Duration is required for contract employees');
+    }
 
-//     const result = await this.prisma.$transaction(async (prisma) => {
-//       // Create user
-//       const user = await prisma.user.create({
-//         data: {
-//           firstName,
-//           lastName,
-//           phone,
-//           workPhone,
-//           gender: data.gender,
-//           role, // Position (string)
-//           userRole, // System role (enum)
-//           jobType,
-//           startDate: new Date(startDate),
-//           duration: jobType === JobType.CONTRACT ? duration : null,
-//         //   department: {
-//         //     connect: { id: departmentId },
-//         //   },
-//         // dept,
-//         // rank,
-//           country,
-//           state,
-//           address,
-//           maritalStatus,
-//           email,
-//           eId,
-//           status: Status.ACTIVE,
-//           contacts: {
-//             create: {
-//               emergency: {
-//                 create: {
-//                   firstName: emergencyContact.firstName,
-//                   lastName: emergencyContact.lastName,
-//                   phone: emergencyContact.phone,
-//                   email: emergencyContact.email,
-//                 },
-//               },
-//               guarantor: {
-//                 create: {
-//                   firstName: guarantorContact.firstName,
-//                   lastName: guarantorContact.lastName,
-//                   phone: guarantorContact.phone,
-//                   email: guarantorContact.email,
-//                 },
-//               },
-//             },
-//           },
-//         //   ...(levelId && {
-//         //     level: {
-//         //       connect: { id: levelId },
-//         //     },
-//         //   }),
-//         },
-//         include: {
-//           contacts: true,
-//           department: true,
-//           level: true,
-//         },
-//       });
+    const existingUser = await this.findByEmail(email);
+    if (existingUser) {
+      throw new BadRequestException('Email already exists in the system');
+    }
+    if (!departmentId) {
+      throw new BadRequestException('departmentId is required');
+    }
+     const departmentExists = await this.prisma.department.findUnique({
+      where: { id: departmentId }
+    });
 
-//       // Handle file uploads if any
-//       if (files?.length) {
-//         const uploads = files.map((file) => ({
-//           name: file.originalname,
-//           size: file.size,
-//           type: file.mimetype,
-//           bytes: file.buffer,
-//           userId: user.id,
-//         }));
+    if (!departmentExists) {
+      throw new BadRequestException('Department not found');
+    }
+    if (levelId) {
+        const levelExists = await this.prisma.level.findUnique({
+        where: { id: levelId }
+    });
 
-//         await prisma.upload.createMany({
-//           data: uploads,
-//         });
-//       }
+    if (!levelExists) {
+        throw new BadRequestException('Level not found');
+    }
+}
 
-//       return { user };
-//     });
+    const result = await this.prisma.$transaction(async (prisma) => {
+      const user = await prisma.user.create({
+        data: {
+          firstName,
+          lastName,
+          phone,
+          workPhone,
+          gender: data.gender,
+          role, // Position (string)
+          userRole, // System role (enum)
+          jobType,
+          startDate: new Date(startDate),
+          duration: jobType === JobType.CONTRACT ? duration : null,
+          department: {
+            connect: { id: departmentId },
+          },
+          level: {
+            connect: { id: levelId },
+          },
+          
+        // dept,
+        // rank,
+          country,
+          state,
+          address,
+          maritalStatus,
+          email,
+          eId,
+          status: Status.ACTIVE,
+          contacts: {
+            create: {
+              emergency: {
+                create: {
+                  firstName: emergencyContact.firstName,
+                  lastName: emergencyContact.lastName,
+                  phone: emergencyContact.phone,
+                  email: emergencyContact.email,
+                },
+              },
+              guarantor: {
+                create: {
+                  firstName: guarantorContact.firstName,
+                  lastName: guarantorContact.lastName,
+                  phone: guarantorContact.phone,
+                  email: guarantorContact.email,
+                },
+              },
+            },
+          },
+        //   ...(levelId && {
+        //     level: {
+        //       connect: { id: levelId },
+        //     },
+        //   }),
+        },
+        include: {
+          contacts: true,
+          department: true,
+          level: true,
+        },
+      });
 
-//     // Send welcome email
-//     await this.mail.sendWelcomeEmail({
-//       email: result.user.email,
-//       name: `${result.user.firstName} ${result.user.lastName}`,
-//       loginLink: 'https://yourportal.com/login',
-//       temporaryPassword: 'initial123',
-//     //   userRole: result.user.userRole // Include role in email if needed
-//     });
+      // Handle file uploads if any
+      if (files?.length) {
+        const uploads = files.map((file) => ({
+          name: file.originalname,
+          size: file.size,
+          type: file.mimetype,
+          bytes: file.buffer,
+          userId: user.id,
+        }));
 
-//     return {
-//       success: true,
-//       data: result.user,
-//       message: 'Employee added successfully',
-//     };
-//   } catch (error) {
-//     this.logger.error('Failed to add employee', error.stack);
-//     throw new BadRequestException(error.message || 'Failed to add employee');
-//   }
-// }
+        await prisma.upload.createMany({
+          data: uploads,
+        });
+      }
+
+      return { user };
+    });
+
+    // Send welcome email
+    await this.mail.sendWelcomeEmail({
+      email: result.user.email,
+      name: `${result.user.firstName} ${result.user.lastName}`,
+      loginLink: 'https://yourportal.com/login',
+      temporaryPassword: 'initial123',
+    //   userRole: result.user.userRole // Include role in email if needed
+    });
+
+    return {
+      success: true,
+      data: result.user,
+      message: 'Employee added successfully',
+    };
+  } catch (error) {
+    this.logger.error('Failed to add employee', error.stack);
+    throw new BadRequestException(error.message || 'Failed to add employee');
+  }
+}
 
 }
 

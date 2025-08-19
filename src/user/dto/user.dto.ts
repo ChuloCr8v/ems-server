@@ -152,9 +152,13 @@ export class AddEmployeeDto {
   @IsString()
   gender: string;
 
-//   @IsNotEmpty()
-//   @IsString()
-//   departmentId: string;
+   @IsNotEmpty()
+  @IsString()
+  departmentId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  levelId: string;
 
   @IsNotEmpty()
   @IsEnum(JobType)

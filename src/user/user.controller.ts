@@ -165,7 +165,7 @@ export class UserController {
       throw new BadRequestException(errors);
     }
 
-    // return this.userService.addEmployee(dto, files);
+    return this.userService.addEmployee(dto, files);
   } catch (error) {
     if (error instanceof BadRequestException) {
       throw error;
