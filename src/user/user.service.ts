@@ -24,14 +24,6 @@ export class UserService {
             //First find prospect by ID
             const prospect = await this.invite.__findProspectById(id);
 
-            if (jobType === JobType.CONTRACT && !duration) {
-                throw new BadRequestException('Duration is required for CONTRACT positions');
-            }
-            if (jobType !== JobType.CONTRACT && duration) {
-                throw new BadRequestException('Duration should only be provided for CONTRACT positions')
-            }
-            // console.log(prospect);
-
             const result = await this.prisma.$transaction(async (prisma) => {
                 // Create user
                 const user = await prisma.user.create({
@@ -104,11 +96,12 @@ export class UserService {
 
             return result;
         } catch (error) {
-            console.log(error.message)
-            bad("User Not Created")
-        }
+    if (error instanceof BadRequestException) {
+      throw error;
     }
-
+    throw new InternalServerErrorException('Failed to create user');
+  }
+    }
 
     async approveUser(id: string, data: ApproveUserDto) {
         const { email, workPhone, userRole, levelId, eId } = data;
@@ -136,9 +129,11 @@ export class UserService {
             });
             return approveUser;
         } catch (error) {
-            console.log(error.message)
-            bad("User could not be Approved");
-        }
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+    throw new InternalServerErrorException('Failed to approve user');
+  }
     }
 
     async updateUserInfo(id: string, data: UpdateUserInfo) {
@@ -165,31 +160,17 @@ export class UserService {
             name: `${user.firstName}`,
             comment: editUser.comment,
             link: link,
-        })
-
-        // await this.mail.sendMail({
-        //     to: user.prospect.email,
-        //     subject: MAIL_SUBJECT.UPDATE_USER_INFO,
-        //     html: MAIL_MESSAGE.UPDATE_USER_INFO({
-        //         firstName: user.firstName,
-        //         comment: editUser.comment,
-        //         link: link
-        //     }),
-        // });
+        });
+        
         return editUser;
     } catch (error) {
          console.log(error.message)
         bad("Edit User Link could not be Sent");
     }
-  }
+    }
 
-  async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
-//    console.log('[DEBUG] Raw uploads:', uploads?.map(u => ({
-//     name: u.originalname,
-//     size: u.size,
-//     type: u.mimetype,
-//     buffer: u.buffer ? 'EXISTS' : 'MISSING' // Critical check
-//   })));
+   async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
+
     const { duration, jobType } = data;
     const user = await this.__findUserById(id);
     
@@ -272,9 +253,8 @@ export class UserService {
         return updatedUser;
     });
 
-        return updateUser;
+        return updateUser; 
     }
-
 
     async findAllUsers() {
         return this.prisma.user.findMany({
@@ -308,7 +288,7 @@ export class UserService {
     async __findUserById(id: string) {
         try {
             const user = await this.prisma.user.findUnique({
-                where: { id },
+                where: { id,},
                 include: {
                     level: true,
                     upload: true,

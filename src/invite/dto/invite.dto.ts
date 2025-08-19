@@ -1,6 +1,7 @@
 import { JobType } from "@prisma/client";
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsString } from "class-validator";
+import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+
 
 export class SendInviteDto {
     @ApiProperty({
@@ -61,6 +62,7 @@ export class CreateProspectDto {
     @IsString()
     readonly gender: string;
 
+    //Duration for CONTRACT-STAFF
     @ApiProperty({ example: "6 months", description: "Duration for contract staff" })
     @IsNotEmpty({ message: 'Duration is Required' })
     @IsString()
