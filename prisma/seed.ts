@@ -20,7 +20,7 @@ async function main() {
       duration: "6 months",
       jobType: JobType.FULL_TIME,
       startDate: new Date("2025-07-25T15:30:00.000Z"),
-      eId: "EMP2029",
+      eId: "EMP2294",
       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
       contacts: {
         create: {
