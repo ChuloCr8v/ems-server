@@ -224,8 +224,8 @@ model Fault {
   id           String      @id @default(uuid()) @db.Uuid
   assetId      String      @db.Uuid
   asset        Asset       @relation(fields: [assetId], references: [id])
-  reportedById String      @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  reportedBy   User        @relation("reportedBy", fields: [reportedById], references: [id])
+  reportedById String?     @db.Uuid
+  reportedBy   User?       @relation("reportedBy", fields: [reportedById], references: [id])
   resolvedById String?     @db.Uuid
   resolvedBy   User?       @relation("resolvedBy", fields: [resolvedById], references: [id])
   images       String[]
