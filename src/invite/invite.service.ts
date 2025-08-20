@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
 import { AuthService } from 'src/auth/auth.service';
@@ -17,7 +17,7 @@ export class InviteService {
     // private auth: AuthService,
   ) { }
 
-  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },) {
+  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }, adminUser: string) {
     const { email, uploads } = input;
     try {
       const token = randomUUID();
@@ -32,13 +32,11 @@ export class InviteService {
           expiresAt,
           token,
           prospectId: prospect.id,
-          // sentById: adminUser.sub, //This will track the who is sending the invite
+          sentById: adminUser, //This will track the who is sending the invite
         },
       });
 
       // 2. Send email 
-      const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-      const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
 
       const allAttachments = uploads?.map(upload => ({
         filename: upload.originalname,
@@ -46,22 +44,23 @@ export class InviteService {
         contentType: upload.mimetype,
       })) || [];
 
-        await this.mail.sendProspectMail({
-          email: prospect.email,
-          firstName: `${prospect.firstName}`,
-          token: link,
-          attachments: allAttachments,
-        });
+      await this.mail.sendProspectMail({
+        email: prospect.email,
+        firstName: `${prospect.firstName}`,
+        token,
+        attachments: allAttachments,
+      });
 
       return true;
     } catch (error) {
-      bad("Invite was not sent")
+      console.log(error)
+      bad(error)
     }
   }
 
 
 
-  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[],) {
+  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
     const {
       firstName,
       lastName,
@@ -74,7 +73,6 @@ export class InviteService {
       role,
       startDate,
     } = input;
-
     try {
 
       if (jobType === JobType.CONTRACT && !duration) {
@@ -122,19 +120,21 @@ export class InviteService {
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
-      },);
+      },
+        adminUser
+      );
 
       return prospect;
     } catch (error) {
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-        throw new InternalServerErrorException('Failed to create prospect');
+      if (error instanceof BadRequestException) {
+        throw error;
       }
+      throw new InternalServerErrorException('Failed to create prospect');
+    }
   }
 
 
-  async acceptInvite(token: string, user: IAuthUser) {
+  async acceptInvite(token: string) {
     const currentDate = new Date();
     //Find the invite by token
     const invite = await this.prisma.invite.findUnique({
@@ -151,35 +151,32 @@ export class InviteService {
       throw new BadRequestException('Invitation Has Already Been Accepted or Declined');
     }
 
-      //Update the invite status to ACCEPTED
-     const updatedInvite = await this.prisma.invite.update({
-        where: { token },
-        data: {
-          status: 'ACCEPTED',
-          acceptedAt: currentDate,
-        },
-        include: {
-          prospect: true,
-          sentBy: true,
-        },
-      });
+    //Update the invite status to ACCEPTED
+    const updatedInvite = await this.prisma.invite.update({
+      where: { token },
+      data: {
+        status: 'ACCEPTED',
+        acceptedAt: currentDate,
+      },
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
+    });
 
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitations`;
-        await this.mail.sendAcceptanceMail({
-          email: user.email,
-          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-          link: link,
-        });
-      
-      return updatedInvite;
-    }
+    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const link = `${frontendUrl}/onboarding/invitations`;
+    await this.mail.sendAcceptanceMail({
+      email: updatedInvite.sentBy.email,
+      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      link: link,
+    });
 
-  async declineInvite(token: string, data: DeclineComment, user: IAuthUser) {
-    const { comment } = data;
+    return updatedInvite;
+  }
+
+  async declineInvite(token: string, reasons?: Array<string>) {
     const currentDate = new Date();
-
-    //Find the invitation by token
     const invite = await this.prisma.invite.findUnique({
       where: { token },
       include: {
@@ -200,9 +197,10 @@ export class InviteService {
       data: {
         status: 'DECLINED',
         declinedAt: currentDate,
-        comment: {
-          create: { comment },
-        },
+        declineReasons: reasons.map(r => r),
+        // comment: {
+        //   create: { comment },
+        // },
       },
       include: {
         prospect: true,
@@ -210,17 +208,17 @@ export class InviteService {
       },
     });
 
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitations`;
+    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const link = `${frontendUrl}/onboarding/invitations`;
 
-        await this.mail.sendDeclinedMail({
-          email: user.email,
-          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-          link: link
-        });
+    await this.mail.sendDeclinedMail({
+      email: invite.sentBy.email,
+      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      link: link
+    });
 
-      return updatedInvite;
-    }
+    return updatedInvite;
+  }
 
   async getAllProspects() {
     try {
@@ -234,17 +232,53 @@ export class InviteService {
             }
           }
           ,
-          invite: true
+          invite: {
+            include: {
+              sentBy: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
+            take: 1,
+            orderBy: {
+              createdAt: 'desc',
+            }
+          }
         },
 
       });
       return prospects;
     } catch (error) {
-    if (error instanceof BadRequestException) {
-      throw error;
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch prospects');
     }
-    throw new InternalServerErrorException('Failed to fetch prospects');
   }
+
+  async getInviteByToken(token: string) {
+    try {
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+        },
+
+      });
+
+      if (!invite) {
+        mustHave(invite, 'Invite not found', 404);
+      }
+
+      return invite;
+
+    } catch (error) {
+      bad(error);
+    }
   }
 
   async getOneProspect(id: string) {
@@ -255,7 +289,6 @@ export class InviteService {
       throw new Error(`Failed to fetch Prospect: ${error.message}`);
     }
   }
-
 
 
   ///////////////////////////////// HELPERS ///////////////////////////////

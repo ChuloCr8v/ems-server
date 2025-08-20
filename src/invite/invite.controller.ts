@@ -1,5 +1,5 @@
-import { 
-  Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request 
+import {
+  Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request
 } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -7,13 +7,12 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { CreateProspectDto, DeclineComment } from './dto/invite.dto';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 
 @ApiTags('Invite')
 @Controller('invite')
 export class InviteController {
-  constructor(private inviteService: InviteService) {}
+  constructor(private inviteService: InviteService) { }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post('send')
@@ -23,15 +22,17 @@ export class InviteController {
     description: 'Prospect data with optional file uploads',
     type: CreateProspectDto,
   })
-
   @ApiResponse({ status: 200, description: 'A New Prospect Has Been Added' })
   @UseInterceptors(FilesInterceptor('uploads'))
   async create(
     @Body() input: CreateProspectDto,
     @UploadedFiles() uploads: Express.Multer.File[],
-    @Res() res: Response
+    @Res() res: Response,
+    @Request() req: { user: { id: string } }
   ) {
-    const prospect = await this.inviteService.createProspect(input, uploads);
+    const prospect = await this.inviteService.createProspect(input, uploads,
+      req.user.id
+    );
     return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect });
   }
 
@@ -42,9 +43,8 @@ export class InviteController {
   async acceptInvite(
     @Param('token') token: string,
     @Res() res: Response,
-    @Request() req: { user: IAuthUser }
   ) {
-    const prospect = await this.inviteService.acceptInvite(token, req.user);
+    const prospect = await this.inviteService.acceptInvite(token);
     return res.status(200).json({ message: `Prospect Has Accepted The Invitation`, prospect });
   }
 
@@ -55,11 +55,11 @@ export class InviteController {
   @ApiResponse({ status: 200, description: 'Prospect Has Declined The Invitation' })
   async declineInvite(
     @Param('token') token: string,
-    @Body() data: DeclineComment,
+    @Body() reasons: Array<string> | undefined,
     @Res() res: Response,
-    @Request() req: { user: IAuthUser }
+
   ) {
-    const prospect = await this.inviteService.declineInvite(token, data, req.user);
+    const prospect = await this.inviteService.declineInvite(token, reasons);
     return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect });
   }
 
@@ -69,7 +69,13 @@ export class InviteController {
   @ApiResponse({ status: 200, description: 'All Prospects' })
   async getAllProspects(@Res() res: Response) {
     const prospects = await this.inviteService.getAllProspects();
-    return res.status(200).json({ message: `All Prospects`, prospects });
+    return res.status(200).json(prospects);
+  }
+
+  @Get('prospect/:token')
+  async getInviteByToken(@Param('token') token: string, @Res() res: Response) {
+    const invite = await this.inviteService.getInviteByToken(token);
+    return res.status(200).json(invite);
   }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])

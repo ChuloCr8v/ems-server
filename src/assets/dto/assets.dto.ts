@@ -177,22 +177,22 @@ export class ReportFaultDto {
   @IsString()
   reportedBy: string;
 
-  @ApiProperty({
-    description: 'Array of image URLs/paths documenting the fault',
-    example: ['uploads/faults/fault-12345.jpg'],
-    type: [String],
-  })
-  @IsArray()
-  @IsString({ each: true })
-  images: { url: string; originalName: string; size: number; mimeType: string }[];
+  // @ApiProperty({
+  //   description: 'Array of image URLs/paths documenting the fault',
+  //   example: ['uploads/faults/fault-12345.jpg'],
+  //   type: [String],
+  // })
+  // @IsArray()
+  // @IsString({ each: true })
+  // images: { url: string; originalName: string; size: number; mimeType: string }[];
 
-  @ApiProperty({
-    description: 'Reason for the fault report',
-    example: 'Screen flickering and unresponsive touchpad',
-  })
-  @IsNotEmpty()
-  @IsString()
-  reason: string;
+  // @ApiProperty({
+  //   description: 'Reason for the fault report',
+  //   example: 'Screen flickering and unresponsive touchpad',
+  // })
+  // @IsNotEmpty()
+  // @IsString()
+  // reason: string;
 
   @ApiPropertyOptional({
     description: 'Additional notes about the fault',

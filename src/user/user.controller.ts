@@ -16,10 +16,8 @@ import {
   Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { AddEmployeeDto, ApproveUserDto, CreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, CreateUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from '@prisma/client';
 import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -29,24 +27,24 @@ import { plainToInstance } from 'class-transformer';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Post('invite/:id')
   @UseInterceptors(FilesInterceptor('uploads'))
-  async createUser(@Param('id') id: string, @Body() data: CreateUserDto, @UploadedFiles() upload: Express.Multer.File[], @Res() res: Response) {
+  async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @UploadedFiles() upload: Express.Multer.File[], @Res() res: Response) {
     const user = await this.userService.createUser(id, data, upload);
     return res.status(200).json({ message: `A User Has Sent His/Her Details`, user });
   }
 
   @Get()
-  async findAllUsers(){
+  async findAllUsers() {
     return await this.userService.findAllUsers();
   }
 
   @Put('approve/:id')
   async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto, @Res() res: Response) {
     const user = await this.userService.approveUser(id, data);
-    return res.status(200).json({ message: `User has been Approved`, user})
+    return res.status(200).json({ message: `User has been Approved`, user })
   }
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN])
@@ -59,12 +57,12 @@ export class UserController {
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
   async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @UploadedFiles() uploads: { uploads?: Express.Multer.File[] }, @Res() res: Response) {
-   
+
     const user = await this.userService.updateUser(id, data, uploads?.uploads || []);
-    return res.status(200).json({ message: `User Details Has Been Updated`, user})
+    return res.status(200).json({ message: `User Details Has Been Updated`, user })
   }
 
-   @Post('add')
+  @Post('add')
   @UseInterceptors(
     FilesInterceptor('files', 5, {
       storage: diskStorage({
@@ -146,32 +144,32 @@ export class UserController {
   // }
 
   async addEmployee(
-  @Body() body: any,
-  @UploadedFiles() files: Express.Multer.File[]
-) {
-  try {
-    // Parse nested JSON strings
-    const parsedBody = {
-      ...body,
-      emergencyContact: JSON.parse(body.emergencyContact),
-      guarantorContact: JSON.parse(body.guarantorContact),
-    };
+    @Body() body: any,
+    @UploadedFiles() files: Express.Multer.File[]
+  ) {
+    try {
+      // Parse nested JSON strings
+      const parsedBody = {
+        ...body,
+        emergencyContact: JSON.parse(body.emergencyContact),
+        guarantorContact: JSON.parse(body.guarantorContact),
+      };
 
-    // Validate using class-validator
-    const dto = plainToInstance(AddEmployeeDto, parsedBody);
-    const errors = await validate(dto);
+      // Validate using class-validator
+      const dto = plainToInstance(AddEmployeeDto, parsedBody);
+      const errors = await validate(dto);
 
-    if (errors.length > 0) {
-      throw new BadRequestException(errors);
+      if (errors.length > 0) {
+        throw new BadRequestException(errors);
+      }
+
+      // return this.userService.addEmployee(dto, files);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Invalid request format');
     }
-
-    // return this.userService.addEmployee(dto, files);
-  } catch (error) {
-    if (error instanceof BadRequestException) {
-      throw error;
-    }
-    throw new BadRequestException('Invalid request format');
   }
-}
 
 }

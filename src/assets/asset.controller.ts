@@ -7,9 +7,6 @@ import {
   Put,
   UseInterceptors,
   UploadedFiles,
-  ParseFilePipe,
-  MaxFileSizeValidator,
-  FileTypeValidator,
   Res,
   ParseUUIDPipe,
   UploadedFile,
@@ -27,13 +24,11 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { AssetService } from './asset.service';
 import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto } from './dto/assets.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from '@prisma/client';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -73,10 +68,43 @@ export class AssetsController {
       barcodeImage?: Express.Multer.File[]
     }
   ) {
-
-    console.log(files)
-    // return files
     return this.assetsService.createAsset(createAssetDto, files);
+  }
+
+  @Put("update/:id")
+  @ApiOperation({ summary: 'Update an asset' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Asset data with optional images',
+    type: CreateAssetDto,
+  })
+  @ApiParam({ name: 'id', description: 'Asset ID' })
+  @ApiCreatedResponse({ description: 'Asset successfully updated' })
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'assetImage', maxCount: 5 },
+      { name: 'barcodeImage', maxCount: 5 },
+    ], {
+      storage: diskStorage({
+        destination: './uploads/assets',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+    }),
+  )
+  async updateAsset(
+    @Param('id') id: string,
+    @Body() updateAssetDto: CreateAssetDto,
+    @UploadedFiles() files: {
+      assetImage?: Express.Multer.File[],
+      barcodeImage?: Express.Multer.File[]
+    }
+  ) {
+    return this.assetsService.updateAsset(id, updateAssetDto, files);
   }
 
   @Post()
@@ -157,41 +185,41 @@ export class AssetsController {
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: ReportFaultDto })
   @ApiCreatedResponse({ description: 'Fault successfully reported' })
-  @UseInterceptors(
-    FileFieldsInterceptor([{ name: 'images', maxCount: 5 }], {
-      storage: diskStorage({
-        destination: './uploads/faults',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
-    }),
-  )
+  // @UseInterceptors(
+  //   FileFieldsInterceptor([{ name: 'images', maxCount: 5 }], {
+  //     storage: diskStorage({
+  //       destination: './uploads/faults',
+  //       filename: (req, file, callback) => {
+  //         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+  //         const ext = extname(file.originalname);
+  //         const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
+  //         callback(null, filename);
+  //       },
+  //     }),
+  //   }),
+  // )
   async reportFault(
     @Body() reportFaultDto: ReportFaultDto,
-    @UploadedFiles(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }), // 5MB
-          new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
-        ],
-      }),
-    )
-    images: Array<Express.Multer.File>,
+    // @UploadedFiles(
+    //   new ParseFilePipe({
+    //     validators: [
+    //       // new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 }), // 5MB
+    //       new FileTypeValidator({ fileType: '.(png|jpeg|jpg)' }),
+    //     ],
+    //   }),
+    // )
+    // images: Array<Express.Multer.File>,
   ) {
-    const imageDetails = images.map(image => ({
-      url: `/assets/faults/uploads/${image.filename}`,
-      originalName: image.originalname,
-      size: image.size,
-      mimeType: image.mimetype
-    }));
+    // const imageDetails = images.map(image => ({
+    //   url: `/assets/faults/uploads/${image.filename}`,
+    //   originalName: image.originalname,
+    //   size: image.size,
+    //   mimeType: image.mimetype
+    // }));
 
     return this.assetsService.reportFault({
       ...reportFaultDto,
-      images: imageDetails,
+      // images: imageDetails,
     });
   }
 
@@ -203,9 +231,9 @@ export class AssetsController {
   @ApiResponse({ status: 404, description: 'Fault not found' })
   updateFaultStatus(
     @Param('id') id: string,
-    @Body() updateFaultStatusDto: UpdateFaultStatusDto,
+    @Body() dto: { resolvedById: string, notes: string, }
   ) {
-    return this.assetsService.resolveFault(id, updateFaultStatusDto);
+    return this.assetsService.resolveFault(id, dto);
   }
 
   @Get('faulty/list')
@@ -242,7 +270,7 @@ export class AssetsController {
   }
 
   @Post('bulk-upload')
-  @UseInterceptors(FilesInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Bulk upload assets from Excel file' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -267,6 +295,11 @@ export class AssetsController {
   })
   async createMultiAssets(@UploadedFile() file: Express.Multer.File) {
     return this.assetsService.createMultiAssets(file);
+  }
+
+  @Put("retrieve/:assetId")
+  async retrieveAsset(@Param("assetId") assetId: string, @Body() dto: { retrievedById: string, notes: string }) {
+    return this.assetsService.retrieveAsset(assetId, dto)
   }
 }
 

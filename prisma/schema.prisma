@@ -42,7 +42,7 @@ model User {
   duration      String?
   jobType       JobType
   departmentId  String?       @db.Uuid
-  department    Department?   @relation(fields: [departmentId], references: [id])
+  department    Department?   @relation("Department", fields: [departmentId], references: [id])
   country       String
   state         String
   address       String
@@ -62,32 +62,55 @@ model User {
   updatedAt     DateTime      @updatedAt
   comment       Comment[]
   assignments   Assignment[]
-  faults        Fault[]
+
+  faultReporter Fault[] @relation("reportedBy")
+  faultResolver Fault[] @relation("resolvedBy")
+
+  departmentHeadId String?     @db.Uuid
+  departmentHead   Department? @relation("DepartmentHead")
+
+  departmentCreator Department? @relation("departmentCreator")
+
+  @@index([email])
+  @@index([eId])
+  @@index([firstName, lastName])
+  @@index([departmentId])
+  @@index([levelId])
 }
 
 model Invite {
-  id         String    @id @default(uuid()) @db.Uuid
-  email      String
-  token      String    @unique
-  status     Status    @default(PENDING)
-  createdAt  DateTime  @default(now())
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  declinedAt DateTime?
-  sentById   String?   @db.Uuid
-  sentBy     User?     @relation(fields: [sentById], references: [id])
-  prospectId String    @db.Uuid
-  prospect   Prospect  @relation(fields: [prospectId], references: [id])
-  comment    Comment[]
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String
+  token          String    @unique
+  status         Status    @default(PENDING)
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  declinedAt     DateTime?
+  sentById       String?   @db.Uuid
+  sentBy         User?     @relation(fields: [sentById], references: [id])
+  prospectId     String    @db.Uuid
+  prospect       Prospect  @relation(fields: [prospectId], references: [id])
+  comment        Comment[]
+  declineReasons String[]
 }
 
 model Department {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String
-  prospect  Prospect[]
-  user      User[]
-  createdAt DateTime   @default(now())
-  updatedAT DateTime   @updatedAt
+  id       String     @id @default(uuid()) @db.Uuid
+  name     String
+  prospect Prospect[]
+  user     User[]     @relation("Department")
+
+  createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
+  createdById String? @unique @db.Uuid
+
+  departmentHeadId String? @unique @db.Uuid
+  departmentHead   User?   @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
+
+  status DepartmentStatus? @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAT DateTime @updatedAt
 }
 
 model Level {
@@ -166,6 +189,7 @@ model Comment {
 
 model Asset {
   id           String        @id @default(uuid()) @db.Uuid
+  assetId      String        @unique
   name         String
   serialNo     String        @unique
   category     AssetCategory
@@ -185,26 +209,37 @@ model Asset {
 }
 
 model Assignment {
-  id         String   @id @default(uuid())
-  asset      Asset    @relation(fields: [assetId], references: [id])
-  assetId    String   @db.Uuid
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String   @db.Uuid
+  id         String            @id @default(uuid())
+  asset      Asset             @relation(fields: [assetId], references: [id])
+  assetId    String            @db.Uuid
+  user       User              @relation(fields: [userId], references: [id])
+  userId     String            @db.Uuid
   assignedAt DateTime
   notes      String?
+  condition  String?
+  status     AssignmentStatus?
 }
 
 model Fault {
-  id         String      @id @default(uuid())
-  assetId    String      @db.Uuid
-  asset      Asset       @relation(fields: [assetId], references: [id])
-  reportedBy String      @db.Uuid
-  user       User        @relation(fields: [reportedBy], references: [id])
-  images     String[]
-  reason     String
-  status     FaultStatus @default(PENDING)
-  resolvedAt DateTime?
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(uuid()) @db.Uuid
+  assetId      String      @db.Uuid
+  asset        Asset       @relation(fields: [assetId], references: [id])
+  reportedById String      @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportedBy   User        @relation("reportedBy", fields: [reportedById], references: [id])
+  resolvedById String?     @db.Uuid
+  resolvedBy   User?       @relation("resolvedBy", fields: [resolvedById], references: [id])
+  images       String[]
+  reason       String?
+  notes        String?
+  status       FaultStatus @default(PENDING)
+  resolvedAt   DateTime?   @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now()) @updatedAt
+
+  @@index([reportedById])
+  @@index([resolvedById])
+  @@index([assetId])
+  @@index([status])
 }
 
 model Offboarding {
@@ -282,6 +317,11 @@ enum AssetStatus {
   MAINTENANCE
 }
 
+enum AssignmentStatus {
+  ASSIGNED
+  RETURNED
+}
+
 enum FaultStatus {
   PENDING
   IN_REVIEW
@@ -292,6 +332,11 @@ enum FaultStatus {
 enum ExitType {
   RESIGNATION
   TERMINATION
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
 }
 
 // enum AssetStatus {
