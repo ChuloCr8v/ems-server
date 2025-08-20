@@ -5,7 +5,7 @@
   "compilerOptions": {
     "assets": [
       {
-        "include": "/mail/templates",
+        "include": "mail/templates",
         "outDir": "dist/src",
         "watchAssets": true
       }
