@@ -44,7 +44,7 @@ export class CreateProspectDto {
     readonly departmentId: string;
 
     @ApiProperty({ example: "2025-09-01", description: "Start date in YYYY-MM-DD format" })
-    @IsNotEmpty({ message: 'Start Date is Required'})
+    @IsNotEmpty({ message: 'Start Date is Required' })
     @IsString()
     startDate: Date;
 
@@ -64,9 +64,10 @@ export class CreateProspectDto {
 
     //Duration for CONTRACT-STAFF
     @ApiProperty({ example: "6 months", description: "Duration for contract staff" })
-    @IsNotEmpty({ message: 'Duration is Required' })
+    // @IsNotEmpty({ message: 'Duration is Required' })
     @IsString()
-    readonly duration: string;
+    @IsOptional()
+    readonly duration?: string;
 }
 
 export class CreateUserDto {
@@ -89,6 +90,6 @@ export class CreateUserDto {
 export class DeclineComment {
     @ApiProperty({ example: "Not interested at the moment", description: "Reason for declining" })
     @IsString()
-    @IsNotEmpty()
-    comment: string;
+    @IsOptional()
+    comment?: string;
 }

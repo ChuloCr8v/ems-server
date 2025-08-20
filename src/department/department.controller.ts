@@ -23,6 +23,11 @@ export class DepartmentController {
     return await this.departmentService.getAllDepartment();
   }
 
+  @Get("/team/:id")
+  async getTeam(@Param('id') id: string) {
+    return await this.departmentService.getTeam(id);
+  }
+
   @Auth([Role.ADMIN])
   @Get(':id')
   async getOneDepartment(@Param('id') id: string) {

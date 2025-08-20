@@ -7,10 +7,10 @@ import { ConfigService } from '@nestjs/config';
 export class MailService {
 
   constructor(private mailerService: MailerService,
-      private config: ConfigService,
-  ) {}
+    private config: ConfigService,
+  ) { }
 
-   async sendProspectMail(input: ProspectInviteDto) {
+  async sendProspectMail(input: ProspectInviteDto) {
     const { email, firstName, token, attachments } = input;
     const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
@@ -20,10 +20,10 @@ export class MailService {
       subject: MAIL_SUBJECT.PROSPECT_INVITATION,
       template: 'invite', // Assuming you have a template named 'invite.hbs'
       attachments,
-      context: { firstName, link, attachments}
+      context: { firstName, link, attachments }
     });
   }
-  
+
   async sendAcceptanceMail(acceptance: AcceptanceInviteDto) {
     const { email, name, link } = acceptance;
     await this.mailerService.sendMail({
@@ -57,9 +57,9 @@ export class MailService {
     })
   }
 
-   async sendWelcomeEmail(data: WelcomeEmailDto) {
+  async sendWelcomeEmail(data: WelcomeEmailDto) {
     const { email, name, loginLink, temporaryPassword } = data;
-    
+
     await this.mailerService.sendMail({
       from: this.config.get('EMAIL_FROM'),
       to: email,
