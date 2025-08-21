@@ -80,7 +80,7 @@ export class CreateAssetDto {
   @IsNotEmpty()
   @IsString()
   @Transform(({ value }) => parseFloat(value))
-  cost: string;
+  cost: number;
 
   @ApiPropertyOptional({
     description: 'Additional description of the asset',

@@ -297,7 +297,7 @@ export class UserService {
             };
             return user;
         } catch (error) {
-            bad("Unable to find user")
+            bad(error)
         }
 
     }

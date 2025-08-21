@@ -6,9 +6,9 @@ async function main() {
   // Bona (ADMIN)
   await prisma.user.create({
     data: {
-      firstName: "Bona",
-      lastName: "Wewo",
-      email: "bonaventure@zoracom.com",
+      firstName: "Benedict",
+      lastName: "Nwosu",
+      email: "benedict@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
@@ -20,7 +20,7 @@ async function main() {
       duration: "6 months",
       jobType: JobType.FULL_TIME,
       startDate: new Date("2025-07-25T15:30:00.000Z"),
-      eId: "EMP2294",
+      eId: "EMP2001",
       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
       contacts: {
         create: {
