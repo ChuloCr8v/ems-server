@@ -57,7 +57,7 @@ export class CreateAssetDto {
   category: AssetCategory;
 
   @ApiProperty({
-    description: 'Purchase date of the asset in YYYY-MM-DD format',
+    description: 'Purchase date',
     example: '2023-05-15',
   })
   @IsNotEmpty()

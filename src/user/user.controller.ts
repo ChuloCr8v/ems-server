@@ -92,18 +92,7 @@ export class UserController {
       },
     }),
   )
-  // async addEmployee(
-  //   @Body() body: AddEmployeeDto,
-  //   @UploadedFiles() files: Express.Multer.File[],
-  //   @Req() req: Request,
-  // ) {
-  //   try {
-  //     // Validate contract duration if job type is CONTRACT
-  //     if (body.jobType === 'CONTRACT' && !body.duration) {
-  //       throw new BadRequestException(
-  //         'Duration is required for contract employees',
-  //       );
-  //     }
+
 
   //     // Check if email already exists
   //     const existingEmployee = await this.userService.findByEmail(
