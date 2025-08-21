@@ -11,6 +11,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AssetModule } from './assets/asset.module';
 import { OffboardingModule } from './offboarding/offboarding.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { OffboardingModule } from './offboarding/offboarding.module';
     DepartmentModule,
     LevelModule,
     AssetModule,
-    OffboardingModule
+    OffboardingModule,
+    UploadsModule
   ],
   controllers: [AppController],
   providers: [AppService],

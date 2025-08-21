@@ -123,11 +123,14 @@ model Level {
 }
 
 model Upload {
-  id            String       @id @default(uuid()) @db.Uuid
-  name          String
-  size          Int
-  type          String
-  bytes         Bytes?
+  id    String  @id @default(uuid()) @db.Uuid
+  name  String
+  size  Int
+  type  String
+  bytes Bytes?
+  key   String?
+  order Int?
+
   prospectId    String?      @db.Uuid
   prospect      Prospect?    @relation(fields: [prospectId], references: [id])
   userId        String?      @db.Uuid
