@@ -89,7 +89,7 @@ export class AuthService {
         // prospect: true,
         contacts: true,
         upload: true,
-        level: true,
+        level: true
       },
     });
   }
