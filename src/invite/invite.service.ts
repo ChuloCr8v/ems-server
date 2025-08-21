@@ -224,6 +224,7 @@ export class InviteService {
     try {
       const prospects = await this.prisma.prospect.findMany({
         include: {
+          user: true,
           upload: {
             select: {
               name: true,
