@@ -291,6 +291,24 @@ export class InviteService {
     }
   }
 
+  async deleteProspect(id: string) {
+    try {
+      const prospect = await this.__findProspectById(id);
+      if (!prospect) {
+        mustHave(prospect, `Prospect with ID ${id} not found`, 404);
+      }
+
+      // Delete the prospect
+      await this.prisma.prospect.delete({
+        where: { id },
+      });
+
+      return true;
+    } catch (error) {
+      bad(error);
+    }
+  }
+
 
   ///////////////////////////////// HELPERS ///////////////////////////////
 

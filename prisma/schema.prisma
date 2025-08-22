@@ -55,13 +55,14 @@ model User {
   levelId       String?       @db.Uuid
   level         Level?        @relation(fields: [levelId], references: [id])
   prospectId    String?       @unique @db.Uuid
-  prospect      Prospect?     @relation(fields: [prospectId], references: [id])
-  upload        Upload[]
-  invite        Invite[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  comment       Comment[]
-  assignments   Assignment[]
+  prospect      Prospect?     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  upload      Upload[]
+  invite      Invite[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  comment     Comment[]
+  assignments Assignment[]
 
   faultReporter Fault[] @relation("reportedBy")
   faultResolver Fault[] @relation("resolvedBy")
@@ -79,18 +80,19 @@ model User {
 }
 
 model Invite {
-  id             String    @id @default(uuid()) @db.Uuid
-  email          String
-  token          String    @unique
-  status         Status    @default(PENDING)
-  createdAt      DateTime  @default(now())
-  expiresAt      DateTime
-  acceptedAt     DateTime?
-  declinedAt     DateTime?
-  sentById       String?   @db.Uuid
-  sentBy         User?     @relation(fields: [sentById], references: [id])
-  prospectId     String    @db.Uuid
-  prospect       Prospect  @relation(fields: [prospectId], references: [id])
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String
+  token      String    @unique
+  status     Status    @default(PENDING)
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  declinedAt DateTime?
+  sentById   String?   @db.Uuid
+  sentBy     User?     @relation(fields: [sentById], references: [id])
+  prospectId String    @db.Uuid
+  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
   comment        Comment[]
   declineReasons String[]
 }
@@ -123,23 +125,27 @@ model Level {
 }
 
 model Upload {
-  id            String       @id @default(uuid()) @db.Uuid
-  name          String
-  size          Int
-  type          String
-  bytes         Bytes?
-  prospectId    String?      @db.Uuid
-  prospect      Prospect?    @relation(fields: [prospectId], references: [id])
+  id    String  @id @default(uuid()) @db.Uuid
+  name  String
+  size  Int
+  type  String
+  bytes Bytes?
+  key   String?
+  order Int?
+  uri   String?
+
+  prospectId String?   @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
   userId        String?      @db.Uuid
   user          User?        @relation(fields: [userId], references: [id])
   offboardingId String?      @db.Uuid
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  // assetId       String?      @db.Uuid
-  // asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  assetId       String?      @db.Uuid
+  asset         Asset?       @relation("AssetImages", fields: [assetId], references: [id])
 
-  @@unique([userId, name])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Contacts {
@@ -196,8 +202,7 @@ model Asset {
   purchaseDate DateTime
   vendor       String
   cost         Float
-  assetImage   String?
-  barcodeImage String?
+  assetImages  Upload[]      @relation("AssetImages")
   description  String?
   isReturned   Boolean       @default(false)
   // paymentProof  Upload[]      @relation("AssetProof")

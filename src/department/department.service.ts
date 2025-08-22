@@ -23,6 +23,15 @@ export class DepartmentService {
             mustHave(deptHead, "Department Head Not Found", 404);
         }
 
+        const departments = await this.prisma.department.findMany({
+            where: { name: input.name },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (departments.length > 0) {
+            bad("Department with this name already exists", 400);
+        }
+
         try {
             const department = await this.prisma.department.create({
                 data: {
