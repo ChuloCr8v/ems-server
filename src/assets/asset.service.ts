@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto, ImageDto } from './dto/assets.dto';
 import { AssetStatus, FaultStatus } from '@prisma/client';
@@ -19,23 +19,17 @@ export class AssetService {
     };
   }
 
-  async createAsset(
-    createAssetDto: CreateAssetDto,
-    files?: {
-      assetImage?: Express.Multer.File[],
-      barcodeImage?: Express.Multer.File[]
-    }
-  ) {
+  async createAsset(createAssetDto: CreateAssetDto) {
+    const assetId = "ZCL" + Date.now().toString().slice(-6);
+
     const existing = await this.prisma.asset.findUnique({
       where: { serialNo: createAssetDto.serialNo },
     });
+    if (existing) bad(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
 
-    if (existing) {
-      throw new BadRequestException(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
-    }
 
     const data = {
-      assetId: "ZCL" + Array(4).fill(0).map(() => Math.floor(Math.random() * 10)).join(''),
+      assetId,
       name: createAssetDto.name,
       serialNo: createAssetDto.serialNo,
       category: createAssetDto.category,
@@ -44,29 +38,25 @@ export class AssetService {
       cost: Number(createAssetDto.cost),
       description: createAssetDto.description,
       status: AssetStatus.AVAILABLE,
-      // Store as JSON string in database
-      assetImage: files?.assetImage?.[0] ?
-        JSON.stringify(this.toImageObject(files.assetImage[0])) :
-        createAssetDto.assetImage ? JSON.stringify(createAssetDto.assetImage) : null,
-      barcodeImage: files?.barcodeImage?.[0] ?
-        JSON.stringify(this.toImageObject(files.barcodeImage[0])) :
-        createAssetDto.barcodeImage ? JSON.stringify(createAssetDto.barcodeImage) : null,
+      assetImages: createAssetDto.assetImages
+        ? {
+          connect: createAssetDto.assetImages.map((id) => ({ id })),
+        }
+        : undefined,
     };
 
-    const asset = await this.prisma.asset.create({ data });
-
-    // Parse the JSON strings back to objects for response
-    return {
-      ...asset,
-      assetImage: asset.assetImage ? JSON.parse(asset.assetImage) : null,
-      barcodeImage: asset.barcodeImage ? JSON.parse(asset.barcodeImage) : null
-    };
+    try {
+      return await this.prisma.asset.create({ data });
+    } catch (err) {
+      bad(err);
+    }
   }
 
 
   async getAllAssets() {
     return this.prisma.asset.findMany({
       include: {
+        assetImages: true,
         assignments: {
           orderBy: {
             assignedAt: 'desc',
@@ -107,6 +97,7 @@ export class AssetService {
             createdAt: 'desc',
           },
         },
+        assetImages: true,
       },
     });
 
@@ -166,59 +157,58 @@ export class AssetService {
   async updateAsset(
     id: string,
     updateAssetDto: CreateAssetDto,
-    files?: {
-      assetImage?: Express.Multer.File[],
-      barcodeImage?: Express.Multer.File[]
-    }
   ) {
     const existing = await this.prisma.asset.findUnique({
       where: { id },
+      include: { assetImages: true },
     });
 
-    if (!existing) {
-      throw new NotFoundException(`Asset with ID ${id} not found`);
-    }
+    mustHave(existing, `Asset with ID ${id} not found`, 404);
 
-    // Check if serialNo is being changed to one that already exists
-    if (updateAssetDto.serialNo && updateAssetDto.serialNo !== existing.serialNo) {
+    // Check serial number uniqueness
+    if (
+      updateAssetDto.serialNo &&
+      updateAssetDto.serialNo !== existing.serialNo
+    ) {
       const serialNoExists = await this.prisma.asset.findUnique({
         where: { serialNo: updateAssetDto.serialNo },
       });
-
       if (serialNoExists) {
-        throw new BadRequestException(`An asset with serial number ${updateAssetDto.serialNo} already exists.`);
+        bad(`An asset with serial number ${updateAssetDto.serialNo} already exists.`);
       }
     }
 
-    const data = {
+    // Build update data
+    const data: any = {
       name: updateAssetDto.name,
       serialNo: updateAssetDto.serialNo,
       category: updateAssetDto.category,
-      purchaseDate: updateAssetDto.purchaseDate ? new Date(updateAssetDto.purchaseDate) : existing.purchaseDate,
+      purchaseDate: updateAssetDto.purchaseDate
+        ? new Date(updateAssetDto.purchaseDate)
+        : existing.purchaseDate,
       vendor: updateAssetDto.vendor,
-      cost: updateAssetDto.cost ? Number(updateAssetDto.cost) : existing.cost,
+      cost: updateAssetDto.cost ?? existing.cost,
       description: updateAssetDto.description,
-      // Only update images if new ones are provided
-      assetImage: files?.assetImage?.[0] ?
-        JSON.stringify(this.toImageObject(files.assetImage[0])) :
-        updateAssetDto.assetImage ? JSON.stringify(updateAssetDto.assetImage) : existing.assetImage,
-      barcodeImage: files?.barcodeImage?.[0] ?
-        JSON.stringify(this.toImageObject(files.barcodeImage[0])) :
-        updateAssetDto.barcodeImage ? JSON.stringify(updateAssetDto.barcodeImage) : existing.barcodeImage,
     };
+
+    // Handle assetImages (relation)
+    if (updateAssetDto.assetImages) {
+      data.assetImages = {
+        set: [], // clear old ones
+        connect: updateAssetDto.assetImages.map((id) => ({ id })),
+      };
+    }
 
     const updatedAsset = await this.prisma.asset.update({
       where: { id },
       data,
+      include: { assetImages: true },
     });
 
-    // Parse the JSON strings back to objects for response
-    return {
-      ...updatedAsset,
-      assetImage: updatedAsset.assetImage ? JSON.parse(updatedAsset.assetImage) : null,
-      barcodeImage: updatedAsset.barcodeImage ? JSON.parse(updatedAsset.barcodeImage) : null
-    };
+    return updatedAsset;
   }
+
+
 
   // async returnAsset(assetId: string) {
   //   // Find the latest assignment
@@ -625,7 +615,7 @@ export class AssetService {
           name: row['name'],
           serialNo: row['serialNo'],
           category: row['category'],
-          purchaseDate: row['purchaseDate'] ? new Date(row['purchaseDate']).toISOString() : undefined,
+          purchaseDate: row['purchaseDate'] ? new Date(row['purchaseDate']) : undefined,
           vendor: row['vendor'] || null,
           cost: row['cost'] ? (row['cost']) : 0,
           description: row['description'] || null,
@@ -634,7 +624,7 @@ export class AssetService {
         };
 
         // Create the asset
-        const asset = await this.createAsset(assetData, {});
+        const asset = await this.createAsset(assetData);
         results.push(asset);
       } catch (error) {
         errors.push({
@@ -651,6 +641,21 @@ export class AssetService {
       results,
       errors,
     };
+  }
+
+
+  async deleteAsset(id: string) {
+    try {
+      const asset = await this.prisma.asset.findUnique({ where: { id } });
+      if (!asset) {
+        throw new NotFoundException("asset Not Found");
+      }
+      return await this.prisma.asset.delete({
+        where: { id },
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to delete asset ${error.message}`);
+    }
   }
 
 }

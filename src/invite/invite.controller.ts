@@ -1,5 +1,6 @@
 import {
-  Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request
+  Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request,
+  Delete
 } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -85,5 +86,16 @@ export class InviteController {
   @ApiResponse({ status: 200, description: 'Prospect data returned' })
   async getOneProspect(@Param('id') id: string) {
     return await this.inviteService.getOneProspect(id);
+  }
+
+
+  @Delete(":id")
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @ApiOperation({ summary: 'Delete a prospect by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
+  @ApiResponse({ status: 200, description: 'Prospect deleted successfully' })
+  async deleteProspect(@Param('id') id: string, @Res() res: Response) {
+    await this.inviteService.deleteProspect(id);
+    return res.status(200).json({ message: `Prospect with ID ${id} has been deleted successfully` });
   }
 }
