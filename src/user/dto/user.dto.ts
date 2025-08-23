@@ -1,6 +1,6 @@
 import { JobType, MaritalStatus, Role } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
+import { IsArray, IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class EmergencyContactDto {
@@ -97,6 +97,11 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty({ message: 'State is Required' })
   state: string;
+
+
+  @IsArray()
+  @IsOptional()
+  userDocuments: string[];
 }
 
 export class UpdateUserDto extends CreateUserDto { }

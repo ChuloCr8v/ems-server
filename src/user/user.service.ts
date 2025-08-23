@@ -2,8 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, Logger } from '@nes
 import { PrismaService } from '../prisma/prisma.service';
 import { JobType, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
-import { InviteService } from 'src/invite/invite.service';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
@@ -12,13 +11,12 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly invite: InviteService,
+        // private readonly invite: InviteService,
         private readonly mail: MailService,) { }
 
     async createUser(
         id: string,
-        data: PartialCreateUserDto,
-        uploads: Express.Multer.File[],
+        data: PartialCreateUserDto
     ) {
         const { jobType, duration } = data;
 
@@ -33,6 +31,8 @@ export class UserService {
                     }
                 },
             });
+
+            if (!invite) mustHave(invite, "invitation not found", 404)
 
             const result = await this.prisma.$transaction(async (prisma) => {
                 const existingUser = invite.prospect.user;
@@ -54,6 +54,13 @@ export class UserService {
                     address: data.address ?? existingUser?.address,
                     maritalStatus: data.maritalStatus ?? existingUser?.maritalStatus,
                     prospect: { connect: { id: invite.prospect.id } },
+                    ...(data.userDocuments?.length
+                        ? {
+                            userDocuments: {
+                                connect: data.userDocuments.map((docId: string) => ({ id: docId })),
+                            },
+                        }
+                        : {}),
                 };
 
                 // Optional contacts
@@ -76,20 +83,9 @@ export class UserService {
                     include: { contacts: true, prospect: true },
                 });
 
-                // Optional uploads
-                if (uploads?.length > 0) {
-                    await prisma.upload.createMany({
-                        data: uploads.map((file) => ({
-                            name: file.originalname,
-                            size: file.size,
-                            type: file.mimetype,
-                            bytes: file.buffer,
-                            userId: user.id,
-                        })),
-                    });
-                }
 
-                return { user, uploads };
+
+                return { user };
             });
 
 
@@ -165,12 +161,10 @@ export class UserService {
     }
 
     async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
-
         const { duration, jobType } = data;
         const user = await this.__findUserById(id);
 
         const updateUser = await this.prisma.$transaction(async (tx) => {
-            // Update user details
             const updatedUser = await tx.user.update({
                 where: { id },
                 data: {
@@ -184,11 +178,19 @@ export class UserService {
                     maritalStatus: data.maritalStatus,
                     state: data.state,
                     department: {
-                        connect: {
-                            id: user.departmentId,
-                        },
+                        connect: { id: user.departmentId },
                     },
                     ...(jobType === JobType.CONTRACT ? { duration } : {}),
+
+                    // ✅ Update userDocuments safely
+                    ...(data.userDocuments?.length
+                        ? {
+                            userDocuments: {
+                                set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                            },
+                        }
+                        : {}),
+
                     contacts: {
                         update: {
                             emergency: {
@@ -198,13 +200,13 @@ export class UserService {
                                         firstName: data.emergency.firstName,
                                         lastName: data.emergency.lastName,
                                         email: data.emergency.email,
-                                        phone: data.emergency.phone
+                                        phone: data.emergency.phone,
                                     },
                                     create: {
                                         firstName: data.emergency.firstName,
                                         lastName: data.emergency.lastName,
                                         email: data.emergency.email,
-                                        phone: data.emergency.phone
+                                        phone: data.emergency.phone,
                                     },
                                 },
                             },
@@ -215,13 +217,13 @@ export class UserService {
                                         firstName: data.guarantor.firstName,
                                         lastName: data.guarantor.lastName,
                                         email: data.guarantor.email,
-                                        phone: data.guarantor.phone
+                                        phone: data.guarantor.phone,
                                     },
                                     create: {
                                         firstName: data.guarantor.firstName,
                                         lastName: data.guarantor.lastName,
                                         email: data.guarantor.email,
-                                        phone: data.guarantor.phone
+                                        phone: data.guarantor.phone,
                                     },
                                 },
                             },
@@ -235,27 +237,24 @@ export class UserService {
                             guarantor: true,
                         },
                     },
-                    upload: {
-                        select: {
-                            name: true
-                        }
+                    userDocuments: {
+                        select: { name: true },
                     },
                 },
             });
 
-            //Handle file uploads if they exist
-            await this.handleUserUploads(user.id, uploads)
             return updatedUser;
         });
 
         return updateUser;
     }
 
+
     async findAllUsers() {
         return this.prisma.user.findMany({
             include: {
                 // prospect: true,
-                upload: {
+                userDocuments: {
                     select: {
                         name: true,
                         size: true,
@@ -276,6 +275,45 @@ export class UserService {
         });
     }
 
+    async getUser(id: string) {
+        try {
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id
+                },
+                include: {
+                    prospect: true,
+                    userDocuments: {
+                        select: {
+                            name: true,
+                            size: true,
+                            type: true
+                        }
+                    },
+                    level: true,
+                    department: true,
+                    contacts: {
+                        include: {
+                            emergency: true,
+                            guarantor: true,
+                        }
+                    },
+                    comment: true,
+                    invite: true,
+                }
+            })
+
+            if (!user) mustHave(user, "User not found", 404)
+            return user
+
+        } catch (error) {
+            console.log(error)
+            bad(error)
+        }
+
+    }
+
 
 
     //////////////////////////////// HELPER METHODS ////////////////////////////////
@@ -286,7 +324,7 @@ export class UserService {
                 where: { id, },
                 include: {
                     level: true,
-                    upload: true,
+                    userDocuments: true,
                     contacts: true,
                     department: true,
                     prospect: true,

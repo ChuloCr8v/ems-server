@@ -88,7 +88,7 @@ export class AuthService {
       include: {
         // prospect: true,
         contacts: true,
-        upload: true,
+        userDocuments: true,
         level: true,
       },
     });

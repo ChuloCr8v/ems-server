@@ -37,10 +37,10 @@ model User {
   lastName      String
   phone         String
   workPhone     String?
-  role          String
+  role          String?
   gender        String
   duration      String?
-  jobType       JobType
+  jobType       JobType?
   departmentId  String?        @db.Uuid
   department    Department?    @relation("Department", fields: [departmentId], references: [id])
   country       String?
@@ -57,7 +57,8 @@ model User {
   prospectId    String?        @unique @db.Uuid
   prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  upload      Upload[]
+  userDocuments Upload[] @relation("UserDocuments")
+
   invite      Invite[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -137,12 +138,13 @@ model Upload {
   prospectId String?   @db.Uuid
   prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  userId        String?      @db.Uuid
-  user          User?        @relation(fields: [userId], references: [id])
   offboardingId String?      @db.Uuid
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
   assetId       String?      @db.Uuid
   asset         Asset?       @relation("AssetImages", fields: [assetId], references: [id])
+
+  userId        String? @db.Uuid
+  userDocuments User?   @relation("UserDocuments", fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

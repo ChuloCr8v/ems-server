@@ -81,6 +81,14 @@ export class InviteService {
       if (jobType !== JobType.CONTRACT && duration) {
         throw new BadRequestException('Duration should only be provided for CONTRACT positions')
       }
+
+      const existingProspect = await this.prisma.prospect.findUnique({
+        where: {
+          email: email
+        }
+      })
+
+      existingProspect && bad("Prospect with this email already exists")
       // 1. Create prospect and uploads
       const prospect = await this.prisma.$transaction(async (prisma) => {
         const createdProspect = await prisma.prospect.create({
@@ -126,10 +134,7 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to create prospect');
+      bad(error)
     }
   }
 
@@ -224,7 +229,11 @@ export class InviteService {
     try {
       const prospects = await this.prisma.prospect.findMany({
         include: {
-          user: true,
+          user: {
+            include: {
+              userDocuments: true
+            }
+          },
           upload: {
             select: {
               name: true,
