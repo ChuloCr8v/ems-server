@@ -30,15 +30,19 @@ export class UserController {
   constructor(private readonly userService: UserService) { }
 
   @Post('invite/:id')
-  @UseInterceptors(FilesInterceptor('uploads'))
-  async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @UploadedFiles() upload: Express.Multer.File[], @Res() res: Response) {
-    const user = await this.userService.createUser(id, data, upload);
+  async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @Res() res: Response) {
+    const user = await this.userService.createUser(id, data);
     return res.status(200).json({ message: `A User Has Sent His/Her Details`, user });
   }
 
   @Get()
   async findAllUsers() {
     return await this.userService.findAllUsers();
+  }
+
+  @Get(":id")
+  async getUser(@Param("id") id: string) {
+    return await this.userService.getUser(id);
   }
 
   @Put('approve/:id')
