@@ -106,6 +106,15 @@ export class UserService {
             if (user.status === userStatus) {
                 bad("User is already ACTIVE")
             }
+
+            const workEmailIsTaken = await this.prisma.user.findUnique({
+                where: {
+                    email: data.email
+                }
+            })
+
+            workEmailIsTaken && bad("Email is taken already")
+
             const approveUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
@@ -256,6 +265,7 @@ export class UserService {
                 // prospect: true,
                 userDocuments: {
                     select: {
+                        id: true,
                         name: true,
                         size: true,
                         type: true
@@ -286,6 +296,7 @@ export class UserService {
                     prospect: true,
                     userDocuments: {
                         select: {
+                            id: true,
                             name: true,
                             size: true,
                             type: true
