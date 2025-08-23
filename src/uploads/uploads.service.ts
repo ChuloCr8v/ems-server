@@ -6,7 +6,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Injectable } from '@nestjs/common';
 import { subDays } from 'date-fns';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { Stream } from 'stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -81,12 +81,19 @@ export class UploadsService {
         order: number,
         user: IAuthUser,
     ) {
+        const dbUser = await this.prisma.user.findUnique({
+            where: { email: user.email },
+        });
+
+        if (!dbUser) mustHave(dbUser, `No user found with email ${user.email}`, 404);
+
         const key = await this.upload(file);
+
         await this.prisma.upload.create({
             data: {
                 id,
                 order,
-                userId: user.sub,
+                userId: dbUser.id,
                 key: key,
                 name: file.originalname,
                 type: file.mimetype,
@@ -122,8 +129,16 @@ export class UploadsService {
     }
 
     async deleteFilesFromS3(ids: string[], user: IAuthUser) {
+        const dbUser = await this.prisma.user.findUnique({
+            where: { email: user.email },
+        });
+
+        if (!dbUser) {
+            bad('User not found');
+        }
+
         const uploads = await this.prisma.upload.findMany({
-            where: { id: { in: ids }, userId: user.sub },
+            where: { id: { in: ids }, userId: dbUser.id },
         });
 
         if (uploads.length !== ids.length) {
@@ -138,9 +153,10 @@ export class UploadsService {
         );
 
         await this.prisma.upload.deleteMany({
-            where: { id: { in: ids }, userId: user.sub },
+            where: { id: { in: ids }, userId: dbUser.id },
         });
     }
+
 
     async deleteMany(ids: string[]) {
         const uploads = await this.prisma.upload.findMany({

@@ -30,9 +30,9 @@ model Prospect {
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  eId           String?       @unique
-  email         String?       @unique
+  id            String         @id @default(uuid()) @db.Uuid
+  eId           String?        @unique
+  email         String?        @unique
   firstName     String
   lastName      String
   phone         String
@@ -41,21 +41,21 @@ model User {
   gender        String
   duration      String?
   jobType       JobType
-  departmentId  String?       @db.Uuid
-  department    Department?   @relation("Department", fields: [departmentId], references: [id])
-  country       String
-  state         String
-  address       String
+  departmentId  String?        @db.Uuid
+  department    Department?    @relation("Department", fields: [departmentId], references: [id])
+  country       String?
+  state         String?
+  address       String?
   startDate     DateTime?
-  status        Status        @default(PENDING)
+  status        Status         @default(PENDING)
   userRole      Role?
-  maritalStatus MaritalStatus
+  maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
-  levelId       String?       @db.Uuid
-  level         Level?        @relation(fields: [levelId], references: [id])
-  prospectId    String?       @unique @db.Uuid
-  prospect      Prospect?     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  levelId       String?        @db.Uuid
+  level         Level?         @relation(fields: [levelId], references: [id])
+  prospectId    String?        @unique @db.Uuid
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
   upload      Upload[]
   invite      Invite[]
