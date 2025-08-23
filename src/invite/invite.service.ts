@@ -266,7 +266,11 @@ export class InviteService {
       const invite = await this.prisma.invite.findUnique({
         where: { token },
         include: {
-          prospect: true,
+          prospect: {
+            include: {
+              user: true
+            }
+          },
         },
 
       });

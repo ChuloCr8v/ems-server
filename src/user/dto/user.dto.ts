@@ -66,9 +66,9 @@ export class CreateUserDto {
   @IsString()
   gender: string;
 
-  @IsNotEmpty({ message: 'Duration is Required' })
+  @IsOptional({ message: 'Duration is Required' })
   @IsString()
-  duration: string;
+  duration?: string;
 
   @IsNotEmpty({ message: 'Start Date is Required' })
   @IsString()

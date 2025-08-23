@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, Logger, HttpException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JobType, Prisma, Role, Status } from '@prisma/client';
-import { AddEmployeeDto, ApproveUserDto, CreateUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { JobType, Status } from '@prisma/client';
+import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { InviteService } from 'src/invite/invite.service';
 import { bad } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
@@ -15,91 +15,91 @@ export class UserService {
         private readonly invite: InviteService,
         private readonly mail: MailService,) { }
 
-    async createUser(id: string, data: PartialCreateUserDto, uploads: Express.Multer.File[]) {
-        const {
-            jobType,
-            duration, //This is conditional
-        } = data;
+    async createUser(
+        id: string,
+        data: PartialCreateUserDto,
+        uploads: Express.Multer.File[],
+    ) {
+        const { jobType, duration } = data;
+
         try {
-            //First find prospect by ID
-            const invite = await this.prisma.invite.findUnique({ where: { id }, include: { prospect: true } });
+            const invite = await this.prisma.invite.findUnique({
+                where: { id },
+                include: {
+                    prospect: {
+                        include: {
+                            user: true
+                        }
+                    }
+                },
+            });
 
             const result = await this.prisma.$transaction(async (prisma) => {
-                // Create user
-                const user = await prisma.user.create({
-                    data: {
-                        firstName: invite.prospect.firstName,
-                        lastName: invite.prospect.lastName,
-                        gender: invite.prospect.gender,
-                        phone: invite.prospect.phone,
-                        role: invite.prospect.role,
-                        jobType: invite.prospect.jobType,
-                        startDate: invite.prospect.startDate,
-                        // Conditionally include duration
-                        ...(jobType === JobType.CONTRACT ? { duration } : {}),
-                        department: {
-                            connect: {
-                                id: invite.prospect.departmentId,
-                            },
-                        },
-                        country: data.country,
-                        state: data.state,
-                        address: data.address,
-                        maritalStatus: data.maritalStatus,
-                        contacts: {
-                            create: {
-                                guarantor: {
-                                    create: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        phone: data.guarantor.phone,
-                                        email: data.guarantor.email
-                                    },
-                                },
-                                emergency: {
-                                    create: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        phone: data.emergency.phone,
-                                        email: data.emergency.email,
-                                    },
-                                },
-                            },
-                        },
-                        prospect: {
-                            connect: {
-                                id: invite.prospect.id,
-                            },
-                        },
-                    },
-                    include: {
-                        contacts: true,
-                        prospect: true
-                    },
-                });
-                // Handle file uploads within the transaction
-                if (uploads?.length > 0) {
-                    const userUploads = uploads.map((upload) => ({
-                        name: upload.originalname,
-                        size: upload.size,
-                        type: upload.mimetype,
-                        bytes: upload.buffer,
-                        userId: user.id,
-                    }));
+                const existingUser = invite.prospect.user;
 
+                const userData: any = {
+                    firstName: data.firstName ?? existingUser?.firstName,
+                    lastName: data.lastName ?? existingUser?.lastName,
+                    gender: data.gender ?? existingUser?.gender,
+                    phone: data.phone ?? existingUser?.phone,
+                    role: data.role ?? existingUser?.role,
+                    jobType: data.jobType ?? existingUser?.jobType,
+                    startDate: data.startDate ?? existingUser?.startDate,
+                    ...(jobType === JobType.CONTRACT && duration ? { duration } : {}),
+                    ...(invite.prospect.departmentId
+                        ? { department: { connect: { id: invite.prospect.departmentId } } }
+                        : {}),
+                    country: data.country ?? existingUser?.country,
+                    state: data.state ?? existingUser?.state,
+                    address: data.address ?? existingUser?.address,
+                    maritalStatus: data.maritalStatus ?? existingUser?.maritalStatus,
+                    prospect: { connect: { id: invite.prospect.id } },
+                };
+
+                // Optional contacts
+                if (data.guarantor || data.emergency) {
+                    userData.contacts = { create: {} };
+                    if (data.guarantor) {
+                        userData.contacts.create.guarantor = {
+                            create: { ...data.guarantor },
+                        };
+                    }
+                    if (data.emergency) {
+                        userData.contacts.create.emergency = {
+                            create: { ...data.emergency },
+                        };
+                    }
+                }
+
+                const user = await prisma.user.create({
+                    data: userData,
+                    include: { contacts: true, prospect: true },
+                });
+
+                // Optional uploads
+                if (uploads?.length > 0) {
                     await prisma.upload.createMany({
-                        data: userUploads,
+                        data: uploads.map((file) => ({
+                            name: file.originalname,
+                            size: file.size,
+                            type: file.mimetype,
+                            bytes: file.buffer,
+                            userId: user.id,
+                        })),
                     });
                 }
-                return { user, uploads }
+
+                return { user, uploads };
             });
+
 
             return result;
         } catch (error) {
-
-            bad(error)
+            console.log(error);
+            bad(error);
         }
     }
+
 
     async approveUser(id: string, data: ApproveUserDto) {
         const { email, workPhone, userRole, levelId, eId } = data;
