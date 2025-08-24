@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JobType, Status } from '@prisma/client';
+import { JobType, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
+import { EmploymentApprovedEvent } from 'src/events/employment.event';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class UserService {
@@ -11,8 +13,10 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        // private readonly invite: InviteService,
-        private readonly mail: MailService,) { }
+        private readonly mail: MailService,
+        private eventEmitter: EventEmitter2
+    ) { }
+
 
     async createUser(
         id: string,
@@ -98,31 +102,58 @@ export class UserService {
 
 
     async approveUser(id: string, data: ApproveUserDto) {
-        const { email, workPhone, userRole, levelId, eId } = data;
+        // const { email, workPhone, userRole, levelId, eId } = data;
+        const { userRole, levelId } = data;
         try {
             //Check if User Exists And Is Not Already ACTIVE
             const user = await this.__findUserById(id);
-            const userStatus = Status.ACTIVE;
-            if (user.status === userStatus) {
+
+            if (user.status === Status.ACTIVE) {
                 bad("User is already ACTIVE")
             }
+
+            // const workEmailIsTaken = await this.prisma.user.findUnique({
+            //     where: {
+            //         email: data.email
+            //     }
+            // })
+
+            // workEmailIsTaken && bad("Email is taken already")
+
             const approveUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    email,
-                    workPhone,
+                    // email,
+                    // workPhone,
                     userRole,
-                    eId,
+                    // eId,
                     level: {
                         connect: {
                             id: levelId,
                         },
                     },
-                    status: userStatus,
+                    status: Status.ACTIVE,
                 },
             });
+
+            const recipients = await this.prisma.user.findMany({
+                where: {
+                    userRole: {
+                        in: [Role.ADMIN, Role.FACILITY]
+                    }
+                }
+            })
+
+            const recipientIds = recipients.map(r => r.id)
+
+            this.eventEmitter.emit(
+                'employment.approved',
+                new EmploymentApprovedEvent(approveUser.id, recipientIds),
+            );
+
             return approveUser;
         } catch (error) {
+            console.log(error)
             bad(error)
         }
     }
@@ -256,6 +287,7 @@ export class UserService {
                 // prospect: true,
                 userDocuments: {
                     select: {
+                        id: true,
                         name: true,
                         size: true,
                         type: true
@@ -286,6 +318,7 @@ export class UserService {
                     prospect: true,
                     userDocuments: {
                         select: {
+                            id: true,
                             name: true,
                             size: true,
                             type: true

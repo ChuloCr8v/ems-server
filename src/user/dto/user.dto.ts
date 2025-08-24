@@ -109,21 +109,21 @@ export class UpdateUserDto extends CreateUserDto { }
 export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
 
 export class ApproveUserDto {
-  @IsEmail()
-  @IsNotEmpty({ message: 'Work Email is Required' })
-  email: string;
+  // @IsEmail()
+  // @IsNotEmpty({ message: 'Work Email is Required' })
+  // email: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Work Phone Number is Required' })
-  workPhone: string;
+  // @IsString()
+  // @IsNotEmpty({ message: 'Work Phone Number is Required' })
+  // workPhone: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
   levelId: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Employee ID Number is Required' })
-  eId: string;
+  // @IsString()
+  // @IsNotEmpty({ message: 'Employee ID Number is Required' })
+  // eId: string;
 
   @IsEnum(Role, { each: true })
   @IsNotEmpty({ message: 'User Role is Required' })

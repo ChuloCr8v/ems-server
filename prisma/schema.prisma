@@ -8,31 +8,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @db.Uuid
+  actorId     String?  @db.Uuid
+  prospectId  String?  @db.Uuid
+  type        String
+  message     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipient User      @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+}
+
 model Prospect {
-  id           String      @id @default(uuid()) @db.Uuid
-  email        String      @unique
-  firstName    String      @default("")
-  lastName     String      @default("")
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique
+  firstName    String         @default("")
+  lastName     String         @default("")
   phone        String
   gender       String
   role         String
   duration     String?
   startDate    DateTime
-  departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?        @db.Uuid
+  department   Department?    @relation(fields: [departmentId], references: [id])
   jobType      JobType
   user         User?
   invite       Invite[]
   upload       Upload[]
   // comment      Comment[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  notification Notification[]
 }
 
 model User {
   id            String         @id @default(uuid()) @db.Uuid
   eId           String?        @unique
   email         String?        @unique
+  workEmail     String?
   firstName     String
   lastName      String
   phone         String
@@ -72,6 +90,9 @@ model User {
   departmentHead   Department? @relation("DepartmentHead")
 
   departmentCreator Department? @relation("departmentCreator")
+
+  notificationRecipient Notification[] @relation("NotificationRecipient")
+  notificationActor     Notification[] @relation("NotificationActor")
 
   @@index([email])
   @@index([eId])
