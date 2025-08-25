@@ -112,22 +112,23 @@ export class OffboardingService {
             throw new NotFoundException('Asset Not Found');
           }
 
+
+
           // Check if asset is already RETURNED
-          if (asset.status === 'RETURNED') {
-            throw new ConflictException('Asset Has Already Been Returned');
-          }
+          // if (asset.a === 'RETURNED') {
+          //   throw new ConflictException('Asset Has Already Been Returned');
+          // }
 
           // Check if asset has active assignments
-          if (!asset.assignments.length) {
-            throw new BadRequestException('Asset is not currently assigned to anyone');
-          }
+          // if (!asset.assignments.length) {
+          //   throw new BadRequestException('Asset is not currently assigned to anyone');
+          // }
 
           // Update the Asset
           const updatedAsset = await tx.asset.update({
             where: { id: assetId },
             data: {
               isReturned: true,
-              status: 'RETURNED',
             },
           });
 
@@ -291,7 +292,7 @@ export class OffboardingService {
             data: {
               comment: comments,
               userId: user.sub,
-              assignmentId: assignment.id,
+              // assignmentId: assignment.id,
               offboardingId: assignment.offboardingId
             },
             include: { uploads: true }
@@ -361,14 +362,13 @@ export class OffboardingService {
     async approveAssetPayment(assignmentId: string) {
         const assignment = await this.prisma.assignment.findUnique({
         where: { id: assignmentId },
-        include: { asset: true, uploads: true },
+        include: { asset: true,},
           });
+
         if(!assignment){
           throw bad("Assignment Record Not Found");
         }
-        if (assignment.uploads.length === 0) {
-          throw bad("No payment receipt uploaded")
-        }
+
         return this.prisma.$transaction([
         // Update assignment status
         this.prisma.assignment.update({

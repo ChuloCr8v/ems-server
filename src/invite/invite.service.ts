@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
 
@@ -15,7 +15,7 @@ export class InviteService {
     private mail: MailService,
   ) { }
 
-  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },) {
+  async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }, adminUser: string) {
     const { email, uploads } = input;
     try {
       const token = randomUUID();
@@ -30,26 +30,23 @@ export class InviteService {
           expiresAt,
           token,
           prospectId: prospect.id,
-          // sentById: adminUser.sub, //This will track the who is sending the invite
+          sentById: adminUser, //This will track the who is sending the invite
         },
       });
 
       // Send email 
-      const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-      const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
-
       const allAttachments = uploads?.map(upload => ({
         filename: upload.originalname,
         content: upload.buffer,
         contentType: upload.mimetype,
       })) || [];
 
-        await this.mail.sendProspectMail({
-          email: prospect.email,
-          firstName: `${prospect.firstName}`,
-          token: link,
-          attachments: allAttachments,
-        });
+      await this.mail.sendProspectMail({
+        email: prospect.email,
+        firstName: `${prospect.firstName}`,
+        token,
+        attachments: allAttachments,
+      });
 
       return true;
     } catch (error) {
@@ -58,13 +55,13 @@ export class InviteService {
           error instanceof ConflictException) {
         throw error;
       }
-      throw new BadRequestException('Failed to process debt payment');
+      throw new BadRequestException('Failed to send invite');
       }
   }
 
 
 
-  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[],) {
+  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
     const {
       firstName,
       lastName,
@@ -77,7 +74,6 @@ export class InviteService {
       role,
       startDate,
     } = input;
-
     try {
 
       if (jobType === JobType.CONTRACT && !duration) {
@@ -125,7 +121,9 @@ export class InviteService {
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
-      },);
+      },
+        adminUser
+      );
 
       return prospect;
     } catch (error) {
@@ -139,7 +137,7 @@ export class InviteService {
   }
 
 
-  async acceptInvite(token: string, user: IAuthUser) {
+  async acceptInvite(token: string) {
     const currentDate = new Date();
     //Find the invite by token
     const invite = await this.prisma.invite.findUnique({
@@ -156,32 +154,30 @@ export class InviteService {
       throw new BadRequestException('Invitation Has Already Been Accepted or Declined');
     }
 
-      //Update the invite status to ACCEPTED
-     const updatedInvite = await this.prisma.invite.update({
-        where: { token },
-        data: {
-          status: 'ACCEPTED',
-          acceptedAt: currentDate,
-        },
-        include: {
-          prospect: true,
-          sentBy: true,
-        },
-      });
+    //Update the invite status to ACCEPTED
+    const updatedInvite = await this.prisma.invite.update({
+      where: { token },
+      data: {
+        status: 'ACCEPTED',
+        acceptedAt: currentDate,
+      },
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
+    });
 
-        await this.mail.sendAcceptanceMail({
-          email: user.email,
-          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-        });
-      
-      return updatedInvite;
-    }
+    await this.mail.sendAcceptanceMail({
+      email: updatedInvite.sentBy.email,
+      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+    });
 
-  async declineInvite(token: string, data: DeclineComment, user: IAuthUser) {
-    const { comment } = data;
+    return updatedInvite;
+    
+  }
+
+  async declineInvite(token: string, reasons?: Array<string>) {
     const currentDate = new Date();
-
-    //Find the invitation by token
     const invite = await this.prisma.invite.findUnique({
       where: { token },
       include: {
@@ -202,9 +198,7 @@ export class InviteService {
       data: {
         status: 'DECLINED',
         declinedAt: currentDate,
-        comment: {
-          create: { comment },
-        },
+        declineReasons: reasons.map(r => r),
       },
       include: { 
         prospect: true,
@@ -212,18 +206,19 @@ export class InviteService {
       },
     });
 
-        await this.mail.sendDeclinedMail({
-          email: user.email,
-          name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-        });
+    await this.mail.sendDeclinedMail({
+      email: invite.sentBy.email,
+      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+    });
 
-      return updatedInvite;
-    }
+    return updatedInvite;
+  }
 
   async getAllProspects() {
     try {
       const prospects = await this.prisma.prospect.findMany({
         include: {
+          user: true,
           upload: {
             select: {
               name: true,
@@ -232,17 +227,53 @@ export class InviteService {
             }
           }
           ,
-          invite: true
+          invite: {
+            include: {
+              sentBy: {
+                select: {
+                  id: true,
+                  email: true,
+                  firstName: true,
+                  lastName: true
+                }
+              }
+            },
+            take: 1,
+            orderBy: {
+              createdAt: 'desc',
+            }
+          }
         },
 
       });
       return prospects;
     } catch (error) {
-    if (error instanceof BadRequestException) {
-      throw error;
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException('Failed to fetch prospects');
     }
-    throw new InternalServerErrorException('Failed to fetch prospects');
   }
+
+  async getInviteByToken(token: string) {
+    try {
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+        },
+
+      });
+
+      if (!invite) {
+        mustHave(invite, 'Invite not found', 404);
+      }
+
+      return invite;
+
+    } catch (error) {
+      bad(error);
+    }
   }
 
   async getOneProspect(id: string) {
@@ -254,6 +285,23 @@ export class InviteService {
     }
   }
 
+  async deleteProspect(id: string) {
+    try {
+      const prospect = await this.__findProspectById(id);
+      if (!prospect) {
+        mustHave(prospect, `Prospect with ID ${id} not found`, 404);
+      }
+
+      // Delete the prospect
+      await this.prisma.prospect.delete({
+        where: { id },
+      });
+
+      return true;
+    } catch (error) {
+      bad(error);
+    }
+  }
 
 
   ///////////////////////////////// HELPERS ///////////////////////////////

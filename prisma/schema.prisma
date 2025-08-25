@@ -27,43 +27,58 @@ model Prospect {
   // comment      Comment[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  // notification Notification[]
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  eId           String?       @unique
-  email         String?       @unique
+  id            String         @id @default(uuid()) @db.Uuid
+  eId           String?        @unique
+  email         String?        @unique
+  workEmail     String?
   firstName     String
   lastName      String
   phone         String
   workPhone     String?
-  role          String
+  role          String?
   gender        String
   duration      String?
   jobType       JobType
-  departmentId  String?       @db.Uuid
-  department    Department?   @relation(fields: [departmentId], references: [id])
+  departmentId  String?        @db.Uuid
+  department    Department?    @relation("Department", fields: [departmentId], references: [id])
   country       String
   state         String
   address       String
   startDate     DateTime?
-  status        Status        @default(PENDING)
+  status        Status         @default(PENDING)
   userRole      Role?
-  maritalStatus MaritalStatus
+  maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
-  levelId       String?       @db.Uuid
-  level         Level?        @relation(fields: [levelId], references: [id])
-  prospectId    String?       @unique @db.Uuid
-  prospect      Prospect?     @relation(fields: [prospectId], references: [id])
-  upload        Upload[]
+  levelId       String?        @db.Uuid
+  level         Level?         @relation(fields: [levelId], references: [id])
+  prospectId    String?        @unique @db.Uuid
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  userDocuments Upload[]
   invite        Invite[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   comment       Comment[]
   assignments   Assignment[]
-  faults        Fault[]
-  // debt          EmployeeDebt[]
+
+  faultReporter Fault[] @relation("reportedBy")
+  faultResolver Fault[] @relation("resolvedBy")
+
+  departmentHeadId String?     @db.Uuid
+  departmentHead   Department? @relation("DepartmentHead")
+
+  departmentCreator Department? @relation("departmentCreator")
+
+  @@index([email])
+  @@index([eId])
+  @@index([firstName, lastName])
+  @@index([departmentId])
+  @@index([levelId])
 }
 
 model Invite {
@@ -78,17 +93,28 @@ model Invite {
   sentById   String?   @db.Uuid
   sentBy     User?     @relation(fields: [sentById], references: [id])
   prospectId String    @db.Uuid
-  prospect   Prospect  @relation(fields: [prospectId], references: [id])
-  comment    Comment[]
+  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  comment        Comment[]
+  declineReasons String[]
 }
 
 model Department {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String
-  prospect  Prospect[]
-  user      User[]
-  createdAt DateTime   @default(now())
-  updatedAT DateTime   @updatedAt
+  id       String     @id @default(uuid()) @db.Uuid
+  name     String
+  prospect Prospect[]
+  user     User[]     @relation("Department")
+
+  createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
+  createdById String? @unique @db.Uuid
+
+  departmentHeadId String? @unique @db.Uuid
+  departmentHead   User?   @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
+
+  status DepartmentStatus? @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAT DateTime @updatedAt
 }
 
 model Level {
@@ -101,29 +127,33 @@ model Level {
 }
 
 model Upload {
-  id            String            @id @default(uuid()) @db.Uuid
-  name          String
-  size          Int
-  type          String
-  bytes         Bytes?
-  prospectId    String?           @db.Uuid
-  prospect      Prospect?         @relation(fields: [prospectId], references: [id])
+  id    String  @id @default(uuid()) @db.Uuid
+  name  String
+  size  Int
+  type  String
+  bytes Bytes?
+  key   String?
+  order Int?
+  uri   String?
+
+  prospectId String?   @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
   userId        String?           @db.Uuid
   user          User?             @relation(fields: [userId], references: [id])
   offboardingId String?           @db.Uuid
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  assignmentId  String?           @db.Uuid
-  assignment    Assignment?       @relation("AssetPaymentReceipt", fields: [assignmentId], references: [id])
+  assetId       String?           @db.Uuid
+  asset         Asset?            @relation("AssetImages", fields: [assetId], references: [id])
+  commentId     String?           @db.Uuid
+  comment       Comment?          @relation(fields: [commentId], references: [id])
   handoverId    String?           @db.Uuid
   handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
   paymentId     String?           @db.Uuid
   payment       Payment?          @relation(fields: [paymentId], references: [id])
-  commentId     String?           @db.Uuid
-  comment       Comment?          @relation(fields: [commentId], references: [id])
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
 
-  @@unique([userId, name])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Contacts {
@@ -165,8 +195,8 @@ model Comment {
   user          User?             @relation(fields: [userId], references: [id])
   inviteId      String?           @db.Uuid
   invite        Invite?           @relation(fields: [inviteId], references: [id])
-  assignmentId  String?           @db.Uuid
-  assignment    Assignment?       @relation(fields: [assignmentId], references: [id])
+  // assignmentId  String?           @db.Uuid
+  // assignment    Assignment?       @relation(fields: [assignmentId], references: [id])
   offboardingId String?           @db.Uuid
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
   paymentId     String?           @db.Uuid
@@ -180,14 +210,14 @@ model Comment {
 
 model Asset {
   id           String        @id @default(uuid()) @db.Uuid
+  assetId      String        @unique
   name         String
   serialNo     String        @unique
   category     AssetCategory
   purchaseDate DateTime
   vendor       String
   cost         Float
-  assetImage   String?
-  barcodeImage String?
+  assetImages  Upload[]      @relation("AssetImages")
   description  String?
   isReturned   Boolean       @default(false)
   status       AssetStatus   @default(AVAILABLE)
@@ -198,35 +228,45 @@ model Asset {
 }
 
 model Assignment {
-  id            String       @id @default(uuid()) @db.Uuid
-  asset         Asset        @relation(fields: [assetId], references: [id])
-  assetId       String       @db.Uuid
-  user          User         @relation(fields: [userId], references: [id])
-  userId        String       @db.Uuid
+  id            String            @id @default(uuid())
+  asset         Asset             @relation(fields: [assetId], references: [id])
+  assetId       String            @db.Uuid
+  user          User              @relation(fields: [userId], references: [id])
+  userId        String            @db.Uuid
   assignedAt    DateTime
-  returnedAt    DateTime?
   notes         String?
-  condition     String
-  isVerified    Boolean      @default(false)
-  isPaid        Boolean?     @default(false)
-  verifiedAt    DateTime?
-  offboardingId String?      @db.Uuid
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  comments      Comment[]
-  uploads       Upload[]     @relation("AssetPaymentReceipt")
+  condition     String?
+  status        AssignmentStatus?
+  isVerified   Boolean           @default(false)
+  isPaid       Boolean           @default(false)
+  verifiedAt   DateTime?
+  returnedAt   DateTime?
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+
+  // comment Comment[]
 }
 
 model Fault {
-  id         String      @id @default(uuid()) @db.Uuid
-  assetId    String      @db.Uuid
-  asset      Asset       @relation(fields: [assetId], references: [id])
-  reportedBy String      @db.Uuid
-  user       User        @relation(fields: [reportedBy], references: [id])
-  images     String[]
-  reason     String
-  status     FaultStatus @default(PENDING)
-  resolvedAt DateTime?
-  createdAt  DateTime    @default(now())
+  id           String      @id @default(uuid()) @db.Uuid
+  assetId      String      @db.Uuid
+  asset        Asset       @relation(fields: [assetId], references: [id])
+  reportedById String?     @db.Uuid
+  reportedBy   User?       @relation("reportedBy", fields: [reportedById], references: [id])
+  resolvedById String?     @db.Uuid
+  resolvedBy   User?       @relation("resolvedBy", fields: [resolvedById], references: [id])
+  images       String[]
+  reason       String?
+  notes        String?
+  status       FaultStatus @default(PENDING)
+  resolvedAt   DateTime?   @default(now())
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now()) @updatedAt
+
+  @@index([reportedById])
+  @@index([resolvedById])
+  @@index([assetId])
+  @@index([status])
 }
 
 model Offboarding {
@@ -331,6 +371,10 @@ enum AssetStatus {
   RETIRED
   ACCEPTED
   MAINTENANCE
+}
+
+enum AssignmentStatus {
+  ASSIGNED
   RETURNED
 }
 
@@ -344,4 +388,9 @@ enum FaultStatus {
 enum ExitType {
   RESIGNATION
   TERMINATION
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
 }

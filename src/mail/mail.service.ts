@@ -1,13 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, DeclinedInviteDto, InitiateOffboarding, MAIL_SUBJECT, ProspectInviteDto, UpdateProspectInfoDto } from './mail.types';
+import { AcceptanceInviteDto, DeclinedInviteDto, InitiateOffboarding, MAIL_SUBJECT, ProspectInviteDto, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class MailService {
 
-  constructor(private mailerService: MailerService) {}
+  constructor(private mailerService: MailerService,
+    private config: ConfigService,
+  ) { }
 
-   async sendProspectMail(input: ProspectInviteDto) {
+  async sendProspectMail(input: ProspectInviteDto) {
     const { email, firstName, token, attachments } = input;
     const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
@@ -19,7 +22,7 @@ export class MailService {
       context: { firstName, link, attachments }
     });
   }
-  
+
   async sendAcceptanceMail(acceptance: AcceptanceInviteDto) {
     const { email, name } = acceptance;
     await this.mailerService.sendMail({
@@ -58,5 +61,24 @@ export class MailService {
       template: 'offboarding',
       context: { name },
     })
+  }
+
+  async sendWelcomeEmail(data: WelcomeEmailDto) {
+    const { email, name, loginLink, temporaryPassword } = data;
+
+    await this.mailerService.sendMail({
+      from: this.config.get('EMAIL_FROM'),
+      to: email,
+      subject: MAIL_SUBJECT.WELCOME_EMAIL,
+      template: 'welcome',
+      context: {
+        name,
+        loginLink: loginLink || this.config.get('CLIENT_LOGIN_URL'),
+        temporaryPassword,
+        appName: this.config.get('APP_NAME'),
+        companyName: this.config.get('COMPANY_NAME'),
+        currentYear: new Date().getFullYear(),
+      },
+    });
   }
 }

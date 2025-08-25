@@ -11,6 +11,9 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AssetModule } from './assets/asset.module';
 import { OffboardingModule } from './offboarding/offboarding.module';
+import { UploadsController } from './uploads/uploads.controller';
+import { UploadsService } from './uploads/uploads.service';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -23,8 +26,9 @@ import { OffboardingModule } from './offboarding/offboarding.module';
     LevelModule,
     AssetModule,
     OffboardingModule,
+    UploadsModule
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, UploadsController],
+  providers: [AppService, UploadsService],
 })
 export class AppModule { }

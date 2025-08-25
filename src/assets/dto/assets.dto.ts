@@ -15,19 +15,19 @@ export class ImageDto {
     description: 'Original filename',
     example: 'laptop.jpg'
   })
-  originalName: string;
+  originalName?: string;
 
   @ApiProperty({
     description: 'File size in bytes',
     example: 102400
   })
-  size: number;
+  size?: number;
 
   @ApiProperty({
     description: 'MIME type',
     example: 'image/jpeg'
   })
-  mimeType: string;
+  mimeType?: string;
 }
 
 export class CreateAssetDto {
@@ -38,6 +38,15 @@ export class CreateAssetDto {
   @IsNotEmpty()
   @IsString()
   name: string;
+
+  @ApiProperty({
+    description: 'Images of the asset',
+    example: 'laptop.jpg',
+  })
+  @IsOptional()
+  @IsArray()
+  assetImages?: string[];
+
 
   @ApiProperty({
     description: 'Serial number of the asset',
@@ -62,7 +71,7 @@ export class CreateAssetDto {
   })
   @IsNotEmpty()
   @IsDateString()
-  purchaseDate: string;
+  purchaseDate: Date;
 
   @ApiProperty({
     description: 'Vendor from whom the asset was purchased',
@@ -80,7 +89,7 @@ export class CreateAssetDto {
   @IsNotEmpty()
   @IsNumber()
   @Transform(({ value }) => parseFloat(value))
-  cost: number;
+  cost: Number;
 
   @ApiPropertyOptional({
     description: 'Additional description of the asset',
@@ -91,7 +100,7 @@ export class CreateAssetDto {
   @IsString()
   description?: string;
 
-   @ApiPropertyOptional({
+  @ApiPropertyOptional({
     description: 'Asset image details',
     type: ImageDto,
     required: false
@@ -109,13 +118,13 @@ export class CreateAssetDto {
 }
 
 export class AssignAssetDto {
-  @ApiProperty({
-    description: 'ID of the asset to be assigned',
-    example: 'clnjak9xj000008l49v2q5z6d',
-  })
-  @IsNotEmpty()
-  @IsString()
-  assetId: string;
+  // @ApiProperty({
+  //   description: 'ID of the asset to be assigned',
+  //   example: 'clnjak9xj000008l49v2q5z6d',
+  // })
+  // @IsNotEmpty()
+  // @IsString()
+  // assetId: string;
 
   @ApiProperty({
     description: 'ID of the user to whom the asset is being assigned',
@@ -125,21 +134,21 @@ export class AssignAssetDto {
   @IsString()
   userId: string;
 
-  @ApiProperty({
-    description: 'Date when the asset is assigned (YYYY-MM-DD format)',
-    example: '2023-06-20',
-  })
-  @IsNotEmpty()
-  @IsDateString()
-  assignedAt: string;
+  // @ApiProperty({
+  //   description: 'Date when the asset is assigned (YYYY-MM-DD format)',
+  //   example: '2023-06-20',
+  // })
+  // @IsNotEmpty()
+  // @IsDateString()
+  // assignedAt: string;
 
-  @ApiProperty({
-    description: 'Condition of the asset at the time of assignment',
-    example: 'Excellent',
-  })
-  @IsNotEmpty()
-  @IsString()
-  condition: string;
+  // @ApiProperty({
+  //   description: 'Condition of the asset at the time of assignment',
+  //   example: 'Excellent',
+  // })
+  // @IsNotEmpty()
+  // @IsString()
+  // condition: string;
 
   @ApiPropertyOptional({
     description: 'Additional notes about the assignment',
@@ -177,22 +186,22 @@ export class ReportFaultDto {
   @IsString()
   reportedBy: string;
 
-  @ApiProperty({
-    description: 'Array of image URLs/paths documenting the fault',
-    example: ['uploads/faults/fault-12345.jpg'],
-    type: [String],
-  })
-  @IsArray()
-  @IsString({ each: true })
-  images: { url: string; originalName: string; size: number; mimeType: string }[];
+  // @ApiProperty({
+  //   description: 'Array of image URLs/paths documenting the fault',
+  //   example: ['uploads/faults/fault-12345.jpg'],
+  //   type: [String],
+  // })
+  // @IsArray()
+  // @IsString({ each: true })
+  // images: { url: string; originalName: string; size: number; mimeType: string }[];
 
-  @ApiProperty({
-    description: 'Reason for the fault report',
-    example: 'Screen flickering and unresponsive touchpad',
-  })
-  @IsNotEmpty()
-  @IsString()
-  reason: string;
+  // @ApiProperty({
+  //   description: 'Reason for the fault report',
+  //   example: 'Screen flickering and unresponsive touchpad',
+  // })
+  // @IsNotEmpty()
+  // @IsString()
+  // reason: string;
 
   @ApiPropertyOptional({
     description: 'Additional notes about the fault',
