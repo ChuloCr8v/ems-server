@@ -5,16 +5,16 @@ const prisma = new PrismaClient();
 async function main() {
   await prisma.user.create({
     data: {
-      firstName: "Bona",
-      lastName: "Wewo",
-      email: "bonaventure@zoracom.com",
+      firstName: "Stephanie",
+      lastName: "Alfred",
+      email: "stephanie@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
       address: "123 Zoracom Street",
       userRole: Role.ADMIN,
       maritalStatus: MaritalStatus.SINGLE,
-      gender: "Male",
+      gender: "Female",
       role: "System Engineer",
       duration: "6 months",
       jobType: JobType.FULL_TIME,

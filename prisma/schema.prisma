@@ -63,6 +63,7 @@ model User {
   comment       Comment[]
   assignments   Assignment[]
   faults        Fault[]
+  // debt          EmployeeDebt[]
 }
 
 model Invite {
@@ -100,21 +101,27 @@ model Level {
 }
 
 model Upload {
-  id            String       @id @default(uuid()) @db.Uuid
+  id            String            @id @default(uuid()) @db.Uuid
   name          String
   size          Int
   type          String
   bytes         Bytes?
-  prospectId    String?      @db.Uuid
-  prospect      Prospect?    @relation(fields: [prospectId], references: [id])
-  userId        String?      @db.Uuid
-  user          User?        @relation(fields: [userId], references: [id])
-  offboardingId String?      @db.Uuid
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  // assetId       String?      @db.Uuid
-  // asset         Asset?       @relation("AssetProof", fields: [assetId], references: [id])
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  prospectId    String?           @db.Uuid
+  prospect      Prospect?         @relation(fields: [prospectId], references: [id])
+  userId        String?           @db.Uuid
+  user          User?             @relation(fields: [userId], references: [id])
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  assignmentId  String?           @db.Uuid
+  assignment    Assignment?       @relation("AssetPaymentReceipt", fields: [assignmentId], references: [id])
+  handoverId    String?           @db.Uuid
+  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
+  paymentId     String?           @db.Uuid
+  payment       Payment?          @relation(fields: [paymentId], references: [id])
+  commentId     String?           @db.Uuid
+  comment       Comment?          @relation(fields: [commentId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@unique([userId, name])
 }
@@ -152,16 +159,23 @@ model GuarantorContact {
 }
 
 model Comment {
-  id        String   @id @default(uuid()) @db.Uuid
-  comment   String
-  userId    String?  @db.Uuid
-  user      User?    @relation(fields: [userId], references: [id])
-  inviteId  String?  @db.Uuid
-  invite    Invite?  @relation(fields: [inviteId], references: [id])
-  // prospectId String?   @db.Uuid
-  // prospect   Prospect? @relation(fields: [prospectId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String            @id @default(uuid()) @db.Uuid
+  comment       String
+  userId        String?           @db.Uuid
+  user          User?             @relation(fields: [userId], references: [id])
+  inviteId      String?           @db.Uuid
+  invite        Invite?           @relation(fields: [inviteId], references: [id])
+  assignmentId  String?           @db.Uuid
+  assignment    Assignment?       @relation(fields: [assignmentId], references: [id])
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  paymentId     String?           @db.Uuid
+  payment       Payment?          @relation(fields: [paymentId], references: [id])
+  handoverId    String?           @db.Uuid
+  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
+  uploads       Upload[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 }
 
 model Asset {
@@ -176,7 +190,6 @@ model Asset {
   barcodeImage String?
   description  String?
   isReturned   Boolean       @default(false)
-  // paymentProof  Upload[]      @relation("AssetProof")
   status       AssetStatus   @default(AVAILABLE)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -185,17 +198,22 @@ model Asset {
 }
 
 model Assignment {
-  id         String   @id @default(uuid()) @db.Uuid
-  asset      Asset    @relation(fields: [assetId], references: [id])
-  assetId    String   @db.Uuid
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String   @db.Uuid
-  assignedAt DateTime
-  returnedAt DateTime?
-  notes      String?
-  condition  String
-  isVerified Boolean @default(false)
-  verifiedAt  DateTime?
+  id            String       @id @default(uuid()) @db.Uuid
+  asset         Asset        @relation(fields: [assetId], references: [id])
+  assetId       String       @db.Uuid
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String       @db.Uuid
+  assignedAt    DateTime
+  returnedAt    DateTime?
+  notes         String?
+  condition     String
+  isVerified    Boolean      @default(false)
+  isPaid        Boolean?     @default(false)
+  verifiedAt    DateTime?
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  comments      Comment[]
+  uploads       Upload[]     @relation("AssetPaymentReceipt")
 }
 
 model Fault {
@@ -217,14 +235,17 @@ model Offboarding {
   lastWorkDate DateTime
   reason       String
   noticePeriod Boolean                @default(false)
-  userId       String                 @unique @db.Uuid
   status       Status                 @default(PENDING)
+  userId       String                 @unique @db.Uuid
   user         User                   @relation(fields: [userId], references: [id])
   uploads      Upload[]
   checklist    OffboardingChecklist[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  handover     HandoverDocument[]
+  comment      Comment[]
+  payments     Payment[]
+  assignments  Assignment[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 }
 
 model OffboardingChecklist {
@@ -234,6 +255,31 @@ model OffboardingChecklist {
   // proof   Upload[]
   offboardingId String      @db.Uuid
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
+}
+
+model HandoverDocument {
+  id            String       @id @default(uuid()) @db.Uuid
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  upload        Upload[]
+  comments      Comment[]
+  isApproved    Boolean      @default(false)
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime     @default(now())
+}
+
+model Payment {
+  id            String       @id @default(uuid()) @db.Uuid
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  approved      Boolean      @default(false)
+  approvedBy    String?      @db.Uuid
+  approvedAt    DateTime?
+  notes         String?
+  uploads       Upload[]
+  comment       Comment[]
+  createdAt     DateTime     @default(now())
 }
 
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -299,10 +345,3 @@ enum ExitType {
   RESIGNATION
   TERMINATION
 }
-
-// enum AssetStatus {
-//   ACTIVE
-//   RETURNED
-//   DAMAGED
-//   LOST
-// }

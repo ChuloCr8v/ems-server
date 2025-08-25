@@ -9,7 +9,10 @@ import { AuthService } from 'src/auth/auth.service';
   imports: [
     PrismaModule, 
     MailModule,],
-  providers: [InviteService, AuthService],
+  providers: [
+    InviteService, 
+    AuthService,
+  ],
   controllers: [InviteController],
   exports: [InviteService,],
 })

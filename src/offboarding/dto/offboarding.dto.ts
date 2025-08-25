@@ -1,5 +1,5 @@
 import { ExitType } from "@prisma/client";
-import { IsBoolean, IsEnum, IsNotEmpty, IsString } from "class-validator";
+import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class InitiateExit {
     @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
@@ -28,4 +28,16 @@ export class ReturnAsset {
     @IsString()
     @IsNotEmpty()
     reason: string;
+}
+
+// export class ReportAssetDto {
+//     @IsString()
+//     @IsNotEmpty()
+//     comment: string;
+// }
+
+export class DebtPaymentDto {
+    @IsString()
+    @IsOptional()
+    notes?: string;
 }

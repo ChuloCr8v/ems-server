@@ -5,6 +5,7 @@ export const MAIL_SUBJECT = {
     OFFER_ACCEPTANCE: 'Offer Acceptance',
     UPDATE_USER_INFO: 'Update User Information',
     DECLINE_OFFER: 'Declined Offer',
+    INITIATE_OFFBOARDING: 'Offboarding Initiated',
 }
 
 export class ProspectInviteDto {
@@ -35,9 +36,6 @@ export class AcceptanceInviteDto {
 
     @IsString()
     name: string;
-
-    @IsString()
-    link: string;
 }
 
 
@@ -56,5 +54,13 @@ export class UpdateProspectInfoDto {
 
     @IsString()
     link: string;
+}
+
+export class InitiateOffboarding {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
 }
 

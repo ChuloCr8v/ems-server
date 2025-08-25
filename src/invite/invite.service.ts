@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
@@ -6,7 +6,6 @@ import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.d
 import { bad } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType } from '@prisma/client';
-import { AuthService } from 'src/auth/auth.service';
 
 @Injectable()
 export class InviteService {
@@ -14,7 +13,6 @@ export class InviteService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
-    // private auth: AuthService,
   ) { }
 
   async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] },) {
@@ -24,7 +22,7 @@ export class InviteService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 2); // expires in 2 days
 
-      // 1. Find Prospect by email
+      //Find Prospect by email
       const prospect = await this.__findProspectByEmail(email);
       await this.prisma.invite.create({
         data: {
@@ -36,7 +34,7 @@ export class InviteService {
         },
       });
 
-      // 2. Send email 
+      // Send email 
       const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
       const link = `${frontendUrl}/onboarding/invitation?token=${token}`;
 
@@ -55,8 +53,13 @@ export class InviteService {
 
       return true;
     } catch (error) {
-      bad("Invite was not sent")
-    }
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException || 
+          error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to process debt payment');
+      }
   }
 
 
@@ -69,7 +72,7 @@ export class InviteService {
       departmentId,
       jobType,
       gender,
-      duration, //This is conditional
+      duration, //conditional
       phone,
       role,
       startDate,
@@ -78,12 +81,12 @@ export class InviteService {
     try {
 
       if (jobType === JobType.CONTRACT && !duration) {
-        throw new BadRequestException('Duration is required for CONTRACT positions');
+        throw bad('Duration is required for CONTRACT positions');
       }
       if (jobType !== JobType.CONTRACT && duration) {
-        throw new BadRequestException('Duration should only be provided for CONTRACT positions')
+        throw bad('Duration should only be provided for CONTRACT positions')
       }
-      // 1. Create prospect and uploads
+      //Create prospect and uploads
       const prospect = await this.prisma.$transaction(async (prisma) => {
         const createdProspect = await prisma.prospect.create({
           data: {
@@ -118,7 +121,7 @@ export class InviteService {
         return createdProspect;
       });
 
-      // 2. Send invite email
+      // Send invite email
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
@@ -126,11 +129,13 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-        if (error instanceof BadRequestException) {
-          throw error;
-        }
-        throw new InternalServerErrorException('Failed to create prospect');
-      }
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to process debt payment');
+          }
   }
 
 
@@ -164,12 +169,9 @@ export class InviteService {
         },
       });
 
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitations`;
         await this.mail.sendAcceptanceMail({
           email: user.email,
           name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-          link: link,
         });
       
       return updatedInvite;
@@ -204,19 +206,15 @@ export class InviteService {
           create: { comment },
         },
       },
-      include: {
+      include: { 
         prospect: true,
         sentBy: true,
       },
     });
 
-        const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-        const link = `${frontendUrl}/onboarding/invitations`;
-
         await this.mail.sendDeclinedMail({
           email: user.email,
           name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-          link: link
         });
 
       return updatedInvite;

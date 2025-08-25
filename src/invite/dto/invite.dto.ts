@@ -64,7 +64,7 @@ export class CreateProspectDto {
 
     //Duration for CONTRACT-STAFF
     @ApiProperty({ example: "6 months", description: "Duration for contract staff" })
-    @IsNotEmpty({ message: 'Duration is Required' })
+    @IsOptional({ message: 'Duration is Required' })
     @IsString()
     readonly duration: string;
 }
