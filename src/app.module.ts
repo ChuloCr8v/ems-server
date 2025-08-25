@@ -14,9 +14,14 @@ import { OffboardingModule } from './offboarding/offboarding.module';
 import { UploadsController } from './uploads/uploads.controller';
 import { UploadsService } from './uploads/uploads.service';
 import { UploadsModule } from './uploads/uploads.module';
+import { NotificationService } from './notification/notification.service';
+import { NotificationController } from './notification/notification.controller';
+import { NotificationModule } from './notification/notification.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     UserModule,
     InviteModule,
     AuthModule,
@@ -26,9 +31,10 @@ import { UploadsModule } from './uploads/uploads.module';
     LevelModule,
     AssetModule,
     OffboardingModule,
-    UploadsModule
+    UploadsModule,
+    NotificationModule
   ],
-  controllers: [AppController, UploadsController],
-  providers: [AppService, UploadsService],
+  controllers: [AppController, UploadsController, NotificationController],
+  providers: [AppService, UploadsService, NotificationService],
 })
 export class AppModule { }

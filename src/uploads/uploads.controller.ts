@@ -22,7 +22,7 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 export class UploadsController {
     constructor(private readonly uploads: UploadsService) { }
 
-    @Auth()
+    // @Auth()
     @Post(':id')
     @UseInterceptors(FileInterceptor('file'))
     async uploadFile(
@@ -44,7 +44,7 @@ export class UploadsController {
         );
     }
 
-    @Auth()
+    // @Auth()
     @Get(':id')
     async downloadFile(@Param("id") id: string, @Res() res: Response) {
         const { Body, name, ContentLength, ContentType } =
@@ -59,13 +59,13 @@ export class UploadsController {
         Body.pipe(res);
     }
 
-    @Auth()
+    // @Auth()
     @Delete()
     async deleteFiles(@Body('ids') ids: string[], @AuthUser() user: IAuthUser) {
         return this.uploads.deleteFilesFromS3(ids, user);
     }
 
-    @Auth()
+    // @Auth()
     @Get()
     async getUploads(@Body('ids') ids: string[]) {
         return await this.uploads.getUploads(ids);

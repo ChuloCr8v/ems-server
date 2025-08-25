@@ -5,8 +5,10 @@ import { MailService } from '../mail/mail.service';
 import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { JobType } from '@prisma/client';
+import { JobType, Role } from '@prisma/client';
 import { AuthService } from 'src/auth/auth.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EmploymentAcceptedEvent } from 'src/events/employment.event';
 
 @Injectable()
 export class InviteService {
@@ -14,7 +16,8 @@ export class InviteService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
-    // private auth: AuthService,
+    private eventEmitter: EventEmitter2,
+
   ) { }
 
   async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }, adminUser: string) {
@@ -58,8 +61,6 @@ export class InviteService {
     }
   }
 
-
-
   async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
     const {
       firstName,
@@ -81,6 +82,14 @@ export class InviteService {
       if (jobType !== JobType.CONTRACT && duration) {
         throw new BadRequestException('Duration should only be provided for CONTRACT positions')
       }
+
+      const existingProspect = await this.prisma.prospect.findUnique({
+        where: {
+          email: email
+        }
+      })
+
+      existingProspect && bad("Prospect with this email already exists")
       // 1. Create prospect and uploads
       const prospect = await this.prisma.$transaction(async (prisma) => {
         const createdProspect = await prisma.prospect.create({
@@ -126,10 +135,7 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to create prospect');
+      bad(error)
     }
   }
 
@@ -144,12 +150,12 @@ export class InviteService {
         sentBy: true,
       },
     });
+
     if (!invite || invite.expiresAt < currentDate) {
-      throw new BadRequestException('Invalid or Expired Invitation');
+      bad('Invalid or Expired Invitation');
     }
-    if (invite.status !== 'PENDING') {
-      throw new BadRequestException('Invitation Has Already Been Accepted or Declined');
-    }
+
+    if (invite.status !== 'PENDING') bad('Invitation Has Already Been Accepted or Declined');
 
     //Update the invite status to ACCEPTED
     const updatedInvite = await this.prisma.invite.update({
@@ -163,6 +169,21 @@ export class InviteService {
         sentBy: true,
       },
     });
+
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        userRole: {
+          in: [Role.ADMIN, Role.FACILITY]
+        }
+      }
+    })
+
+    const recipientIds = recipients.map(r => r.id)
+
+    this.eventEmitter.emit(
+      'employment.accepted',
+      new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
+    );
 
     const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const link = `${frontendUrl}/onboarding/invitations`;
@@ -223,16 +244,29 @@ export class InviteService {
   async getAllProspects() {
     try {
       const prospects = await this.prisma.prospect.findMany({
+        where: {
+          OR: [
+            { user: null }, // prospects without user
+            {
+              user: {
+                status: { in: ["PENDING"] }, // prospects with user in PENDING or INACTIVE
+              },
+            },
+          ],
+        },
         include: {
-          user: true,
+          user: {
+            include: {
+              userDocuments: true,
+            },
+          },
           upload: {
             select: {
               name: true,
               size: true,
-              type: true
-            }
-          }
-          ,
+              type: true,
+            },
+          },
           invite: {
             include: {
               sentBy: {
@@ -240,18 +274,21 @@ export class InviteService {
                   id: true,
                   email: true,
                   firstName: true,
-                  lastName: true
-                }
-              }
+                  lastName: true,
+                },
+              },
             },
             take: 1,
             orderBy: {
-              createdAt: 'desc',
-            }
-          }
+              createdAt: "desc",
+            },
+          },
         },
-
+        orderBy: {
+          createdAt: "desc",
+        },
       });
+
       return prospects;
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -266,7 +303,11 @@ export class InviteService {
       const invite = await this.prisma.invite.findUnique({
         where: { token },
         include: {
-          prospect: true,
+          prospect: {
+            include: {
+              user: true
+            }
+          },
         },
 
       });

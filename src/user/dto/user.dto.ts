@@ -1,6 +1,6 @@
 import { JobType, MaritalStatus, Role } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
+import { IsArray, IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class EmergencyContactDto {
@@ -66,9 +66,9 @@ export class CreateUserDto {
   @IsString()
   gender: string;
 
-  @IsNotEmpty({ message: 'Duration is Required' })
+  @IsOptional({ message: 'Duration is Required' })
   @IsString()
-  duration: string;
+  duration?: string;
 
   @IsNotEmpty({ message: 'Start Date is Required' })
   @IsString()
@@ -97,6 +97,11 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty({ message: 'State is Required' })
   state: string;
+
+
+  @IsArray()
+  @IsOptional()
+  userDocuments: string[];
 }
 
 export class UpdateUserDto extends CreateUserDto { }
@@ -104,21 +109,21 @@ export class UpdateUserDto extends CreateUserDto { }
 export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
 
 export class ApproveUserDto {
-  @IsEmail()
-  @IsNotEmpty({ message: 'Work Email is Required' })
-  email: string;
+  // @IsEmail()
+  // @IsNotEmpty({ message: 'Work Email is Required' })
+  // email: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Work Phone Number is Required' })
-  workPhone: string;
+  // @IsString()
+  // @IsNotEmpty({ message: 'Work Phone Number is Required' })
+  // workPhone: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
   levelId: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Employee ID Number is Required' })
-  eId: string;
+  // @IsString()
+  // @IsNotEmpty({ message: 'Employee ID Number is Required' })
+  // eId: string;
 
   @IsEnum(Role, { each: true })
   @IsNotEmpty({ message: 'User Role is Required' })

@@ -8,56 +8,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @db.Uuid
+  actorId     String?  @db.Uuid
+  prospectId  String?  @db.Uuid
+  type        String
+  message     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  recipient User      @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+}
+
 model Prospect {
-  id           String      @id @default(uuid()) @db.Uuid
-  email        String      @unique
-  firstName    String      @default("")
-  lastName     String      @default("")
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique
+  firstName    String         @default("")
+  lastName     String         @default("")
   phone        String
   gender       String
   role         String
   duration     String?
   startDate    DateTime
-  departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?        @db.Uuid
+  department   Department?    @relation(fields: [departmentId], references: [id])
   jobType      JobType
   user         User?
   invite       Invite[]
   upload       Upload[]
   // comment      Comment[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  notification Notification[]
 }
 
 model User {
-  id            String        @id @default(uuid()) @db.Uuid
-  eId           String?       @unique
-  email         String?       @unique
+  id            String         @id @default(uuid()) @db.Uuid
+  eId           String?        @unique
+  email         String?        @unique
+  workEmail     String?
   firstName     String
   lastName      String
   phone         String
   workPhone     String?
-  role          String
+  role          String?
   gender        String
   duration      String?
-  jobType       JobType
-  departmentId  String?       @db.Uuid
-  department    Department?   @relation("Department", fields: [departmentId], references: [id])
-  country       String
-  state         String
-  address       String
+  jobType       JobType?
+  departmentId  String?        @db.Uuid
+  department    Department?    @relation("Department", fields: [departmentId], references: [id])
+  country       String?
+  state         String?
+  address       String?
   startDate     DateTime?
-  status        Status        @default(PENDING)
+  status        Status         @default(PENDING)
   userRole      Role?
-  maritalStatus MaritalStatus
+  maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
-  levelId       String?       @db.Uuid
-  level         Level?        @relation(fields: [levelId], references: [id])
-  prospectId    String?       @unique @db.Uuid
-  prospect      Prospect?     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  levelId       String?        @db.Uuid
+  level         Level?         @relation(fields: [levelId], references: [id])
+  prospectId    String?        @unique @db.Uuid
+  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  upload      Upload[]
+  userDocuments Upload[] @relation("UserDocuments")
+
   invite      Invite[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -71,6 +90,9 @@ model User {
   departmentHead   Department? @relation("DepartmentHead")
 
   departmentCreator Department? @relation("departmentCreator")
+
+  notificationRecipient Notification[] @relation("NotificationRecipient")
+  notificationActor     Notification[] @relation("NotificationActor")
 
   @@index([email])
   @@index([eId])
@@ -137,12 +159,13 @@ model Upload {
   prospectId String?   @db.Uuid
   prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  userId        String?      @db.Uuid
-  user          User?        @relation(fields: [userId], references: [id])
   offboardingId String?      @db.Uuid
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
   assetId       String?      @db.Uuid
   asset         Asset?       @relation("AssetImages", fields: [assetId], references: [id])
+
+  userId        String? @db.Uuid
+  userDocuments User?   @relation("UserDocuments", fields: [userId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
