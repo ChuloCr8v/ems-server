@@ -31,8 +31,20 @@ export class UserController {
 
   @Post('invite/:id')
   async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @Res() res: Response) {
-    const user = await this.userService.createUser(id, data);
+    const user = await this.userService.updateUserData(id, data);
     return res.status(200).json({ message: `A User Has Sent His/Her Details`, user });
+  }
+
+  @Put('update/:id')
+  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string }, @Res() res: Response) {
+    const user = await this.userService.updateEmployeeData(id, data);
+    return res.status(200).json({ message: `User updated successfully`, user });
+  }
+
+  @Put('assign-assets/:id')
+  async assignAssets(@Param('id') id: string, @Body() data: string[], @Res() res: Response) {
+    const user = await this.userService.assignAssets(id, data);
+    return res.status(200).json({ message: `Assets assid`, user });
   }
 
   @Get()
