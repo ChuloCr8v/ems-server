@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JobType, Role, Status } from '@prisma/client';
+import { AssetStatus, JobType, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
@@ -18,7 +18,7 @@ export class UserService {
     ) { }
 
 
-    async createUser(
+    async updateUserData(
         id: string,
         data: PartialCreateUserDto
     ) {
@@ -30,103 +30,191 @@ export class UserService {
                 include: {
                     prospect: {
                         include: {
-                            user: true
-                        }
-                    }
+                            user: true,
+                        },
+                    },
                 },
             });
 
-            if (!invite) mustHave(invite, "invitation not found", 404)
+            if (!invite) mustHave(invite, "invitation not found", 404);
+
+            const existingUser = invite.prospect.user;
+            if (!existingUser) mustHave(existingUser, "user not found for prospect", 404);
 
             const result = await this.prisma.$transaction(async (prisma) => {
-                const existingUser = invite.prospect.user;
+                const user = await prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: {
+                        // only update provided fields
+                        ...(data.country !== undefined ? { country: data.country } : {}),
+                        ...(data.state !== undefined ? { state: data.state } : {}),
+                        ...(data.address !== undefined ? { address: data.address } : {}),
+                        ...(data.maritalStatus !== undefined ? { maritalStatus: data.maritalStatus } : {}),
+                        ...(jobType === JobType.CONTRACT && duration ? { duration } : {}),
 
-                const userData: any = {
-                    firstName: data.firstName ?? existingUser?.firstName,
-                    lastName: data.lastName ?? existingUser?.lastName,
-                    gender: data.gender ?? existingUser?.gender,
-                    phone: data.phone ?? existingUser?.phone,
-                    role: data.role ?? existingUser?.role,
-                    jobType: data.jobType ?? existingUser?.jobType,
-                    startDate: data.startDate ?? existingUser?.startDate,
-                    ...(jobType === JobType.CONTRACT && duration ? { duration } : {}),
-                    ...(invite.prospect.departmentId
-                        ? { department: { connect: { id: invite.prospect.departmentId } } }
-                        : {}),
-                    country: data.country ?? existingUser?.country,
-                    state: data.state ?? existingUser?.state,
-                    address: data.address ?? existingUser?.address,
-                    maritalStatus: data.maritalStatus ?? existingUser?.maritalStatus,
-                    prospect: { connect: { id: invite.prospect.id } },
-                    ...(data.userDocuments?.length
-                        ? {
-                            userDocuments: {
-                                connect: data.userDocuments.map((docId: string) => ({ id: docId })),
-                            },
-                        }
-                        : {}),
-                };
-
-                // Optional contacts
-                if (data.guarantor || data.emergency) {
-                    userData.contacts = { create: {} };
-                    if (data.guarantor) {
-                        userData.contacts.create.guarantor = {
-                            create: { ...data.guarantor },
-                        };
-                    }
-                    if (data.emergency) {
-                        userData.contacts.create.emergency = {
-                            create: { ...data.emergency },
-                        };
-                    }
-                }
-
-                const user = await prisma.user.create({
-                    data: userData,
+                        ...(data.userDocuments?.length
+                            ? {
+                                userDocuments: {
+                                    connect: data.userDocuments.map((docId: string) => ({ id: docId })),
+                                },
+                            }
+                            : {}),
+                    },
                     include: { contacts: true, prospect: true },
                 });
 
-
+                // Update or create contacts if passed
+                if (data.guarantor || data.emergency) {
+                    await prisma.contacts.upsert({
+                        where: { userId: user.id },
+                        update: {
+                            ...(data.guarantor ? { guarantor: { upsert: { update: data.guarantor, create: data.guarantor } } } : {}),
+                            ...(data.emergency ? { emergency: { upsert: { update: data.emergency, create: data.emergency } } } : {}),
+                        },
+                        create: {
+                            userId: user.id,
+                            ...(data.guarantor ? { guarantor: { create: data.guarantor } } : {}),
+                            ...(data.emergency ? { emergency: { create: data.emergency } } : {}),
+                        },
+                    });
+                }
 
                 return { user };
             });
 
-
             return result;
         } catch (error) {
-            console.log(error);
             bad(error);
         }
     }
 
 
+    async updateEmployeeData(
+        id: string,
+        data: { eId: string; workEmail: string; workPhone: string }
+    ) {
+        const { workEmail, workPhone, eId } = data;
+        try {
+            const user = await this.prisma.user.findUnique({ where: { id } });
+            !user && mustHave(user, "User not found", 404);
+
+            const existingEId = await this.prisma.user.findFirst({
+                where: {
+                    eId,
+                    NOT: { id },
+                },
+            });
+            if (existingEId)
+                bad(`Employee ID "${eId}" is already assigned to another employee`);
+
+            const existingWorkPhone = await this.prisma.user.findFirst({
+                where: {
+                    workPhone,
+                    NOT: { id },
+                },
+            });
+            if (existingWorkPhone)
+                bad(`Work phone "${workPhone}" is already assigned to another employee`);
+
+            const existingWorkEmail = await this.prisma.user.findFirst({
+                where: {
+                    workEmail,
+                    NOT: { id },
+                },
+            });
+            if (existingWorkEmail)
+                bad(`Work email "${workEmail}" is already assigned to another employee`);
+
+            const updateEmployee = await this.prisma.user.update({
+                where: { id },
+                data: { workEmail, workPhone, eId },
+            });
+
+            return updateEmployee;
+        } catch (error) {
+            console.error(error);
+            bad(error);
+        }
+    }
+
+    async assignAssets(id: string, assetIds: string[]) {
+        try {
+            const user = await this.__findUserById(id);
+            mustHave(user, "User not found!", 404);
+
+            const assets = await this.prisma.asset.findMany({
+                where: { id: { in: assetIds } }
+            });
+
+            if (!assets.length) mustHave(null, "Assets not found", 404);
+            if (assets.length !== assetIds.length) {
+                mustHave(null, "One or more assets not found", 404);
+            }
+
+            const alreadyAssigned = await this.prisma.assignment.findMany({
+                where: {
+                    assetId: { in: assetIds },
+                    NOT: {
+                        userId: undefined
+                    }
+                },
+                include: { asset: true }
+            });
+
+            // if (alreadyAssigned.length > 0) {
+            //     const names = alreadyAssigned.map(a => a.asset.name).join(", ");
+            //     mustHave(null, `Assets already assigned: ${names}`, 400);
+            // }
+
+            const assignedAssets = await this.prisma.assignment.createMany({
+                data: assetIds.map(assetId => ({
+                    userId: id,
+                    assetId,
+                    status: "ASSIGNED",
+                    assignedAt: new Date(),
+                })),
+                skipDuplicates: true,
+            });
+
+            await this.prisma.asset.updateMany({
+                where: {
+                    id: { in: assetIds },
+                },
+                data: {
+                    status: "ASSIGNED", // 👈 must match AssetStatus enum
+                },
+            });
+
+
+            const assigned = await this.prisma.user.findUnique({
+                where: { id },
+                include: {
+                    assignments: {
+                        include: { asset: true }
+                    }
+                }
+            });
+
+            return assigned;
+        } catch (error) {
+            console.error(error);
+            bad(error);
+        }
+    }
+
     async approveUser(id: string, data: ApproveUserDto) {
-        // const { email, workPhone, userRole, levelId, eId } = data;
         const { userRole, levelId } = data;
         try {
-            //Check if User Exists And Is Not Already ACTIVE
             const user = await this.__findUserById(id);
 
             if (user.status === Status.ACTIVE) {
                 bad("User is already ACTIVE")
             }
 
-            // const workEmailIsTaken = await this.prisma.user.findUnique({
-            //     where: {
-            //         email: data.email
-            //     }
-            // })
-
-            // workEmailIsTaken && bad("Email is taken already")
-
             const approveUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    // email,
-                    // workPhone,
                     userRole,
-                    // eId,
                     level: {
                         connect: {
                             id: levelId,
@@ -303,6 +391,9 @@ export class UserService {
                 },
                 comment: true,
                 invite: true,
+            },
+            orderBy: {
+                createdAt: "desc"
             }
         });
     }
@@ -334,6 +425,11 @@ export class UserService {
                     },
                     comment: true,
                     invite: true,
+                    assignments: {
+                        include: {
+                            asset: true
+                        }
+                    }
                 }
             })
 
