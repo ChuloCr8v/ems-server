@@ -4,18 +4,24 @@ import {
   ExecutionContext,
   UnauthorizedException,
   UseGuards,
+  SetMetadata,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { type Request } from 'express';
 import { AuthGuard } from '../guards/auth.guard';
 import { RolesGuard } from '../guards/roles.guards';
-import { Roles } from './roles.decorator';
+import { ROLES_KEY } from './roles.decorator';
 import { Role } from '@prisma/client';
 
-export const Auth = (roles?: Role[]) => {
-  if (!roles?.length) return applyDecorators(UseGuards(AuthGuard));
-  return applyDecorators(Roles(...roles), UseGuards(AuthGuard, RolesGuard));
-};
+export function Auth(roles?: Role[]) {
+  if (!roles?.length) {
+    return applyDecorators(UseGuards(AuthGuard));
+  }
+  return applyDecorators(
+    SetMetadata(ROLES_KEY, roles),
+    UseGuards(AuthGuard, RolesGuard),
+  );
+}
 
 export function getAuthToken(req: Request) {
   const auth = req.headers.authorization;

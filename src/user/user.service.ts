@@ -6,7 +6,6 @@ import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SendInviteDto } from 'src/invite/dto/invite.dto';
 
 @Injectable()
 export class UserService {
@@ -369,11 +368,10 @@ export class UserService {
         return updateUser;
     }
 
-
     async findAllUsers() {
         return this.prisma.user.findMany({
             include: {
-                // prospect: true,
+                assignments: true,
                 userDocuments: {
                     select: {
                         id: true,
@@ -429,7 +427,11 @@ export class UserService {
                     assignments: {
                         include: {
                             asset: true
+                        },
+                        orderBy: {
+                            assignedAt: "desc"
                         }
+
                     }
                 }
             })
@@ -521,7 +523,7 @@ export class UserService {
                         workPhone,
                         gender,
                         role,
-                        userRole,
+                        // userRole,
                         eId,
                         phone,
                         email,
@@ -531,7 +533,7 @@ export class UserService {
                     if (!firstName || !lastName) bad("First name and last name are required");
                     if (!gender) bad("Gender is required");
                     if (!department) bad("Department is required");
-                    if (!level) bad("Level is required");
+                    // if (!level) bad("Level is required");
                     if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
 
                     // ✅ Duplicate checks
@@ -567,20 +569,20 @@ export class UserService {
                     }
 
                     let departmentConnect: { id: string };
-                    let levelConnect: { id: string };
+                    // let levelConnect: { id: string };
                     if (isBulk) {
                         // connect by name
                         const dept = await this.prisma.department.findUnique({ where: { name: department } });
                         if (!dept) bad(`Department '${department}' does not exist`);
                         departmentConnect = { id: dept.id };
 
-                        const lvl = await this.prisma.level.findUnique({ where: { name: level.toLowerCase() } });
-                        if (!lvl) bad(`Level '${level}' does not exist`);
-                        levelConnect = { id: lvl.id };
+                        // const lvl = await this.prisma.level.findUnique({ where: { name: level.toLowerCase() } });
+                        // if (!lvl) bad(`Level '${level}' does not exist`);
+                        // levelConnect = { id: lvl.id };
                     } else {
                         // connect by ID
                         departmentConnect = { id: department };
-                        levelConnect = { id: level };
+                        // levelConnect = { id: level };
                     }
 
                     // ✅ Transaction to create employee
@@ -590,16 +592,16 @@ export class UserService {
                                 firstName,
                                 lastName,
                                 workEmail,
-                                email,
-                                workPhone: workPhone.toString(),
-                                phone: phone.toString(),
+                                // email,
+                                // workPhone: workPhone.toString(),
+                                // phone: phone.toString(),
                                 gender,
                                 role,
-                                userRole,
+                                // userRole,
                                 eId,
                                 department: { connect: departmentConnect },
-                                level: { connect: levelConnect },
-                                jobType,
+                                // level: { connect: levelConnect },
+                                jobType: "FULL_TIME",
                                 duration: jobType === "CONTRACT" ? duration.toString() : null,
                                 status: "ACTIVE",
                             },
@@ -608,11 +610,11 @@ export class UserService {
                         return employee;
                     });
 
-                    // ✅ Send welcome email
-                    await this.mail.sendWelcomeEmail({
-                        email: result.workEmail ?? result.email,
-                        name: `${result.firstName} ${result.lastName}`,
-                    });
+                    // // ✅ Send welcome email
+                    // await this.mail.sendWelcomeEmail({
+                    //     email: result.workEmail ?? result.email,
+                    //     name: `${result.firstName} ${result.lastName}`,
+                    // });
 
                     return result;
                 })

@@ -152,17 +152,17 @@ export class AddEmployeeDto {
   @IsEmail()
   workEmail: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  workPhone: string;
+  workPhone?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  phone: string;
+  phone?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  email: string;
+  email?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -172,7 +172,7 @@ export class AddEmployeeDto {
   @IsString()
   department: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   level: string;
 
@@ -184,9 +184,9 @@ export class AddEmployeeDto {
   @IsString()
   role: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(Role)
-  userRole: Role;
+  userRole?: Role;
 
   @IsOptional()
   @IsString()

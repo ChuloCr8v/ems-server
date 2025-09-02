@@ -53,7 +53,7 @@ model User {
   workEmail     String?        @unique
   firstName     String
   lastName      String
-  phone         String
+  phone         String?
   workPhone     String?
   role          String?
   gender        String
@@ -167,6 +167,10 @@ model Upload {
   userId        String? @db.Uuid
   userDocuments User?   @relation("UserDocuments", fields: [userId], references: [id])
 
+  //cloudinary keys
+  publicId  String? @unique
+  secureUrl String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -237,15 +241,16 @@ model Asset {
 }
 
 model Assignment {
-  id         String            @id @default(uuid())
-  asset      Asset             @relation(fields: [assetId], references: [id])
-  assetId    String            @db.Uuid
-  user       User              @relation(fields: [userId], references: [id])
-  userId     String            @db.Uuid
-  assignedAt DateTime
-  notes      String?
-  condition  String?
-  status     AssignmentStatus?
+  id          String            @id @default(uuid())
+  asset       Asset             @relation(fields: [assetId], references: [id])
+  assetId     String            @db.Uuid
+  user        User              @relation(fields: [userId], references: [id])
+  userId      String            @db.Uuid
+  assignedAt  DateTime
+  retrievedAt DateTime?
+  notes       String?
+  condition   String?
+  status      AssignmentStatus?
 }
 
 model Fault {
