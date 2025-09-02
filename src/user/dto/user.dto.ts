@@ -71,7 +71,8 @@ export class CreateUserDto {
   duration?: string;
 
   @IsNotEmpty({ message: 'Start Date is Required' })
-  @IsString()
+  @IsDate()
+  @Transform(({ value }) => new Date(value))
   startDate: Date;
 
   @ValidateNested()
@@ -98,7 +99,6 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'State is Required' })
   state: string;
 
-
   @IsArray()
   @IsOptional()
   userDocuments: string[];
@@ -109,21 +109,10 @@ export class UpdateUserDto extends CreateUserDto { }
 export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
 
 export class ApproveUserDto {
-  // @IsEmail()
-  // @IsNotEmpty({ message: 'Work Email is Required' })
-  // email: string;
-
-  // @IsString()
-  // @IsNotEmpty({ message: 'Work Phone Number is Required' })
-  // workPhone: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
   levelId: string;
-
-  // @IsString()
-  // @IsNotEmpty({ message: 'Employee ID Number is Required' })
-  // eId: string;
 
   @IsEnum(Role, { each: true })
   @IsNotEmpty({ message: 'User Role is Required' })
@@ -152,17 +141,17 @@ export class AddEmployeeDto {
   @IsEmail()
   workEmail: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  workPhone: string;
+  workPhone?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  phone: string;
+  phone?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  email: string;
+  email?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -172,7 +161,7 @@ export class AddEmployeeDto {
   @IsString()
   department: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   level: string;
 
@@ -184,9 +173,9 @@ export class AddEmployeeDto {
   @IsString()
   role: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsEnum(Role)
-  userRole: Role;
+  userRole?: Role;
 
   @IsOptional()
   @IsString()

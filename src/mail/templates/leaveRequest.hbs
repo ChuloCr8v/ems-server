@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Request Email</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"> 
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Raleway", sans-serif;
+            background-color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .wrapper {
+            width: 780px;
+            background-color: #F8FAFC;
+            position: relative;
+            overflow: visible;
+            margin: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .Name {
+            font-weight: 600;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #384860;
+        }
+        
+        .header {
+            width: 100%;
+            height: 104px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 42.46px 48px;
+            box-sizing: border-box;
+        }
+        
+        .zoracom-logo {
+            width: 161px;
+            height: 30px;
+            margin-left: 10px;
+            background-color: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #384860;
+            font-weight: 600;
+        }
+        
+        .social-icons {
+            display: flex;
+            gap: 24px;
+            margin-right: 9px;
+        }
+        
+        .social-icon {
+            width: 24px;
+            height: 24px;
+            background-color: #ddd;
+            border-radius: 4px;
+        }
+        
+        .content-wrapper {
+            width: 660px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 0 48px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .content {
+            color: #333333;
+            font-weight: 400;
+            font-size: 16px;
+            line-height: 1.5;
+            padding: 24px 0 40px;
+            white-space: pre-line;
+        }
+        
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 24px 0;
+            line-height:1;
+        }
+        
+        .greeting {
+            font-size: 16px;
+            margin-top: 24px;
+            font-weight: 400;
+             color: #384860;
+        }
+        
+        .message1 {
+            font-size: 14px;
+            margin-top: 24px;
+            color:#5E5E5E;
+        }
+       
+        .signature {
+            margin-top: 40px;
+            line-height: 1;
+        }
+        
+        .footer {
+            font-size: 12px;
+            color: #666666;
+            padding: 40px 48px 24px;
+            border-top: 1px solid #eeeeee;
+            line-height: 1.5;
+            background-color: #E7F5FA;
+            position: relative;
+            z-index: 1;
+            margin-top: 20px;
+        }
+        
+        .footer p {
+            margin: 4px 0;
+        }
+        
+        a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .footer-content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+     
+        .fcontent1 {
+            font-size: 14px;
+        }
+      
+        
+        .fcontent2 {
+            font-size: 14px;
+            margin-top: 10px;
+            padding-top: 15px;
+            margin-bottom: 8px;
+        }
+        
+        .fcontent3 {
+            font-size: 14px;
+            margin-top: 0;
+            padding-top: 0;
+        }
+        
+        .ID {
+            font-weight: 500;
+            color: #5E5E5E;
+            font-size: 14px;
+            display: block;
+        }
+
+        .cheeers {
+            font-weight: 500;
+            font-size: 12px;
+            color: #5E5E5E;
+            display: block;
+            margin-top: 45px;
+        }
+        
+        .company{
+            font-weight: 600;
+            color:#141414;
+        }
+        
+        .appreciation {
+            font-size: 14px;
+            margin-top: 24px;
+            font-weight: 400;
+             color:#5E5E5E;
+        }
+       
+       .Asset-details{
+            font-size: 16px;
+            margin-top: 24px;
+            font-weight: 500;
+       }
+       
+       .message2{
+            font-size: 14px;
+            margin-top: 24px;
+            font-weight: 400;
+            color:#5E5E5E;
+       }
+ 
+        .zora{
+            font-weight: 600;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .Kindly{
+            font-size: 14px;
+            margin-top: 24px;
+        }
+
+        .focus{
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .leave-details {
+            background-color: #F8FAFC;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 24px 0;
+            font-size: 14px;
+        }
+        
+        .detail-row {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            width: 120px;
+            color: #384860;
+        }
+        
+        .detail-value {
+            color: #5E5E5E;
+        }
+        
+        .status-approved {
+            color: #2E7D32;
+            font-weight: 600;
+        }
+        
+        .status-pending {
+            color: #ED6C02;
+            font-weight: 600;
+        }
+        
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #384860;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <div class="zoracom-logo">ZORACOM LOGO</div>
+            <div class="social-icons">
+                <a href="#"><div class="social-icon"></div></a>
+                <a href="#"><div class="social-icon"></div></a>
+                <a href="#"><div class="social-icon"></div></a>
+            </div>
+        </div>
+        
+        <div class="content-wrapper">
+            <div class="content">
+                <h1>Leave Request Notification</h1>
+                
+                <p class="greeting">Hello <span class="Name"></span>,</p>
+                
+                <p class="message1">
+                    <span class="Name">{{name}}</span> has submitted a new leave request that requires your review and approval.
+                </p>
+                
+                <div class="leave-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Employee:</span>
+                        <span class="detail-value">{{name}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Leave Type:</span>
+                        <span class="detail-value">{{leaveType}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Duration:</span>
+                        <span class="detail-value">{{formatDate startDate "MMMM DD, YYYY"}} to {{formatDate endDate "MMMM DD, YYYY"}}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value status-pending">Pending Approval</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Reason:</span>
+                        <span class="detail-value">{{reason}}</span>
+                    </div>
+                </div>
+                
+                <p class="message2">
+                    Please review this request in the HR portal and take appropriate action. 
+                    The employee has been notified that their request is pending approval.
+                </p>
+                
+                <a href="#" class="button">Review Leave Request</a>
+                
+                <div class="signature">
+                    <span class="cheeers">Best regards,</span><br>
+                    <span class="ID">Zoracom HR System</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-content">
+                <p class="fcontent1">
+                    Questions or FAQ? Contact us at <a href="mailto:hrteam@zoracom.com">hrteam@zoracom.com</a>. If you'd rather not receive<br>
+                    this kind of email. Don't want any more emails from Zoracom? <a href="#">Unsubscribe</a>.
+                </p>
+                <p class="fcontent2">NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe Expressway, Lagos, Nigeria</p>
+                <p class="fcontent3">Copyright 2024 © Zora Communications Limited. All Rights Reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

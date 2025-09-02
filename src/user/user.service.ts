@@ -574,7 +574,7 @@ export class UserService {
                         if (!dept) bad(`Department '${department}' does not exist`);
                         departmentConnect = { id: dept.id };
 
-                        const lvl = await this.prisma.level.findUnique({ where: { name: level.toLowerCase() } });
+                        const lvl = await this.prisma.level.findFirst({ where: { name: level.toLowerCase() } });
                         if (!lvl) bad(`Level '${level}' does not exist`);
                         levelConnect = { id: lvl.id };
                     } else {
@@ -652,4 +652,3 @@ export class UserService {
 
 
 }
-
