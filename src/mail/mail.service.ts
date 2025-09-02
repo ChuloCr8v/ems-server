@@ -1,14 +1,56 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, DeclinedInviteDto, InitiateOffboarding, MAIL_SUBJECT, ProspectInviteDto, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
 import { ConfigService } from '@nestjs/config';
+import * as Handlebars from 'handlebars';
 
 @Injectable()
 export class MailService {
 
-  constructor(private mailerService: MailerService,
+  constructor(
+    private mailerService: MailerService,
     private config: ConfigService,
-  ) { }
+  ) { this.registerHandlebarsHelpers(); }
+
+    private registerHandlebarsHelpers() {
+        Handlebars.registerHelper('formatDate', function(date: Date, format?: string) {
+            if (!date) return '';
+            
+            const dateObj = new Date(date);
+            const options: Intl.DateTimeFormatOptions = {};
+            
+            // Default format
+            if (!format) {
+                return dateObj.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            }
+            
+            // Custom format parsing
+            if (format.includes('MMMM')) options.month = 'long';
+            else if (format.includes('MMM')) options.month = 'short';
+            else if (format.includes('MM')) options.month = '2-digit';
+            
+            if (format.includes('DD')) options.day = '2-digit';
+            else if (format.includes('D')) options.day = 'numeric';
+            
+            if (format.includes('YYYY')) options.year = 'numeric';
+            else if (format.includes('YY')) options.year = '2-digit';
+            
+            return dateObj.toLocaleDateString('en-US', options);
+        });
+
+        // Additional helper for time if needed
+        Handlebars.registerHelper('formatTime', function(date: Date) {
+            if (!date) return '';
+            return new Date(date).toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        });
+    }
 
   async sendProspectMail(input: ProspectInviteDto) {
     const { email, firstName, token, attachments } = input;
@@ -80,5 +122,35 @@ export class MailService {
         currentYear: new Date().getFullYear(),
       },
     });
+  }
+
+  async sendLeaveRequestMail(data: LeaveRequest){
+    const { email, leaveType, leaveValue, name, startDate, endDate, reason } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.LEAVE_REQUEST,
+      template: 'leaveRequest',
+      context: { name, leaveType, leaveValue, startDate, endDate, reason }
+    });
+  }
+
+  async sendLeaveApprovalMail(data: ApproveLeaveRequest){
+    const { email, name, startDate, endDate, leaveType, approver, leaveValue } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.LEAVE_APPROVAL,
+      template: 'leaveApproved',
+      context: { name, leaveType, startDate, endDate, leaveValue, approver },
+    })
+  }
+
+  async sendLeaveRejectMail(data: RejectLeaveRequest){
+    const { email, name, startDate, endDate, leaveType, approver, leaveValue, reason } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.LEAVE_DECLINE,
+      template: 'leaveDenied',
+      context: { name, leaveType, startDate, endDate, leaveValue, approver, reason },
+    })
   }
 }

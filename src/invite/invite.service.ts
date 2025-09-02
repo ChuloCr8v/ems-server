@@ -2,10 +2,11 @@ import { BadRequestException, ConflictException, HttpException, HttpStatus, Inje
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
+import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { JobType } from '@prisma/client';
+import { JobType, Role } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EmploymentAcceptedEvent } from 'src/events/employment.event';
 
 @Injectable()
 export class InviteService {
@@ -13,6 +14,8 @@ export class InviteService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private eventEmitter: EventEmitter2,
+
   ) { }
 
   async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }, adminUser: string) {
@@ -59,8 +62,6 @@ export class InviteService {
       }
   }
 
-
-
   async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
     const {
       firstName,
@@ -82,7 +83,15 @@ export class InviteService {
       if (jobType !== JobType.CONTRACT && duration) {
         throw bad('Duration should only be provided for CONTRACT positions')
       }
-      //Create prospect and uploads
+
+      const existingProspect = await this.prisma.prospect.findUnique({
+        where: {
+          email: email
+        }
+      })
+
+      existingProspect && bad("Prospect with this email already exists")
+      // 1. Create prospect and uploads
       const prospect = await this.prisma.$transaction(async (prisma) => {
         const createdProspect = await prisma.prospect.create({
           data: {
@@ -132,101 +141,147 @@ export class InviteService {
               error instanceof ConflictException) {
             throw error;
           }
-          throw new BadRequestException('Failed to process debt payment');
+          throw new BadRequestException('Failed to create prospect');
           }
   }
 
 
   async acceptInvite(token: string) {
     const currentDate = new Date();
-    //Find the invite by token
-    const invite = await this.prisma.invite.findUnique({
-      where: { token },
-      include: {
-        prospect: true,
-        sentBy: true,
-      },
-    });
-    if (!invite || invite.expiresAt < currentDate) {
-      throw new BadRequestException('Invalid or Expired Invitation');
-    }
-    if (invite.status !== 'PENDING') {
-      throw new BadRequestException('Invitation Has Already Been Accepted or Declined');
-    }
+    try {
+       //Find the invite by token
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+          sentBy: true,
+        },
+      });
 
-    //Update the invite status to ACCEPTED
-    const updatedInvite = await this.prisma.invite.update({
-      where: { token },
-      data: {
-        status: 'ACCEPTED',
-        acceptedAt: currentDate,
-      },
-      include: {
-        prospect: true,
-        sentBy: true,
-      },
-    });
+      if (!invite || invite.expiresAt < currentDate) {
+        bad('Invalid or Expired Invitation');
+      }
 
-    await this.mail.sendAcceptanceMail({
-      email: updatedInvite.sentBy.email,
-      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-    });
+      if (invite.status !== 'PENDING') bad('Invitation Has Already Been Accepted or Declined');
 
-    return updatedInvite;
+      //Update the invite status to ACCEPTED
+      const updatedInvite = await this.prisma.invite.update({
+        where: { token },
+        data: {
+          status: 'ACCEPTED',
+          acceptedAt: currentDate,
+        },
+        include: {
+          prospect: true,
+          sentBy: true,
+        },
+      });
+
+      const recipients = await this.prisma.user.findMany({
+        where: {
+          userRole: {
+            in: [Role.ADMIN, Role.FACILITY]
+          }
+        }
+      })
+
+      const recipientIds = recipients.map(r => r.id)
+
+      this.eventEmitter.emit(
+        'employment.accepted',
+        new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
+      );
+
+      await this.mail.sendAcceptanceMail({
+        email: updatedInvite.sentBy.email,
+        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      });
+
+      return updatedInvite;
     
+    } catch (error) {
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to accept invite');
+          }
   }
 
   async declineInvite(token: string, reasons?: Array<string>) {
     const currentDate = new Date();
-    const invite = await this.prisma.invite.findUnique({
-      where: { token },
-      include: {
-        prospect: true,
-        sentBy: true
-      },
-    });
-    if (!invite || invite.expiresAt < currentDate) {
-      throw new BadRequestException('Invalid or Expired Invitation')
-    }
-    if (invite.status !== 'PENDING') {
-      throw new BadRequestException('Invitation Has Already Been Accepted or Declined')
-    }
+    try {
+       const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+          sentBy: true
+        },
+      });
+      if (!invite || invite.expiresAt < currentDate) {
+        throw new BadRequestException('Invalid or Expired Invitation')
+      }
+      if (invite.status !== 'PENDING') {
+        throw new BadRequestException('Invitation Has Already Been Accepted or Declined')
+      }
 
-    //Update Invite Status to DECLINED
-    const updatedInvite = await this.prisma.invite.update({
-      where: { token },
-      data: {
-        status: 'DECLINED',
-        declinedAt: currentDate,
-        declineReasons: reasons.map(r => r),
-      },
-      include: { 
-        prospect: true,
-        sentBy: true,
-      },
-    });
+      //Update Invite Status to DECLINED
+      const updatedInvite = await this.prisma.invite.update({
+        where: { token },
+        data: {
+          status: 'DECLINED',
+          declinedAt: currentDate,
+          declineReasons: reasons.map(r => r),
+        },
+        include: { 
+          prospect: true,
+          sentBy: true,
+        },
+      });
 
-    await this.mail.sendDeclinedMail({
-      email: invite.sentBy.email,
-      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-    });
+      await this.mail.sendDeclinedMail({
+        email: invite.sentBy.email,
+        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      });
 
-    return updatedInvite;
+      return updatedInvite;
+    } catch (error) {
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to decline invite');
+          }
   }
 
   async getAllProspects() {
     try {
       const prospects = await this.prisma.prospect.findMany({
+        where: {
+          OR: [
+            { user: null }, // prospects without user
+            {
+              user: {
+                status: { in: ["PENDING"] }, // prospects with user in PENDING or INACTIVE
+              },
+            },
+          ],
+        },
         include: {
-          user: true,
+          user: {
+            include: {
+              userDocuments: true,
+            },
+          },
           upload: {
             select: {
               name: true,
               size: true,
-              type: true
-            }
-          }
-          ,
+              type: true,
+            },
+          },
           invite: {
             include: {
               sentBy: {
@@ -234,25 +289,30 @@ export class InviteService {
                   id: true,
                   email: true,
                   firstName: true,
-                  lastName: true
-                }
-              }
+                  lastName: true,
+                },
+              },
             },
             take: 1,
             orderBy: {
-              createdAt: 'desc',
-            }
-          }
+              createdAt: "desc",
+            },
+          },
         },
-
+        orderBy: {
+          createdAt: "desc",
+        },
       });
+
       return prospects;
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to fetch prospects');
-    }
+    } catch(error) {
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to fetch prospect');
+          }
   }
 
   async getInviteByToken(token: string) {
@@ -260,7 +320,11 @@ export class InviteService {
       const invite = await this.prisma.invite.findUnique({
         where: { token },
         include: {
-          prospect: true,
+          prospect: {
+            include: {
+              user: true
+            }
+          },
         },
 
       });
@@ -272,17 +336,26 @@ export class InviteService {
       return invite;
 
     } catch (error) {
-      bad(error);
-    }
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to fetch invite');
+          }
   }
 
   async getOneProspect(id: string) {
     try {
       return await this.__findProspectById(id);
     } catch (error) {
-      console.log(error.message);
-      throw new Error(`Failed to fetch Prospect: ${error.message}`);
-    }
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to fetch prospect');
+          }
   }
 
   async deleteProspect(id: string) {
@@ -299,8 +372,13 @@ export class InviteService {
 
       return true;
     } catch (error) {
-      bad(error);
-    }
+          if (error instanceof BadRequestException || 
+              error instanceof NotFoundException || 
+              error instanceof ConflictException) {
+            throw error;
+          }
+          throw new BadRequestException('Failed to delete prospect');
+          }
   }
 
 
@@ -321,9 +399,8 @@ export class InviteService {
     const prospect = await this.prisma.prospect.findUnique({
       where: { id },
       include: {
-        upload: true
-        ,
-        user: true
+        upload: true,
+        user: true,
       },
     });
     if (!prospect) {

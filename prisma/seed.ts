@@ -19,6 +19,7 @@ async function main() {
       role: "System Engineer",
       duration: "6 months",
       jobType: JobType.FULL_TIME,
+      status: 'ACTIVE',
       startDate: new Date("2025-07-25T15:30:00.000Z"),
       eId: "EMP2294",
       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
@@ -139,44 +140,45 @@ async function main() {
     },
   ];
 
-  // let counter = 1;
-  // for (const u of users) {
-  //   await prisma.user.create({
-  //     data: {
-  //       ...u,
-  //       country: "Nigeria",
-  //       state: counter % 2 === 0 ? "Lagos" : "Abuja",
-  //       address: `${counter} Zoracom Close`,
-  //       userRole: Role.USER,
-  //       duration: counter % 2 === 0 ? "1 year" : "6 months",
-  //       jobType: counter % 2 === 0 ? JobType.CONTRACT : JobType.FULL_TIME,
-  //       startDate: new Date(`2025-08-${(counter + 10).toString().padStart(2, "0")}T09:00:00.000Z`),
-  //       eId: `EMP30${counter}`,
-  //       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
-  //       contacts: {
-  //         create: {
-  //           guarantor: {
-  //             create: {
-  //               firstName: `Guarantor${counter}`,
-  //               lastName: "Okoro",
-  //               email: `guarantor${counter}@mail.com`,
-  //               phone: `070111111${counter}`,
-  //             },
-  //           },
-  //           emergency: {
-  //             create: {
-  //               firstName: `Emergency${counter}`,
-  //               lastName: "Uche",
-  //               email: `emergency${counter}@mail.com`,
-  //               phone: `070999999${counter}`,
-  //             },
-  //           },
-  //         },
-  //       },
-  //     },
-  //   });
-  //   counter++;
-  // }
+  let counter = 1;
+  for (const u of users) {
+    await prisma.user.create({
+      data: {
+        ...u,
+        status: 'ACTIVE',
+        country: "Nigeria",
+        state: counter % 2 === 0 ? "Lagos" : "Abuja",
+        address: `${counter} Zoracom Close`,
+        userRole: Role.USER,
+        duration: counter % 2 === 0 ? "1 year" : "6 months",
+        jobType: counter % 2 === 0 ? JobType.CONTRACT : JobType.FULL_TIME,
+        startDate: new Date(`2025-08-${(counter + 10).toString().padStart(2, "0")}T09:00:00.000Z`),
+        eId: `EMP30${counter}`,
+        // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
+        contacts: {
+          create: {
+            guarantor: {
+              create: {
+                firstName: `Guarantor${counter}`,
+                lastName: "Okoro",
+                email: `guarantor${counter}@mail.com`,
+                phone: `070111111${counter}`,
+              },
+            },
+            emergency: {
+              create: {
+                firstName: `Emergency${counter}`,
+                lastName: "Uche",
+                email: `emergency${counter}@mail.com`,
+                phone: `070999999${counter}`,
+              },
+            },
+          },
+        },
+      },
+    });
+    counter++;
+  }
 
   console.log("✅ Seeded Bona + 10 real users");
 }

@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, IsUrl } from "class-validator"
+import { Transform } from "class-transformer";
+import { IsDate, IsEmail, IsNumber, IsOptional, IsString, IsUrl } from "class-validator"
 
 export const MAIL_SUBJECT = {
     PROSPECT_INVITATION: 'Prospect Invitation',
@@ -6,6 +7,9 @@ export const MAIL_SUBJECT = {
     UPDATE_USER_INFO: 'Update User Information',
     DECLINE_OFFER: 'Declined Offer',
     WELCOME_EMAIL:  '',
+    LEAVE_REQUEST: 'New Leave Request',
+    LEAVE_APPROVAL: 'Leave Request Approved',
+    LEAVE_DECLINE: 'Leave Request Denied',
     
     INITIATE_OFFBOARDING: 'Offboarding Initiated',
 }
@@ -81,3 +85,58 @@ export class WelcomeEmailDto {
   @IsString({ message: 'Temporary password must be a string' })
   temporaryPassword?: string;
 }
+
+export class LeaveRequest {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    leaveType: string;
+
+    @IsString()
+    reason: string;
+
+    @IsNumber()
+    leaveValue: number;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    startDate: Date;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    endDate: Date
+}
+
+export class ApproveLeaveRequest {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    leaveType: string;
+
+    @IsNumber()
+    leaveValue: number;
+
+    @IsString()
+    approver: string;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    startDate: Date;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    endDate: Date
+}
+
+export class RejectLeaveRequest extends ApproveLeaveRequest {
+    @IsString()
+    reason: string;
+}   

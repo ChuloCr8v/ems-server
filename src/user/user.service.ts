@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { JobType, Status } from '@prisma/client';
+import { JobType, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
+import { EmploymentApprovedEvent } from 'src/events/employment.event';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class UserService {
@@ -11,89 +13,85 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly mail: MailService,) { }
+        private readonly mail: MailService,
+        private eventEmitter: EventEmitter2
+    ) { }
 
-    async createUser(id: string, data: PartialCreateUserDto, uploads: Express.Multer.File[]) {
-        const {
-            jobType,
-            duration, //This is conditional
-        } = data;
+
+    async createUser(
+        id: string,
+        data: PartialCreateUserDto
+    ) {
+        const { jobType, duration } = data;
+
         try {
-            //First find prospect by ID
-            const invite = await this.prisma.invite.findUnique({ where: { id }, include: { prospect: true } });
-            if(!invite){
-                throw new NotFoundException("Invite not found");
-            }
+            const invite = await this.prisma.invite.findUnique({
+                where: { id },
+                include: {
+                    prospect: {
+                        include: {
+                            user: true
+                        }
+                    }
+                },
+            });
+
+            if (!invite) mustHave(invite, "invitation not found", 404)
 
             const result = await this.prisma.$transaction(async (prisma) => {
-                // Create user
-                const user = await prisma.user.create({
-                    data: {
-                        firstName: invite.prospect.firstName,
-                        lastName: invite.prospect.lastName,
-                        gender: invite.prospect.gender,
-                        phone: invite.prospect.phone,
-                        role: invite.prospect.role,
-                        jobType: invite.prospect.jobType,
-                        startDate: invite.prospect.startDate,
-                        // Conditionally include duration
-                        ...(jobType === JobType.CONTRACT ? { duration } : {}),
-                        department: {
-                            connect: {
-                                id: invite.prospect.departmentId,
-                            },
-                        },
-                        country: data.country,
-                        state: data.state,
-                        address: data.address,
-                        maritalStatus: data.maritalStatus,
-                        contacts: {
-                            create: {
-                                guarantor: {
-                                    create: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        phone: data.guarantor.phone,
-                                        email: data.guarantor.email
-                                    },
-                                },
-                                emergency: {
-                                    create: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        phone: data.emergency.phone,
-                                        email: data.emergency.email,
-                                    },
-                                },
-                            },
-                        },
-                        prospect: {
-                            connect: {
-                                id: invite.prospect.id,
-                            },
-                        },
-                    },
-                    include: {
-                        contacts: true,
-                        prospect: true
-                    },
-                });
-                // Handle file uploads within the transaction
-                if (uploads?.length > 0) {
-                    const userUploads = uploads.map((upload) => ({
-                        name: upload.originalname,
-                        size: upload.size,
-                        type: upload.mimetype,
-                        bytes: upload.buffer,
-                        userId: user.id,
-                    }));
+                const existingUser = invite.prospect.user;
 
-                    await prisma.upload.createMany({
-                        data: userUploads,
-                    });
+                const userData: any = {
+                    firstName: data.firstName ?? existingUser?.firstName,
+                    lastName: data.lastName ?? existingUser?.lastName,
+                    gender: data.gender ?? existingUser?.gender,
+                    phone: data.phone ?? existingUser?.phone,
+                    role: data.role ?? existingUser?.role,
+                    jobType: data.jobType ?? existingUser?.jobType,
+                    startDate: data.startDate ?? existingUser?.startDate,
+                    ...(jobType === JobType.CONTRACT && duration ? { duration } : {}),
+                    ...(invite.prospect.departmentId
+                        ? { department: { connect: { id: invite.prospect.departmentId } } }
+                        : {}),
+                    country: data.country ?? existingUser?.country,
+                    state: data.state ?? existingUser?.state,
+                    address: data.address ?? existingUser?.address,
+                    maritalStatus: data.maritalStatus ?? existingUser?.maritalStatus,
+                    prospect: { connect: { id: invite.prospect.id } },
+                    ...(data.userDocuments?.length
+                        ? {
+                            userDocuments: {
+                                connect: data.userDocuments.map((docId: string) => ({ id: docId })),
+                            },
+                        }
+                        : {}),
+                };
+
+                // Optional contacts
+                if (data.guarantor || data.emergency) {
+                    userData.contacts = { create: {} };
+                    if (data.guarantor) {
+                        userData.contacts.create.guarantor = {
+                            create: { ...data.guarantor },
+                        };
+                    }
+                    if (data.emergency) {
+                        userData.contacts.create.emergency = {
+                            create: { ...data.emergency },
+                        };
+                    }
                 }
-                return { user, uploads }
+
+                const user = await prisma.user.create({
+                    data: userData,
+                    include: { contacts: true, prospect: true },
+                });
+
+
+
+                return { user };
             });
+
 
             return result;
         } catch (error) {
@@ -106,30 +104,57 @@ export class UserService {
       }
     }
 
+
     async approveUser(id: string, data: ApproveUserDto) {
-        const { email, workPhone, userRole, levelId, eId } = data;
+        // const { email, workPhone, userRole, levelId, eId } = data;
+        const { userRole, levelId } = data;
         try {
             //Check if User Exists And Is Not Already ACTIVE
             const user = await this.__findUserById(id);
-            const userStatus = Status.ACTIVE;
-            if (user.status === userStatus) {
+
+            if (user.status === Status.ACTIVE) {
                 bad("User is already ACTIVE")
             }
+
+            // const workEmailIsTaken = await this.prisma.user.findUnique({
+            //     where: {
+            //         email: data.email
+            //     }
+            // })
+
+            // workEmailIsTaken && bad("Email is taken already")
+
             const approveUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    email,
-                    workPhone,
+                    // email,
+                    // workPhone,
                     userRole,
-                    eId,
+                    // eId,
                     level: {
                         connect: {
                             id: levelId,
                         },
                     },
-                    status: userStatus,
+                    status: Status.ACTIVE,
                 },
             });
+
+            const recipients = await this.prisma.user.findMany({
+                where: {
+                    userRole: {
+                        in: [Role.ADMIN, Role.FACILITY]
+                    }
+                }
+            })
+
+            const recipientIds = recipients.map(r => r.id)
+
+            this.eventEmitter.emit(
+                'employment.approved',
+                new EmploymentApprovedEvent(approveUser.id, recipientIds),
+            );
+
             return approveUser;
         } catch (error) {
       if (error instanceof BadRequestException || 
@@ -179,13 +204,11 @@ export class UserService {
     }
 
     async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
-
         const { duration, jobType } = data;
         try {
              const user = await this.__findUserById(id);
 
         const updateUser = await this.prisma.$transaction(async (tx) => {
-            // Update user details
             const updatedUser = await tx.user.update({
                 where: { id },
                 data: {
@@ -199,11 +222,19 @@ export class UserService {
                     maritalStatus: data.maritalStatus,
                     state: data.state,
                     department: {
-                        connect: {
-                            id: user.departmentId,
-                        },
+                        connect: { id: user.departmentId },
                     },
                     ...(jobType === JobType.CONTRACT ? { duration } : {}),
+
+                    // ✅ Update userDocuments safely
+                    ...(data.userDocuments?.length
+                        ? {
+                            userDocuments: {
+                                set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                            },
+                        }
+                        : {}),
+
                     contacts: {
                         update: {
                             emergency: {
@@ -213,13 +244,13 @@ export class UserService {
                                         firstName: data.emergency.firstName,
                                         lastName: data.emergency.lastName,
                                         email: data.emergency.email,
-                                        phone: data.emergency.phone
+                                        phone: data.emergency.phone,
                                     },
                                     create: {
                                         firstName: data.emergency.firstName,
                                         lastName: data.emergency.lastName,
                                         email: data.emergency.email,
-                                        phone: data.emergency.phone
+                                        phone: data.emergency.phone,
                                     },
                                 },
                             },
@@ -230,13 +261,13 @@ export class UserService {
                                         firstName: data.guarantor.firstName,
                                         lastName: data.guarantor.lastName,
                                         email: data.guarantor.email,
-                                        phone: data.guarantor.phone
+                                        phone: data.guarantor.phone,
                                     },
                                     create: {
                                         firstName: data.guarantor.firstName,
                                         lastName: data.guarantor.lastName,
                                         email: data.guarantor.email,
-                                        phone: data.guarantor.phone
+                                        phone: data.guarantor.phone,
                                     },
                                 },
                             },
@@ -251,15 +282,11 @@ export class UserService {
                         },
                     },
                     userDocuments: {
-                        select: {
-                            name: true,
-                        },
+                        select: { name: true },
                     },
                 },
             });
 
-            //Handle file uploads if they exist
-            await this.handleUserUploads(user.id, uploads)
             return updatedUser;
         });
 
@@ -275,9 +302,19 @@ export class UserService {
        
     }
 
+
     async findAllUsers() {
         return this.prisma.user.findMany({
             include: {
+                // prospect: true,
+                userDocuments: {
+                    select: {
+                        id: true,
+                        name: true,
+                        size: true,
+                        type: true
+                    }
+                },
                 level: true,
                 department: true,
                 contacts: {
@@ -286,20 +323,53 @@ export class UserService {
                         guarantor: true,
                     }
                 },
-                userDocuments:{
-                    select: {
-                        name: true,
-                        size: true,
-                        type: true,
-                    }
-                },
                 comment: true,
                 invite: true,
             }
         });
     }
 
-    async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
+    async getUser(id: string) {
+        try {
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id
+                },
+                include: {
+                    prospect: true,
+                    userDocuments: {
+                        select: {
+                            id: true,
+                            name: true,
+                            size: true,
+                            type: true
+                        }
+                    },
+                    level: true,
+                    department: true,
+                    contacts: {
+                        include: {
+                            emergency: true,
+                            guarantor: true,
+                        }
+                    },
+                    comment: true,
+                    invite: true,
+                }
+            })
+
+            if (!user) mustHave(user, "User not found", 404)
+            return user
+
+        } catch (error) {
+            console.log(error)
+            bad(error)
+        }
+
+    }
+
+        async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
     const {
         jobType,
         duration,
@@ -462,11 +532,10 @@ export class UserService {
                 where: { id, },
                 include: {
                     level: true,
-                    // uploads: true,
+                    userDocuments: true,
                     contacts: true,
                     department: true,
                     prospect: true,
-                    assignments: true,
                 },
             });
             if (!user) {
@@ -474,13 +543,8 @@ export class UserService {
             };
             return user;
         } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to find user by ID');
-      }
+            bad("Unable to find user")
+        }
 
     }
 
@@ -489,8 +553,7 @@ export class UserService {
             this.logger.debug('No files to upload');
             return;
         }
-        try {
-            return await this.prisma.$transaction(async (tx) => {
+        return await this.prisma.$transaction(async (tx) => {
             //First delete the uploads that are being replaced
             const filenames = uploads.map(u => u.originalname);
             await tx.upload.deleteMany({
@@ -511,30 +574,14 @@ export class UserService {
                 }))
             });
         });
-        } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to handle user uploads');
-      }
-        
     }
 
+    // user.service.ts
+
     async findByEmail(email: string) {
-        try {
-           return this.prisma.user.findUnique({
+        return this.prisma.user.findUnique({
             where: { email },
-        }); 
-        } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to find user by email');
-      }
+        });
     }
 
 }

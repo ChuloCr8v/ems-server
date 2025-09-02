@@ -5,7 +5,6 @@ export class DepartmentDto {
     @IsNotEmpty()
     name: string
 
-
     @IsString()
     @IsOptional()
     departmentHead?: string
