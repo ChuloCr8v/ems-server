@@ -18,6 +18,7 @@ import { NotificationService } from './notification/notification.service';
 import { NotificationController } from './notification/notification.controller';
 import { NotificationModule } from './notification/notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ClaimsModule } from './claims/claims.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     AssetModule,
     OffboardingModule,
     UploadsModule,
-    NotificationModule
+    NotificationModule,
+    ClaimsModule
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],

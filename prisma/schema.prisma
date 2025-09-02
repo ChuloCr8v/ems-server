@@ -93,6 +93,7 @@ model User {
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
+  claims               Claim[]
 
   @@index([email])
   @@index([eId])
@@ -295,6 +296,25 @@ model OffboardingChecklist {
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
 }
 
+model Claim {
+  id          String   @id @default(cuid())
+  title       String
+  claimType   String
+  amount      Float
+  dateOfExpense DateTime
+  description String?
+  status      ClaimStatus @default(PENDING)
+  proofUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employeeId  String
+  users       User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("claims")
+}
+
+
+
 /////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -366,6 +386,13 @@ enum DepartmentStatus {
   ACTIVE
   INACTIVE
 }
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 
 // enum AssetStatus {
 //   ACTIVE
