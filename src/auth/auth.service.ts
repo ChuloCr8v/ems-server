@@ -9,6 +9,7 @@ import { decode } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { AzureAuthDto, IAuthUser } from './dto/auth.dto';
+import { bad } from 'src/utils/error.utils';
 
 @Injectable()
 export class AuthService {
@@ -67,9 +68,8 @@ export class AuthService {
         // },
       });
 
-      if (!user) {
-        throw new UnauthorizedException('User does not exist in the system');
-      }
+      bad('User does not exist in the system');
+
 
       const payload = { sub: user.id, email: user.email, role: user.userRole };
       return {
