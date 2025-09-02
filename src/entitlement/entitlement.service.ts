@@ -5,13 +5,13 @@ import { bad } from 'src/utils/error.utils';
 
 @Injectable()
 export class EntitlementService {
-    constructor( private readonly prisma: PrismaService) {}
+    constructor(private readonly prisma: PrismaService) { }
 
     async createEntitlement(dto: EntitlementDto) {
         const { name, unit } = dto;
         try {
             const entitlement = await this.prisma.entitlement.findUnique({ where: { name } });
-            if(entitlement) {
+            if (entitlement) {
                 throw bad("Entitlement already exist");
             }
             return await this.prisma.entitlement.create({
@@ -21,25 +21,29 @@ export class EntitlementService {
                 },
             });
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
                 throw error;
-              }
-              throw new BadRequestException('Failed to create entitlement');
+            }
+            throw new BadRequestException('Failed to create entitlement');
         }
     }
 
     async getEntitlements() {
         try {
-            return await this.prisma.entitlement.findMany();
+            return await this.prisma.entitlement.findMany({
+                orderBy: {
+                    createdAt: "desc"
+                }
+            });
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
                 throw error;
-              }
-              throw new BadRequestException('Failed to fetch entitlements');
+            }
+            throw new BadRequestException('Failed to fetch entitlements');
         }
     }
 
@@ -47,12 +51,12 @@ export class EntitlementService {
         try {
             return await this.__findEntitlementById(id);
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
                 throw error;
-              }
-              throw new BadRequestException('Failed to fetch entitlement');
+            }
+            throw new BadRequestException('Failed to fetch entitlement');
         }
     }
 
@@ -67,14 +71,14 @@ export class EntitlementService {
                     unit,
                 },
             });
-            return update; 
+            return update;
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
                 throw error;
-              }
-              throw new BadRequestException('Failed to edit entitlement');
+            }
+            throw new BadRequestException('Failed to edit entitlement');
         }
     }
 
@@ -86,12 +90,12 @@ export class EntitlementService {
             });
             return entitlement;
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
                 throw error;
-              }
-              throw new BadRequestException('Failed to delete entitlement');
+            }
+            throw new BadRequestException('Failed to delete entitlement');
         }
     }
 
@@ -102,7 +106,7 @@ export class EntitlementService {
         const entitlement = await this.prisma.entitlement.findUnique({
             where: { id }, include: { levels: true },
         });
-        if(!entitlement) {
+        if (!entitlement) {
             throw bad("Entitlement Not Found");
         };
         return entitlement;
