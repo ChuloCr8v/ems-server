@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Accept Email</title>
+    <title>Leave Request Denied Email</title>
     <link rel="preconnect" href="https://fonts.googleapis.com"> 
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
@@ -20,8 +20,8 @@
         }
         
         .wrapper {
-            width: 800px;
-            background-color: #f8fafc;
+            width: 780px;
+            background-color: #F8FAFC;
             position: relative;
             overflow: visible;
             margin: 20px;
@@ -32,14 +32,9 @@
             font-weight: 600;
             font-size: 16px;
             line-height: 1.5;
-           
+            color: #384860;
         }
-        .subject {
-            font-weight: 600;
-            font-size: 16px;
-            line-height: 1.5;
-           color: #384860;
-        }
+        
         .header {
             width: 100%;
             height: 104px;
@@ -53,13 +48,13 @@
         .zoracom-logo {
             width: 161px;
             height: 30px;
-            margin-left: 12px;
+            margin-left: 10px;
         }
         
         .social-icons {
             display: flex;
             gap: 24px;
-            margin-right: 15px;
+            margin-right: 9px;
         }
         
         .social-icon {
@@ -68,16 +63,16 @@
         }
         
         .content-wrapper {
-            width: 720px;
+            width: 660px;
+            height: 620px;
             margin: 0 auto;
             background-color: #ffffff;
-            padding: 0 48px;
+            padding: 0 40px;
             box-sizing: border-box;
             position: relative;
             z-index: 2;
             border-radius: 4px;
             margin-bottom: 20px; /* Added space between content and footer */
-            height: 350px; /* Ensures enough space for content */
         }
         
         .content {
@@ -98,13 +93,13 @@
         
         .greeting {
             font-size: 16px;
-            margin-top:-20px;
+            margin-top:-30px;
             font-weight: 400;
              color: #384860;
         }
         
-        .message {
-            font-size: 16px;
+        .message1 {
+            font-size: 14px;
             margin-top:-40px;
             color:#5E5E5E;
         }
@@ -120,11 +115,10 @@
             padding: 40px 48px 24px;
             border-top: 1px solid #eeeeee;
             line-height: 1.5;
-            background-color: #ECF8EE;
+            background-color: #E7F5FA;
             position: relative;
             z-index: 1;
-            margin-top: 40px; /* Added space above footer */
-            height: 135px;
+            margin-top: 20px; /* Added space above footer */
         }
         
         .footer p {
@@ -145,24 +139,7 @@
             font-size: 14px;
             transform: translateX(20px);
         }
-        
-        .button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #0A96CC;
-            color: #fff;
-            text-decoration: none;
-            padding: 8px 45px;
-            width: 179px;
-            height: 42px;
-            transform: translateY(-50px);
-            
-        }
-
-        .button:hover {
-            background-color: #007bb8;
-        }
+      
         
         .fcontent2 {
             transform: translateX(20px);
@@ -188,11 +165,67 @@
         }
 
         .cheeers {
-            font-weight: 400;
+            font-weight: 500;
             font-size: 12px;
             color: #5E5E5E;
             display: block;
+            margin-top: 45px;
         }
+        .company{
+      font-weight: 600;
+      color:#141414;
+
+        }
+        .appreciation {
+            font-size: 14px;
+            margin-top: -50px;
+            font-weight: 400;
+             color:#5E5E5E;
+        }
+       .Asset-details{
+              font-size: 16px;
+            margin-top: -30px;
+            font-weight: 500;
+             
+       }
+       .message2{
+            font-size: 14px;
+            margin-top: -55px;
+            font-weight: 400;
+            color:#5E5E5E;
+       }
+ 
+
+.zora{
+     font-weight: 600;
+    font-size: 16px;
+    line-height: 1.5;
+}
+.Kindly{
+    font-size: 14px;
+    margin-top: -15px;
+}
+
+.focus{
+          font-weight: 600;
+            font-size: 14px;
+            line-height: 1.5;
+}
+.reason{
+     font-weight: 600;
+            font-size: 14px;
+            line-height: 1.5;
+}
+.sub{
+    margin-top:-35px;
+    font-size: 14px;
+}
+.message3{
+    font-size: 14px;
+    margin-top: -110px;
+    font-weight: 400;
+    color:#5E5E5E;
+}
     </style>
 </head>
 <body>
@@ -208,18 +241,28 @@
         
         <div class="content-wrapper">
             <div class="content">
-                <h1>{{name}} Accepted Their Offer</h1>
-                
-                <p class="greeting">Hello <span class="subject">Admin</span>,</p>
-                
-                <p class="message"><span class="Name">{{name}}</span> has accepted the invitation and submitted their onboarding details.
-                   You can now review their submission and finalize approval.</p>
-                
+               <h1 style="line-height: 0.7; margin: 0;">
+                Leave Request Denied
+              </h1>
 
                 
+                <p class="greeting">Hi <span class="Name">{{name}}</span>,</p>
+                
+                <p class="message1">Your request for a <span class="focus">{{leaveValue}}</span> days<span class="focus">{{leaveType}}</span> from <span class="focus">{{startDate}}</span> to <span class="focus">{{endDate}}</span> has  
+                been reviewed by the {{approver}} and unfortunately cannot be approved at this time.
+                </p>
+                <p class="message2">
+                    <p class="reason">Reason:</p>
+                 <p class="sub">{{reason}}.</p>
+                </p>  
+                <p class="message3">
+                    We understand that this may be disappointing news. 
+                    Please feel free to reach out to your manager or the HR team for further clarification or to discuss alternative arrangements.
+                </p>
+             
                 <div class="signature">
-                    <span class="cheeers">Cheers,</span><br>
-                    <span class="ID">The HR Team</span>
+                    <span class="cheeers">Best regards,</span><br>
+                    <span class="ID">HR Team</span>
                 </div>
             </div>
         </div>
@@ -235,5 +278,5 @@
             </div>
         </div>
     </div>
-  </body>
+</body>
 </html>

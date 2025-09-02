@@ -19,6 +19,8 @@ import { NotificationController } from './notification/notification.controller';
 import { NotificationModule } from './notification/notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { EntitlementModule } from './entitlement/entitlement.module';
+import { LeaveModule } from './leave/leave.module';
 
 @Module({
   imports: [
@@ -34,7 +36,9 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     OffboardingModule,
     UploadsModule,
     NotificationModule,
-    CloudinaryModule
+    CloudinaryModule,
+    EntitlementModule,
+    LeaveModule
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],
