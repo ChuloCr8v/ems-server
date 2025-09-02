@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } fr
 export class InviteController {
   constructor(private inviteService: InviteService) { }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post('send')
   @ApiOperation({ summary: 'Send an invitation to create a new prospect' })
   @ApiConsumes('multipart/form-data')
