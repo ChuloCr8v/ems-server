@@ -148,15 +148,18 @@ export class InviteService {
 
   async acceptInvite(token: string) {
     const currentDate = new Date();
-    try {
-       //Find the invite by token
-      const invite = await this.prisma.invite.findUnique({
-        where: { token },
-        include: {
-          prospect: true,
-          sentBy: true,
-        },
-      });
+
+    //Find the invite by token
+    const invite = await this.prisma.invite.findUnique({
+      where: { token },
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
+    });
+
+    const prospect = invite.prospect
+
 
       if (!invite || invite.expiresAt < currentDate) {
         bad('Invalid or Expired Invitation');
@@ -164,18 +167,38 @@ export class InviteService {
 
       if (invite.status !== 'PENDING') bad('Invitation Has Already Been Accepted or Declined');
 
-      //Update the invite status to ACCEPTED
-      const updatedInvite = await this.prisma.invite.update({
-        where: { token },
-        data: {
-          status: 'ACCEPTED',
-          acceptedAt: currentDate,
-        },
-        include: {
-          prospect: true,
-          sentBy: true,
-        },
-      });
+    //Update the invite status to ACCEPTED
+    const updatedInvite = await this.prisma.invite.update({
+      where: { token },
+      data: {
+        status: 'ACCEPTED',
+        acceptedAt: currentDate,
+      },
+      include: {
+        prospect: true,
+        sentBy: true,
+      },
+    });
+
+    const user = await this.prisma.user.create({
+      data: {
+        firstName: prospect.firstName,
+        lastName: prospect.lastName,
+        email: prospect.email,
+        phone: prospect.phone,
+        gender: prospect.gender,
+        jobType: prospect.jobType,
+        duration: prospect.duration ?? null,
+        startDate: prospect.startDate,
+        role: prospect.role,
+        prospect: { connect: { id: prospect.id } },
+        department: {
+          connect: {
+            id: prospect.departmentId
+          }
+        }
+      }
+    })
 
       const recipients = await this.prisma.user.findMany({
         where: {
@@ -197,16 +220,10 @@ export class InviteService {
         name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
       });
 
-      return updatedInvite;
-    
-    } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to accept invite');
-          }
+    return {
+      user,
+      updatedInvite
+    };
   }
 
   async declineInvite(token: string, reasons?: Array<string>) {
@@ -322,7 +339,16 @@ export class InviteService {
         include: {
           prospect: {
             include: {
-              user: true
+              user: {
+                include: {
+                  contacts: {
+                    include: {
+                      guarantor: true,
+                      emergency: true
+                    }
+                  }
+                }
+              }
             }
           },
         },
