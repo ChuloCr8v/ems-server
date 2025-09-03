@@ -7,9 +7,9 @@ import { Role } from '@prisma/client';
 
 @Controller('entitlement')
 export class EntitlementController {
-  constructor(private readonly entitlement: EntitlementService) {}
+  constructor(private readonly entitlement: EntitlementService) { }
 
-  // @Auth([Role.ADMIN])
+  @Auth([Role.ADMIN])
   @Post()
   async createEntitlement(@Body() dto: EntitlementDto, @Res() res: Response) {
     const entitlement = await this.entitlement.createEntitlement(dto);
@@ -32,13 +32,13 @@ export class EntitlementController {
   @Put(':id')
   async updateEntitlement(@Param('id') id: string, @Body() dto: UpdateEntitlement, @Res() res: Response) {
     const entitlement = await this.entitlement.updateEntitlement(id, dto);
-    return res.status(200).json({ message: `An Entitlement Has Been Updated`, entitlement});
+    return res.status(200).json({ message: `An Entitlement Has Been Updated`, entitlement });
   }
 
   @Auth([Role.ADMIN])
   @Delete(':id')
   async deleteEntitlement(@Param('id') id: string, @Res() res: Response) {
     const entitlement = await this.entitlement.deleteEntitlement(id);
-    return res.status(200).json({ message: `An Entitlement Has Been Deleted`, entitlement});
+    return res.status(200).json({ message: `An Entitlement Has Been Deleted`, entitlement });
   }
 }

@@ -4,23 +4,17 @@ import {
   Param,
   Post,
   Body,
-  NotFoundException,
-  UseGuards,
   Put,
   Res,
   UseInterceptors,
   UploadedFiles,
   Patch,
-  BadRequestException,
+  Delete,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { AddEmployeeDto, ApproveUserDto, CreateUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { validate } from 'class-validator';
-import { plainToInstance } from 'class-transformer';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 
 @Controller('users')
@@ -76,64 +70,15 @@ export class UserController {
     return res.status(200).json({ message: `User Details Has Been Updated`, user })
   }
 
-  @Post('add')
-  @UseInterceptors(
-    FilesInterceptor('files', 5, {
-      storage: diskStorage({
-        destination: './uploads/employees',
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `${uniqueSuffix}${ext}`);
-        },
-      }),
-      fileFilter: (req, file, callback) => {
-        if (
-          !file.originalname.match(
-            /\.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx)$/i,
-          )
-        ) {
-          return callback(
-            new Error('Only image, PDF and document files are allowed!'),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
-    }),
-  )
-
+  @Post('create')
   async addEmployee(
-    @Body() body: any,
-    @UploadedFiles() files: Express.Multer.File[]
+    @Body() dto: AddEmployeeDto[],
   ) {
-    try {
-      // Parse nested JSON strings
-      const parsedBody = {
-        ...body,
-        emergencyContact: JSON.parse(body.emergencyContact),
-        guarantorContact: JSON.parse(body.guarantorContact),
-      };
-
-      // Validate using class-validator
-      const dto = plainToInstance(AddEmployeeDto, parsedBody);
-      const errors = await validate(dto);
-
-      if (errors.length > 0) {
-        throw new BadRequestException(errors);
-      }
-
-      return this.userService.addEmployee(dto, files);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Invalid request format');
-    }
+    return this.userService.addEmployee(dto);
   }
 
+  @Delete("")
+  async deleteUSer(@Body() ids: string[]) {
+    return this.userService.deleteUser(ids)
+  }
 }

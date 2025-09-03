@@ -55,7 +55,7 @@ model User {
   workEmail     String?        @unique
   firstName     String
   lastName      String
-  phone         String
+  phone         String?
   workPhone     String?
   role          String?
   gender        String
@@ -127,7 +127,7 @@ model Invite {
 
 model Department {
   id       String     @id @default(uuid()) @db.Uuid
-  name     String
+  name     String     @unique
   prospect Prospect[]
   user     User[]     @relation("Department")
 
@@ -180,6 +180,10 @@ model Upload {
   asset         Asset?            @relation("AssetImages", fields: [assetId], references: [id])
   requestId     String?           @db.Uuid
   request       LeaveRequest?     @relation(fields: [requestId], references: [id])
+
+  //cloudinary keys
+  publicId  String? @unique
+  secureUrl String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -264,6 +268,7 @@ model Assignment {
   user          User              @relation(fields: [userId], references: [id])
   userId        String            @db.Uuid
   assignedAt    DateTime
+  retrievedAt   DateTime?
   notes         String?
   condition     String?
   status        AssignmentStatus?
