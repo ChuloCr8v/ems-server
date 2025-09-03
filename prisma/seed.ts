@@ -3,7 +3,7 @@ import { JobType, MaritalStatus, PrismaClient, Role } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  // Bona (ADMIN)
+
   await prisma.user.create({
     data: {
       firstName: "Bonaventure",
