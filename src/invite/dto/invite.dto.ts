@@ -1,6 +1,7 @@
 import { JobType } from "@prisma/client";
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsDate, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 
 
 export class SendInviteDto {
@@ -45,7 +46,8 @@ export class CreateProspectDto {
 
     @ApiProperty({ example: "2025-09-01", description: "Start date in YYYY-MM-DD format" })
     @IsNotEmpty({ message: 'Start Date is Required' })
-    @IsString()
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
     startDate: Date;
 
     @ApiProperty({

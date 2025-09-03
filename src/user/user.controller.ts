@@ -11,9 +11,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   Patch,
-  UsePipes,
   BadRequestException,
-  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AddEmployeeDto, ApproveUserDto, CreateUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
@@ -108,56 +106,6 @@ export class UserController {
       },
     }),
   )
-  // async addEmployee(
-  //   @Body() body: AddEmployeeDto,
-  //   @UploadedFiles() files: Express.Multer.File[],
-  //   @Req() req: Request,
-  // ) {
-  //   try {
-  //     // Validate contract duration if job type is CONTRACT
-  //     if (body.jobType === 'CONTRACT' && !body.duration) {
-  //       throw new BadRequestException(
-  //         'Duration is required for contract employees',
-  //       );
-  //     }
-
-  //     // Check if email already exists
-  //     const existingEmployee = await this.userService.findByEmail(
-  //       body.email,
-  //     );
-  //     if (existingEmployee) {
-  //       throw new BadRequestException('Email already exists');
-  //     }
-
-  //     // Process file paths
-  //     const filePaths = files?.map((file) => ({
-  //       path: file.path,
-  //       originalname: file.originalname,
-  //       mimetype: file.mimetype,
-  //       size: file.size,
-  //     }));
-
-  //     // Create employee with file references
-  //     // const employee = await this.userService.create({
-  //     //   ...body,
-  //     //   files: filePaths,
-  //     // });
-
-  //     // return {
-  //     //   success: true,
-  //     //   data: employee,
-  //     //   message: 'Employee created successfully',
-  //     // };
-  //   } catch (error) {
-  //     // Clean up uploaded files if error occurs
-  //     // if (files?.length) {
-  //     //   await this.userService.cleanupFiles(files);
-  //     // }
-  //     throw new BadRequestException(
-  //       error.message || 'Failed to create employee',
-  //     );
-  //   }
-  // }
 
   async addEmployee(
     @Body() body: any,
