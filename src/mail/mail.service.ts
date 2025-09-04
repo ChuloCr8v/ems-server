@@ -135,22 +135,22 @@ export class MailService {
   }
 
   async sendLeaveApprovalMail(data: ApproveLeaveRequest){
-    const { email, name, startDate, endDate, leaveType, approver, leaveValue } = data;
+    const { email, name, startDate, endDate, leaveType, leaveValue } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_APPROVAL,
       template: 'leaveApproved',
-      context: { name, leaveType, startDate, endDate, leaveValue, approver },
+      context: { name, leaveType, startDate, endDate, leaveValue, },
     })
   }
 
   async sendLeaveRejectMail(data: RejectLeaveRequest){
-    const { email, name, startDate, endDate, leaveType, approver, leaveValue, reason } = data;
+    const { email, name, startDate, endDate, leaveType, leaveValue, reason } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_DECLINE,
       template: 'leaveDenied',
-      context: { name, leaveType, startDate, endDate, leaveValue, approver, reason },
+      context: { name, leaveType, startDate, endDate, leaveValue, reason },
     })
   }
 }

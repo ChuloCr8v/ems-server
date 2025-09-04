@@ -90,6 +90,7 @@ export class NotificationListener {
     async handleApprovedLeave(event: LeaveApprovedEvent) {
         const approver = await this.prisma.user.findUnique({
             where: { id: event.approverId },
+            // include: { requests: { include: { user: true, } } },
         });
         const employee = await this.prisma.user.findUnique({
             where: { id: event.employeeId },

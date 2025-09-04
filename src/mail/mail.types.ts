@@ -124,9 +124,6 @@ export class ApproveLeaveRequest {
     @IsNumber()
     leaveValue: number;
 
-    @IsString()
-    approver: string;
-
     @IsDate()
     @Transform(({ value }) => new Date(value))
     startDate: Date;

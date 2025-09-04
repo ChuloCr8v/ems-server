@@ -1,18 +1,20 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { LevelDto, UpdateLevelDto } from './dto/level.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ApproverRole } from '@prisma/client';
 
 @Injectable()
 export class LevelService {
     constructor(private prisma: PrismaService) {}
 
-    async createLevel(input: LevelDto) {
-        try {
-        const { entitlements, ...levelData } = input;
-        const level = await this.prisma.level.create({
-            data: {
-                ...levelData,
-                entitlements: {
+    async createLevel(data: LevelDto) {
+    const { entitlements, ...levelData } = data;
+
+    return this.prisma.$transaction(async (tx) => {
+        const level = await tx.level.create({
+        data: {
+            ...levelData,
+             entitlements: {
                     create: entitlements?.map(ent => ({
                         value: ent.value,
                         entitlement: {
@@ -20,21 +22,13 @@ export class LevelService {
                         },
                     }))
                 },
-            },
-            include: {
-                entitlements: {
-                    include: {
-                        entitlement: true,
-                    }
-                }
-            }
-        });
-        return level;
-        } catch (error) {
-        //    console.error(error)
-          throw new BadRequestException(error.message);
-        }
+             },
+         });
+         return level;
+     });
  }
+
+
 
     async getAllLevels() {
         try {

@@ -109,7 +109,7 @@ export class OffboardingController {
     return res.status(200).json({ message: `The Handover Form Has Been Uploaded`, handover });
   }
 
-  @Auth([Role.ADMIN, Role.USER, Role.MANAGER])
+  @Auth([Role.ADMIN, Role.USER, Role.DEPT_MANAGER])
   @Post(':handoverId/comment')
   @UseInterceptors(FilesInterceptor('uploads'))
   async commentHandover(

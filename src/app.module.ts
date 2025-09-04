@@ -20,6 +20,7 @@ import { NotificationModule } from './notification/notification.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { EntitlementModule } from './entitlement/entitlement.module';
 import { LeaveModule } from './leave/leave.module';
+import { ApproverModule } from './approver/approver.module';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { LeaveModule } from './leave/leave.module';
     UploadsModule,
     NotificationModule,
     EntitlementModule,
-    LeaveModule
+    LeaveModule,
+    ApproverModule
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],
