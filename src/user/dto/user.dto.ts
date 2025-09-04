@@ -139,11 +139,19 @@ export class AddEmployeeDto {
 
   @IsNotEmpty()
   @IsEmail()
-  email: string;
+  workEmail: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  phone: string;
+  workPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -151,11 +159,11 @@ export class AddEmployeeDto {
 
   @IsNotEmpty()
   @IsString()
-  departmentId: string;
+  department: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  levelId: string;
+  level: string;
 
   @IsNotEmpty()
   @IsEnum(JobType)
@@ -165,54 +173,9 @@ export class AddEmployeeDto {
   @IsString()
   role: string;
 
-  @IsNotEmpty()
-  @IsEnum(Role)
-  userRole: Role;
-
-  //    @IsNotEmpty()
-  //   @IsEnum(Dept)
-  //   dept: Dept;  
-
-  //   @IsOptional()
-  //   @IsEnum(Rank)
-  //   rank?: Rank;  
-
-  @IsNotEmpty()
-  @IsString()
-  country: string;
-
-  @IsNotEmpty()
-  @IsString()
-  state: string;
-
-  @IsNotEmpty()
-  @IsEnum(MaritalStatus)
-  maritalStatus: MaritalStatus;
-
-  @IsNotEmpty()
-  @IsString()
-  address: string;
-
-  @IsNotEmpty()
-  @IsDate()
-  @Transform(({ value }) => new Date(value))
-  startDate: Date;
-
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  emergencyContact: EmergencyContactDto;
-
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  guarantorContact: EmergencyContactDto;
-
   @IsOptional()
-  @IsString()
-  workPhone?: string;
-
-  //   @IsOptional()
-  //   @IsString()
-  //   levelId?: string;
+  @IsEnum(Role)
+  userRole?: Role;
 
   @IsOptional()
   @IsString()

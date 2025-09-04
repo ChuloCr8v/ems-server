@@ -115,10 +115,9 @@ export class MailService {
       template: 'welcome',
       context: {
         name,
-        loginLink: loginLink || this.config.get('CLIENT_LOGIN_URL'),
-        temporaryPassword,
-        appName: this.config.get('APP_NAME'),
-        companyName: this.config.get('COMPANY_NAME'),
+        loginLink: loginLink || 'https://ems.miro.zoracom.com/login',
+        appName: this.config.get('Zoracom Employee Management System'),
+        companyName: this.config.get('Zoracom'),
         currentYear: new Date().getFullYear(),
       },
     });

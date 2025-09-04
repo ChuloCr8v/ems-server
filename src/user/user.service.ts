@@ -1,11 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException, Logger, ConflictException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, JobType, Role, Status } from '@prisma/client';
+import { AssetStatus, JobType, Prisma, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { SendInviteDto } from 'src/invite/dto/invite.dto';
 
 @Injectable()
 export class UserService {
@@ -241,13 +242,9 @@ export class UserService {
 
             return approveUser;
         } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to approve user');
-      }
+            console.log(error)
+            bad(error)
+        }
     }
 
     async updateUserInfo(id: string, data: UpdateUserInfo) {
@@ -278,19 +275,14 @@ export class UserService {
 
             return editUser;
         } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
-                throw error;
-              }
-              throw new BadRequestException('Failed to update user info');
-              }
+            console.log(error.message)
+            bad("Edit User Link could not be Sent");
+        }
     }
 
     async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
         const { duration, jobType } = data;
-        try {
-             const user = await this.__findUserById(id);
+        const user = await this.__findUserById(id);
 
         const updateUser = await this.prisma.$transaction(async (tx) => {
             const updatedUser = await tx.user.update({
@@ -375,15 +367,6 @@ export class UserService {
         });
 
         return updateUser;
-        } catch (error) {
-              if (error instanceof BadRequestException || 
-                  error instanceof NotFoundException || 
-                  error instanceof ConflictException) {
-                throw error;
-              }
-              throw new BadRequestException('Failed to update user');
-        }
-       
     }
 
 
@@ -461,159 +444,6 @@ export class UserService {
 
     }
 
-        async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
-    const {
-        jobType,
-        duration,
-        email,
-        firstName,
-        lastName,
-        phone,
-        departmentId,
-        levelId,
-        // dept,
-        role, // Position (string)
-        userRole, // System role (enum)
-        startDate,
-        country,
-        state,
-        maritalStatus,
-        address,
-        emergencyContact,
-        guarantorContact,
-        workPhone,
-        // rank,
-        eId,
-    } = data;
-
-    try {
-        if (jobType === JobType.CONTRACT && !duration) {
-            throw new BadRequestException('Duration is required for contract employees');
-        }
-
-        const existingUser = await this.findByEmail(email);
-        if (existingUser) {
-            throw new BadRequestException('Email already exists in the system');
-        }
-        if (!departmentId) {
-            throw new BadRequestException('departmentId is required');
-        }
-        const departmentExists = await this.prisma.department.findUnique({
-            where: { id: departmentId }
-        });
-
-        if (!departmentExists) {
-            throw new BadRequestException('Department not found');
-        }
-        if (levelId) {
-            const levelExists = await this.prisma.level.findUnique({
-                where: { id: levelId }
-            });
-
-            if (!levelExists) {
-                throw new BadRequestException('Level not found');
-            }
-        }
-
-        const result = await this.prisma.$transaction(async (prisma) => {
-            const user = await prisma.user.create({
-                data: {
-                    firstName,
-                    lastName,
-                    phone,
-                    workPhone,
-                    gender: data.gender,
-                    role, // Position (string)
-                    userRole, // System role (enum)
-                    jobType,
-                    startDate: new Date(startDate),
-                    duration: jobType === JobType.CONTRACT ? duration : null,
-                    department: {
-                        connect: { id: departmentId },
-                    },
-                    level: {
-                        connect: { id: levelId },
-                    },
-
-                    // dept,
-                    // rank,
-                    country,
-                    state,
-                    address,
-                    maritalStatus,
-                    email,
-                    eId,
-                    status: Status.ACTIVE,
-                    contacts: {
-                        create: {
-                            emergency: {
-                                create: {
-                                    firstName: emergencyContact.firstName,
-                                    lastName: emergencyContact.lastName,
-                                    phone: emergencyContact.phone,
-                                    email: emergencyContact.email,
-                                },
-                            },
-                            guarantor: {
-                                create: {
-                                    firstName: guarantorContact.firstName,
-                                    lastName: guarantorContact.lastName,
-                                    phone: guarantorContact.phone,
-                                    email: guarantorContact.email,
-                                },
-                            },
-                        },
-                    },
-                },
-                include: {
-                    contacts: true,
-                    department: true,
-                    level: true,
-                },
-            });
-
-            // Handle file uploads if any
-            if (files?.length) {
-                const uploads = files.map((file) => ({
-                    name: file.originalname,
-                    size: file.size,
-                    type: file.mimetype,
-                    bytes: file.buffer,
-                    userId: user.id,
-                }));
-
-                await prisma.upload.createMany({
-                    data: uploads,
-                });
-            }
-
-            return { user };
-        });
-
-        // Send welcome email
-        await this.mail.sendWelcomeEmail({
-            email: result.user.email,
-            name: `${result.user.firstName} ${result.user.lastName}`,
-            loginLink: 'https://yourportal.com/login',
-            temporaryPassword: 'initial123',
-            //   userRole: result.user.userRole // Include role in email if needed
-        });
-
-        return {
-            success: true,
-            data: result.user,
-            message: 'Employee added successfully',
-        };
-    } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to add employee');
-      }
-    }
-
 
 
     //////////////////////////////// HELPER METHODS ////////////////////////////////
@@ -668,13 +498,157 @@ export class UserService {
         });
     }
 
-    // user.service.ts
-
     async findByEmail(email: string) {
         return this.prisma.user.findUnique({
             where: { email },
         });
     }
 
-}
+    async addEmployee(data: AddEmployeeDto[]) {
+        try {
+            const isBulk = data.length > 1;
 
+            const createdEmployees = await Promise.all(
+                data.map(async (e) => {
+                    const {
+                        jobType,
+                        duration,
+                        department,
+                        level,
+                        firstName,
+                        lastName,
+                        workEmail,
+                        workPhone,
+                        gender,
+                        role,
+                        userRole,
+                        eId,
+                        phone,
+                        email,
+                    } = e;
+
+                    // ✅ Basic required field validation
+                    if (!firstName || !lastName) bad("First name and last name are required");
+                    if (!gender) bad("Gender is required");
+                    if (!department) bad("Department is required");
+                    if (!level) bad("Level is required");
+                    if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
+
+                    // ✅ Duplicate checks
+                    if (workEmail) {
+                        const existingWorkEmail = await this.prisma.user.findUnique({ where: { workEmail } });
+                        if (existingWorkEmail) {
+                            bad(`Work email ${workEmail} already belongs to ${existingWorkEmail.firstName} ${existingWorkEmail.lastName}`);
+                        }
+                    }
+                    if (email) {
+                        const existingEmail = await this.prisma.user.findUnique({ where: { email } });
+                        if (existingEmail) {
+                            bad(`Email ${email} already belongs to ${existingEmail.firstName} ${existingEmail.lastName}`);
+                        }
+                    }
+                    if (workPhone) {
+                        const existingWorkPhone = await this.prisma.user.findFirst({ where: { workPhone: workPhone.toString() } });
+                        if (existingWorkPhone) {
+                            bad(`Work phone ${workPhone} already belongs to ${existingWorkPhone.firstName} ${existingWorkPhone.lastName}`);
+                        }
+                    }
+                    if (phone) {
+                        const existingPhone = await this.prisma.user.findFirst({ where: { phone: phone.toString() } });
+                        if (existingPhone) {
+                            bad(`Phone ${phone} already belongs to ${existingPhone.firstName} ${existingPhone.lastName}`);
+                        }
+                    }
+                    if (eId) {
+                        const existingEid = await this.prisma.user.findUnique({ where: { eId } });
+                        if (existingEid) {
+                            bad(`Employee ID ${eId} already belongs to ${existingEid.firstName} ${existingEid.lastName}`);
+                        }
+                    }
+
+                    let departmentConnect: { id: string };
+                    let levelConnect: { id: string };
+                    if (isBulk) {
+                        // connect by name
+                        const dept = await this.prisma.department.findUnique({ where: { name: department } });
+                        if (!dept) bad(`Department '${department}' does not exist`);
+                        departmentConnect = { id: dept.id };
+
+                        const lvl = await this.prisma.level.findFirst({ where: { name: level.toLowerCase() } });
+                        if (!lvl) bad(`Level '${level}' does not exist`);
+                        levelConnect = { id: lvl.id };
+                    } else {
+                        // connect by ID
+                        departmentConnect = { id: department };
+                        levelConnect = { id: level };
+                    }
+
+                    // ✅ Transaction to create employee
+                    const result = await this.prisma.$transaction(async (prisma) => {
+                        const employee = await prisma.user.create({
+                            data: {
+                                firstName,
+                                lastName,
+                                workEmail,
+                                email,
+                                workPhone: workPhone.toString(),
+                                phone: phone.toString(),
+                                gender,
+                                role,
+                                userRole,
+                                eId,
+                                department: { connect: departmentConnect },
+                                level: { connect: levelConnect },
+                                jobType,
+                                duration: jobType === "CONTRACT" ? duration.toString() : null,
+                                status: "ACTIVE",
+                            },
+                        });
+
+                        return employee;
+                    });
+
+                    // ✅ Send welcome email
+                    await this.mail.sendWelcomeEmail({
+                        email: result.workEmail ?? result.email,
+                        name: `${result.firstName} ${result.lastName}`,
+                    });
+
+                    return result;
+                })
+            );
+
+            return {
+                success: true,
+                data: createdEmployees,
+                message: "Employees added successfully",
+            };
+        } catch (error) {
+            this.logger.error("Failed to add employees", error.stack);
+            if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                bad("Database error: " + error.message, 500);
+            } else {
+                bad(error.message || "Failed to add employee");
+            }
+        }
+    }
+
+    async deleteUser(ids: string[]) {
+        try {
+            await this.prisma.user.deleteMany({
+                where: {
+                    id: { in: ids },
+                },
+            })
+
+            return {
+                message: "users deleted successfully"
+            }
+        } catch (e) {
+            bad(e)
+        }
+    }
+
+
+
+}

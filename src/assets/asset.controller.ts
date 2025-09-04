@@ -237,9 +237,9 @@ export class AssetsController {
     return this.assetsService.createMultiAssets(file);
   }
 
-  @Put("retrieve/:assetId")
-  async retrieveAsset(@Param("assetId") assetId: string, @Body() dto: { retrievedById: string, notes: string }) {
-    return this.assetsService.retrieveAsset(assetId, dto)
+  @Put("retrieve")
+  async retrieveAsset(@Body() dto: { assetIds: string[], retrievedById: string, notes: string }) {
+    return this.assetsService.retrieveAssets(dto)
   }
 
   @Delete(":id")

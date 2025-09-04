@@ -103,8 +103,10 @@ export class DepartmentService {
         }
     }
 
-    async updateDepartment(id: string, update: DepartmentDto) {
-        const { name } = update;
+    async updateDepartment(id: string, update: Partial<DepartmentDto>) {
+        const { name, departmentHead } = update;
+
+        console.log(update)
         try {
             const department = await this.__findOneDepartment(id);
             if (!department) {
@@ -112,10 +114,14 @@ export class DepartmentService {
             };
             return await this.prisma.department.update({
                 where: { id },
-                data: { name }
+                data: {
+                    name,
+                    departmentHead: { connect: { id: departmentHead } }
+                }
             });
         } catch (error) {
-            throw new InternalServerErrorException(`Failed to update department ${error.message}`);
+            console.log(error)
+            bad(`Failed to update department ${error.message}`);
         }
     }
 

@@ -287,13 +287,16 @@ export class InviteService {
           ],
         },
         include: {
+          department: true,
           user: {
             include: {
               userDocuments: true,
             },
           },
+
           upload: {
             select: {
+              id: true,
               name: true,
               size: true,
               type: true,

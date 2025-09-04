@@ -15,18 +15,25 @@ import {
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadsService } from './uploads.service';
-import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { memoryStorage } from 'multer';
 
 @Controller('uploads')
 export class UploadsController {
     constructor(private readonly uploads: UploadsService) { }
 
     // @Auth()
+
     @Post(':id')
-    @UseInterceptors(FileInterceptor('file'))
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: memoryStorage(),
+            limits: { fileSize: 10 * 1024 * 1024 },
+        }),
+    )
     async uploadFile(
-        @Param("id") id: string,
+        @Param('id') id: string,
         @AuthUser() user: IAuthUser,
         @UploadedFile(
             new ParseFilePipe({
@@ -62,7 +69,7 @@ export class UploadsController {
     // @Auth()
     @Delete()
     async deleteFiles(@Body('ids') ids: string[], @AuthUser() user: IAuthUser) {
-        return this.uploads.deleteFilesFromS3(ids, user);
+        return this.uploads.deleteFiles(ids, user);
     }
 
     // @Auth()
