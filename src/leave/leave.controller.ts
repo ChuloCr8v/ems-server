@@ -44,4 +44,4 @@ export class LeaveController {
   async getApprovalHistory(@Param('leaveRequestId') leaveRequestId: string) {
     return this.leave.getApprovalHistory(leaveRequestId);
   }
-}
+ }
