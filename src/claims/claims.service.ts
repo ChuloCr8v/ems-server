@@ -1,62 +1,311 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateClaimDto, UpdateClaimDto } from '../dto/create-claim.dto';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
 import { ClaimStatus } from '@prisma/client';
-import { FileUploadService } from './file-upload.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class ClaimsService {
-  constructor(
-    private prisma: PrismaService,
-    private fileUploadService: FileUploadService,
-  ) {}
+  constructor(private prisma: PrismaService) { }
 
-  // ... other methods remain the same
+  async createClaim(createClaimDto: CreateClaimDto, userId: string) {
+    const { title, claimType, amount, dateOfExpense, description, proofUrl } = createClaimDto;
 
-  async deleteClaim(id: string) {
-    const claim = await this.claimPrisma.findById(id);
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
+    // Validate user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    mustHave(user, `Employee with ID ${userId} not found`, 404);
+
+    // Validate amount is positive
+    if (amount <= 0) {
+      bad('Amount must be greater than 0');
     }
 
-    // Delete the associated file from S3 if it exists
-    if (claim.proofUrl) {
-      await this.fileUploadService.deleteFile(claim.proofUrl);
+    // Validate date is not in the future
+    const expenseDate = new Date(dateOfExpense);
+    if (expenseDate > new Date()) {
+      bad('Date of expense cannot be in the future');
     }
 
-    return this.claimPrisma.delete(id);
+    const data = {
+      title,
+      claimType,
+      amount: Number(amount),
+      dateOfExpense: expenseDate,
+      description,
+      proofUrl,
+      status: ClaimStatus.PENDING,
+      user: {
+        connect: { id: userId }
+      }
+    };
+
+    try {
+      return await this.prisma.claim.create({
+        data,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      bad(err);
+    }
+  }
+
+  async getAllClaims() {
+    return this.prisma.claim.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async getClaimById(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    mustHave(claim, `Claim with ID ${id} not found`, 404);
+
+    return claim;
+  }
+
+  async getClaimsByEmployee(userId: string) {
+    // Validate user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    mustHave(user, `Employee with ID ${userId} not found`, 404);
+
+    return this.prisma.claim.findMany({
+      where: { 
+        user: { id: userId } 
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async updateClaim(id: string, updateClaimDto: UpdateClaimDto) {
-    const claim = await this.claimPrisma.findById(id);
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+    });
+
+    mustHave(claim, `Claim with ID ${id} not found`, 404);
+
+    // Validate that only pending claims can be updated
+    if (claim.status !== ClaimStatus.PENDING) {
+      bad('Only pending claims can be updated');
     }
 
-    // If updating the file, delete the old one from S3
-    if (updateClaimDto.proofUrl && claim.proofUrl && updateClaimDto.proofUrl !== claim.proofUrl) {
-      await this.fileUploadService.deleteFile(claim.proofUrl);
+    // Build update data
+    const data: any = {
+      title: updateClaimDto.title,
+      claimType: updateClaimDto.claimType,
+      description: updateClaimDto.description,
+    };
+
+    // Handle amount if provided
+    if (updateClaimDto.amount !== undefined) {
+      if (updateClaimDto.amount <= 0) {
+        bad('Amount must be greater than 0');
+      }
+      data.amount = Number(updateClaimDto.amount);
     }
 
-    return this.claimPrisma.update(id, updateClaimDto);
+    // Handle date if provided
+    if (updateClaimDto.dateOfExpense) {
+      const expenseDate = new Date(updateClaimDto.dateOfExpense);
+      if (expenseDate > new Date()) {
+        bad('Date of expense cannot be in the future');
+      }
+      data.dateOfExpense = expenseDate;
+    }
+
+    // Handle proof URL if provided
+    if (updateClaimDto.proofUrl !== undefined) {
+      data.proofUrl = updateClaimDto.proofUrl;
+    }
+
+    try {
+      return await this.prisma.claim.update({
+        where: { id },
+        data,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      bad(err);
+    }
   }
 
-  // Add method to get signed URL for file access
-  async getClaimWithSignedUrl(id: string) {
-    const claim = await this.claimPrisma.findById(id);
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
+  async deleteClaim(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+    });
+
+    mustHave(claim, `Claim with ID ${id} not found`, 404);
+
+    // Validate that only pending claims can be deleted
+    if (claim.status !== ClaimStatus.PENDING) {
+      bad('Only pending claims can be deleted');
     }
 
-    // Generate signed URL for the proof file
-    if (claim.proofUrl) {
-      const signedUrl = await this.fileUploadService.getSignedUrl(claim.proofUrl);
-      return {
-        ...claim,
-        proofSignedUrl: signedUrl,
-      };
+    try {
+      return await this.prisma.claim.delete({
+        where: { id },
+      });
+    } catch (err) {
+      bad(err);
+    }
+  }
+
+  async approveClaim(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+    });
+
+    mustHave(claim, `Claim with ID ${id} not found`, 404);
+
+    // Validate that only pending claims can be approved
+    if (claim.status !== ClaimStatus.PENDING) {
+      bad('Only pending claims can be approved');
     }
 
-    return claim;
+    try {
+      return await this.prisma.claim.update({
+        where: { id },
+        data: { status: ClaimStatus.APPROVED },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      bad(err);
+    }
+  }
+
+  async rejectClaim(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+    });
+
+    mustHave(claim, `Claim with ID ${id} not found`, 404);
+
+    // Validate that only pending claims can be rejected
+    if (claim.status !== ClaimStatus.PENDING) {
+      bad('Only pending claims can be rejected');
+    }
+
+    try {
+      return await this.prisma.claim.update({
+        where: { id },
+        data: { status: ClaimStatus.REJECTED },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+    } catch (err) {
+      bad(err);
+    }
+  }
+
+  async getClaimsByStatus(status: ClaimStatus) {
+    return this.prisma.claim.findMany({
+      where: { status },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async getClaimsStats() {
+    const total = await this.prisma.claim.count();
+    const pending = await this.prisma.claim.count({ where: { status: ClaimStatus.PENDING } });
+    const approved = await this.prisma.claim.count({ where: { status: ClaimStatus.APPROVED } });
+    const rejected = await this.prisma.claim.count({ where: { status: ClaimStatus.REJECTED } });
+    const totalAmount = await this.prisma.claim.aggregate({
+      _sum: { amount: true },
+      where: { status: ClaimStatus.APPROVED },
+    });
+
+    return {
+      total,
+      pending,
+      approved,
+      rejected,
+      totalAmount: totalAmount._sum.amount || 0,
+    };
   }
 }

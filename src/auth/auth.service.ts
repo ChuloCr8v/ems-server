@@ -71,7 +71,7 @@ export class AuthService {
         throw new UnauthorizedException('User does not exist in the system');
       }
 
-      const payload = { sub: user.id, email: user.email, role: user.userRole };
+      const payload = { sub: user.id, email: user.email, role: user.userRole,  };
       return {
         access_token: this.jwt.sign(payload),
         user,

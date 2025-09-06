@@ -308,7 +308,7 @@ model Claim {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   employeeId  String
-  users       User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("claims")
 }

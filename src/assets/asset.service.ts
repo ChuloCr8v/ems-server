@@ -3,7 +3,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto, ImageDto } from './dto/assets.dto';
 import { AssetStatus, FaultStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
-import { Readable } from 'stream';
 import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
