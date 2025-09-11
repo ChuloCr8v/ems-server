@@ -10,16 +10,24 @@ import {
   UploadedFiles,
   Patch,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) { }
+
+  @Auth()
+  @Get('me')
+  async getMe(@AuthUser() user: { sub: string; email: string }) {
+    return await this.userService.getMe(user.sub);
+  }
 
   @Post('invite/:id')
   async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @Res() res: Response) {

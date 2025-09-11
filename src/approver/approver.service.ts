@@ -1,153 +1,154 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Department, Role } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  async getApproversForDepartment(departmentId: string) {
-    return this.prisma.approver.findMany({
+  async getApproversForDepartment(departments: Department[]) {
+    const deptIds = departments.map((d) => d.id);
+
+    return this.prisma.user.findMany({
       where: {
-        departmentId,
-        isActive: true,
+        departments: {
+          some: { id: { in: deptIds } },
+        },
+        approver: {
+          some: {
+            departmentId: { in: deptIds },
+            role: Role.DEPT_MANAGER,
+          },
+        }
+
       },
       include: {
-        user: true,
-        department: true,
+        departments: true,
+        approver: true
       },
     });
   }
+
 
   async getGlobalApprovers() {
-    return this.prisma.approver.findMany({
+    return this.prisma.user.findMany({
       where: {
-        departmentId: null,
-        isActive: true,
-      },
-      include: {
-        user: true,
+        userRole: {
+          has: Role.ADMIN
+        },
       },
     });
   }
 
-    async getApproversForUser(userId: string) {
-        // Get user with department info
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            include: { 
-                department: {
-                    include: {
-                        departmentHead: true
-                    }
-                } 
-            },
-        });
-
-        if (!user) {
-            throw new NotFoundException('User not found');
+  async getApproversForUser(userId: string) {
+    // Get user with department info
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        departments: {
+          include: {
+            departmentHead: true
+          }
         }
+      },
+    });
 
-        const isDepartmentHead = user.department?.departmentHeadId === userId;
-        
-        if (isDepartmentHead) {
-            // Department heads need different approval logic
-            return await this.getApproversForDepartmentHead(userId, user.departmentId);
-        }
-
-        // Regular employees get department approvers + global approvers
-        const departmentApprovers = user.departmentId 
-            ? await this.getApproversForDepartment(user.departmentId)
-            : [];
-
-        const globalApprovers = await this.getGlobalApprovers();
-
-        return [...departmentApprovers, ...globalApprovers];
+    if (!user) {
+      throw new NotFoundException('User not found');
     }
 
-  private async getApproversForDepartmentHead(departmentHeadId: string, departmentId: string) {
+    const isDepartmentHead = user.departments?.some(d => d.departmentHeadId === userId);
+
+    if (isDepartmentHead) {
+      // Department heads need different approval logic
+      return await this.getApproversForDepartmentHead();
+    }
+
+    // Regular employees get department approvers + global approvers
+    const departmentApprovers = user.departments
+      ? await this.getApproversForDepartment(user.departments)
+      : [];
+
+    const globalApprovers = await this.getGlobalApprovers();
+
+
+    return [...departmentApprovers, ...globalApprovers];
+  }
+
+  private async getApproversForDepartmentHead() {
     // For department heads, they typically need approval from:
     // 1. Another department head (peer)
     // 2. HR (global approver)
-    
-    const peerApprovers = await this.prisma.approver.findMany({
-        where: {
-            role: 'DEPT_MANAGER',
-            departmentId: {
-                not: departmentId // Other departments
-            },
-            isActive: true
-        },
-        include: {
-            user: true,
-            department: true
-        }
-    });
 
     const globalApprovers = await this.getGlobalApprovers();
-    
 
-    return [...peerApprovers, ...globalApprovers ];
-}
+    return globalApprovers
+  }
 
-    async canUserApprove(approverUserId: string, targetUserId: string): Promise<boolean> {
-        // Prevent self-approval
-        if (approverUserId === targetUserId) {
-            return false;
-        }
+  async canUserApprove(approverUserId: string, targetUserId: string): Promise<boolean> {
 
-        const approver = await this.prisma.approver.findFirst({
-            where: {
-                userId: approverUserId,
-                isActive: true,
-            },
-            include: {
-                department: {
-                    include: {
-                        user: true,
-                    },
-                },
-            },
-        });
-
-        if (!approver) {
-            return false;
-        }
-
-        const targetUser = await this.prisma.user.findUnique({
-            where: { id: targetUserId },
-            include: { 
-                department: {
-                    include: {
-                        departmentHead: true
-                    }
-                } 
-            },
-        });
-
-        if (!targetUser) {
-            return false;
-        }
-
-        const isTargetDepartmentHead = targetUser.department?.departmentHeadId === targetUserId;
-
-        // If approver is global (HR, etc.), they can approve anyone
-        if (!approver.departmentId) {
-            return true;
-        }
-
-        // Department heads can approve anyone in their department
-        if (approver.role === 'DEPT_MANAGER' && targetUser.departmentId === approver.departmentId) {
-            return true;
-        }
-
-        // Special case: Peer department heads can approve each other
-        if (isTargetDepartmentHead && approver.role === 'DEPT_MANAGER') {
-            return true; // Department head approving another department head
-        }
-
-        return false;
+    // Prevent self-approval
+    if (approverUserId === targetUserId) {
+      return false;
     }
+
+    const approver = await this.prisma.approver.findFirst({
+      where: {
+        userId: approverUserId,
+        isActive: true,
+      },
+      include: {
+        department: {
+          include: {
+            user: true,
+          },
+        },
+        user: true
+      },
+    });
+
+
+    if (!approver) {
+      return false;
+    }
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      include: {
+        departments: {
+          include: {
+            departmentHead: true
+          }
+        }
+      },
+    });
+
+
+
+    if (!targetUser) {
+      return false;
+    }
+
+    const isTargetDepartmentHead = targetUser.departments?.some(d => d.departmentHeadId === targetUserId)
+
+
+    // If approver is global (ADIMN, etc.), they can approve anyone
+    if (approver.user.userRole.includes(Role.ADMIN)) {
+      return true;
+    }
+
+    // Department heads can approve anyone in their department
+    if (targetUser.departments?.some(d => d.departmentHeadId === targetUserId)) {
+      return true;
+    }
+
+    // Special case: Peer department heads can approve each other
+    if (isTargetDepartmentHead && approver.role === 'DEPT_MANAGER') {
+      return true; // Department head approving another department head
+    }
+
+    return false;
+  }
 
   async createApprover(userId: string, departmentId: string | null, role: Role) {
     return this.prisma.approver.create({

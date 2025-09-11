@@ -469,7 +469,7 @@ export class AssetService {
                 firstName: true,
                 lastName: true,
                 email: true,
-                department: true
+                departments: true
               }
             }
           }

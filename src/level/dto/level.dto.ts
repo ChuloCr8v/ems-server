@@ -3,27 +3,28 @@ import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } f
 
 export class LevelDto {
     @IsString()
-    @IsNotEmpty({ message: 'Level Name is Required'})
+    @IsNotEmpty({ message: 'Level Name is Required' })
     readonly name: string;
 
-    @IsNotEmpty({ message: "Level Rank is Required"})
+    @IsNotEmpty({ message: "Level Rank is Required" })
     @IsNumber()
     readonly rank: number;
 
     @IsArray()
     @ValidateNested({ each: true })
+    @IsOptional()
     @Type(() => LevelEntitlementDto)
     readonly entitlements?: LevelEntitlementDto[];
-    
+
 }
 
 export class LevelEntitlementDto {
     @IsString()
-    @IsNotEmpty({ message: 'Entitlement ID is Required'})
+    @IsNotEmpty({ message: 'Entitlement ID is Required' })
     readonly entitlementId: string;
 
     @IsNumber()
-    @IsNotEmpty({ message: 'Entitlement Value is Required'})
+    @IsNotEmpty({ message: 'Entitlement Value is Required' })
     readonly value?: number;
 }
 
