@@ -1,13 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, JobType, Prisma, Role, Status } from '@prisma/client';
+import { AssetStatus, JobType, Prisma, Role, Status, User } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { SendInviteDto } from 'src/invite/dto/invite.dto';
-
 @Injectable()
 export class UserService {
     private readonly logger = new Logger(UserService.name);
@@ -18,6 +16,21 @@ export class UserService {
         private eventEmitter: EventEmitter2
     ) { }
 
+    async getMe(sub: string) {
+        console.log(sub)
+        try {
+            const me = await this.prisma.user.findUnique({
+                where: {
+                    id: sub
+                }
+            })
+
+            return me
+        } catch (error) {
+            console.log(error)
+            bad(error)
+        }
+    }
 
     async updateUserData(
         id: string,
@@ -215,11 +228,9 @@ export class UserService {
             const approveUser = await this.prisma.user.update({
                 where: { id: user.id },
                 data: {
-                    userRole,
+                    userRole: { set: userRole },
                     level: {
-                        connect: {
-                            id: levelId,
-                        },
+                        connect: { id: levelId },
                     },
                     status: Status.ACTIVE,
                 },
@@ -228,10 +239,11 @@ export class UserService {
             const recipients = await this.prisma.user.findMany({
                 where: {
                     userRole: {
-                        in: [Role.ADMIN, Role.FACILITY]
-                    }
-                }
-            })
+                        hasSome: [Role.ADMIN, Role.FACILITY],
+                    },
+                },
+            });
+
 
             const recipientIds = recipients.map(r => r.id)
 
@@ -297,8 +309,8 @@ export class UserService {
                     address: data.address,
                     maritalStatus: data.maritalStatus,
                     state: data.state,
-                    department: {
-                        connect: { id: user.departmentId },
+                    departments: {
+                        connect: user.departments.map(u => ({ id: u.id })),
                     },
                     ...(jobType === JobType.CONTRACT ? { duration } : {}),
 
@@ -383,7 +395,7 @@ export class UserService {
                     }
                 },
                 level: true,
-                department: true,
+                departments: true,
                 contacts: {
                     include: {
                         emergency: true,
@@ -417,7 +429,7 @@ export class UserService {
                         }
                     },
                     level: true,
-                    department: true,
+                    departments: true,
                     contacts: {
                         include: {
                             emergency: true,
@@ -456,7 +468,7 @@ export class UserService {
                     level: true,
                     userDocuments: true,
                     contacts: true,
-                    department: true,
+                    departments: true,
                     prospect: true,
                 },
             });
@@ -566,22 +578,33 @@ export class UserService {
                         }
                     }
 
-                    let departmentConnect: { id: string };
+                    let departmentConnect: { id: string }[] = [];
                     let levelConnect: { id: string };
-                    if (isBulk) {
-                        // connect by name
-                        const dept = await this.prisma.department.findUnique({ where: { name: department } });
-                        if (!dept) bad(`Department '${department}' does not exist`);
-                        departmentConnect = { id: dept.id };
 
-                        const lvl = await this.prisma.level.findFirst({ where: { name: level.toLowerCase() } });
+                    if (isBulk) {
+                        // connect by names (array of names)
+                        const depts = await this.prisma.department.findMany({
+                            where: { name: { in: department } }
+                        });
+
+                        if (depts.length !== department.length) {
+                            bad(`Some departments not found: expected ${department.length}, found ${depts.length}`);
+                        }
+
+                        departmentConnect = depts.map(d => ({ id: d.id }));
+
+                        const lvl = await this.prisma.level.findFirst({
+                            where: { name: level.toLowerCase() }
+                        });
                         if (!lvl) bad(`Level '${level}' does not exist`);
                         levelConnect = { id: lvl.id };
+
                     } else {
-                        // connect by ID
-                        departmentConnect = { id: department };
+                        // connect by IDs (array of IDs)
+                        departmentConnect = department.map((d: string) => ({ id: d }));
                         levelConnect = { id: level };
                     }
+
 
                     // ✅ Transaction to create employee
                     const result = await this.prisma.$transaction(async (prisma) => {
@@ -597,7 +620,7 @@ export class UserService {
                                 role,
                                 userRole,
                                 eId,
-                                department: { connect: departmentConnect },
+                                departments: { connect: departmentConnect },
                                 level: { connect: levelConnect },
                                 jobType,
                                 duration: jobType === "CONTRACT" ? duration.toString() : null,

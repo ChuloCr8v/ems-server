@@ -35,6 +35,9 @@ export class EntitlementService {
             return await this.prisma.entitlement.findMany({
                 orderBy: {
                     createdAt: "desc"
+                },
+                include: {
+                    levels: true,
                 }
             });
         } catch (error) {

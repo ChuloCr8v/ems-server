@@ -12,7 +12,7 @@ async function main() {
       country: "Nigeria",
       state: "Lagos",
       address: "123 Zoracom Street",
-      userRole: Role.ADMIN,
+      userRole: [Role.ADMIN, Role.HR, Role.ASSET_MANAGER, Role.FACILITY],
       maritalStatus: MaritalStatus.SINGLE,
       gender: "Female",
       role: "System Engineer",
