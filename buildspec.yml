@@ -1,0 +1,32 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Installing source NPM dependencies...
+      - npm install
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Generating Prisma client
+      - sed -i prisma/schema.prisma -e 's/"native"/"native","rhel-openssl-1.0.x"/g'
+      - npx prisma generate
+      - echo Compiling TypeScript
+      - npm run build
+  post_build:
+    commands:
+      - npm prune --omit=dev
+      - echo Build completed on `date`
+artifacts:
+  files:
+    - .cache/**/*
+    - .ebextensions/**/*
+    - .platform/**/*
+    - node_modules/**/*
+    - Procfile
+    - dist/**/*
+    - build/**/*
+    - prisma/**/*
+    - package.json
+    - package-lock.json
+    - .npmrc

@@ -233,10 +233,10 @@
                 
                 <p class="greeting">Hi <span class="Name">{{name}}</span>,</p>
                 
-                <p class="message1">Your leave request for a <span class="focus">{{leaveValue}}</span> days <span class="focus">{{leaveType}}</span> from <span class="focus">{{startDate}}</span> to <span class="focus">{{endDate}}</span>  
-                 has been reviewed and approved by the {{approver}}
+                <p class="message1">Your leave request for a <span class="focus">{{leaveValue}}</span> days <span class="focus">{{leaveType}}</span> from <span class="focus">{{formatDate startDate "MMMM DD, YYYY"}}</span> to <span class="focus">{{formatDate endDate "MMMM DD, YYYY"}}</span>  
+                 has been reviewed and approved
                 </p>
-                <p class="message2">Please ensure all handlovers are compleetd and any urgent matters are communicated
+                <p class="message2">Please ensure all handlovers are completed and any urgent matters are communicated
                     to your team before your leave begins. Should you plans change, kindly notify HR or
                     your line manager.
                 </p>           

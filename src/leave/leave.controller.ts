@@ -1,14 +1,13 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { LeaveService } from './leave.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 
 @Controller('leave')
 export class LeaveController {
-  constructor(private readonly leave: LeaveService) {}
+  constructor(private readonly leave: LeaveService) { }
 
   @Post(":userId")
   async createLeaveRequest(@Param('userId') userId: string, @Body() data: CreateLeaveRequestDto, @Res() res: Response,) {
@@ -18,7 +17,13 @@ export class LeaveController {
 
   @Get(":userId")
   async getAvailableLeaveTypes(@Param('userId') userId: string,) {
-    return  this.leave.getAvailableLeaveTypes(userId);
+    return this.leave.getAvailableLeaveTypes(userId);
+  }
+
+  @Auth(["ADMIN"])
+  @Get("")
+  async listLeave() {
+    return this.leave.listLeave();
   }
 
   // @Auth()
@@ -27,7 +32,7 @@ export class LeaveController {
     return this.leave.checkLeaveBalance(userId, typeId);
   }
 
-  // @Auth([Role.ADMIN, Role.MANAGER, Role.HR])
+  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.HR])
   @Post('approve/:approvalId/:userId')
   async approveLeaveRequest(@Param('approvalId') approvalId: string, @Param('userId') userId: string, @Res() res: Response, comment?: string) {
     const request = this.leave.approveLeaveRequest(approvalId, userId, comment);

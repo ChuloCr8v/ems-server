@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { LevelDto, UpdateLevelDto } from './dto/level.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ApproverRole } from '@prisma/client';
 
 @Injectable()
 export class LevelService {

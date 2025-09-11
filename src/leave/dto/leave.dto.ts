@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsDate, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsArray, IsDate, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class CreateLeaveRequestDto {
     @IsString()
@@ -24,8 +24,10 @@ export class CreateLeaveRequestDto {
     @IsNotEmpty()
     endDate: Date;
 
-    @IsString()
+    @IsArray()
     @IsOptional()
-    uploads: string[];
+    uploads?: string[];
 
 }
+
+
