@@ -34,7 +34,7 @@ export class ApproverService {
     return this.prisma.user.findMany({
       where: {
         userRole: {
-          has: Role.ADMIN
+          has: Role.LEAVE_MANAGER
         },
       },
     });
@@ -65,9 +65,8 @@ export class ApproverService {
     }
 
     // Regular employees get department approvers + global approvers
-    const departmentApprovers = user.departments
-      ? await this.getApproversForDepartment(user.departments)
-      : [];
+    const departmentApprovers = await this.getApproversForDepartment(user.departments)
+      ?? [];
 
     const globalApprovers = await this.getGlobalApprovers();
 
@@ -76,9 +75,6 @@ export class ApproverService {
   }
 
   private async getApproversForDepartmentHead() {
-    // For department heads, they typically need approval from:
-    // 1. Another department head (peer)
-    // 2. HR (global approver)
 
     const globalApprovers = await this.getGlobalApprovers();
 
@@ -86,69 +82,50 @@ export class ApproverService {
   }
 
   async canUserApprove(approverUserId: string, targetUserId: string): Promise<boolean> {
-
     // Prevent self-approval
-    if (approverUserId === targetUserId) {
-      return false;
-    }
+    if (approverUserId === targetUserId) return false;
 
-    const approver = await this.prisma.approver.findFirst({
-      where: {
-        userId: approverUserId,
-        isActive: true,
-      },
+    // Fetch approver user with roles + departments
+    const approverUser = await this.prisma.user.findUnique({
+      where: { id: approverUserId },
       include: {
-        department: {
-          include: {
-            user: true,
-          },
-        },
-        user: true
+        departments: true,
+        approver: true,
       },
     });
 
+    if (!approverUser) return false;
 
-    if (!approver) {
-      return false;
-    }
-
+    // Fetch target user with departments + approver info
     const targetUser = await this.prisma.user.findUnique({
       where: { id: targetUserId },
       include: {
-        departments: {
-          include: {
-            departmentHead: true
-          }
-        }
+        departments: true,
+        approver: true,
       },
     });
 
+    if (!targetUser) return false;
 
+    // 1. Leave manager can approve anyone
+    if (approverUser.userRole.includes(Role.LEAVE_MANAGER)) return true;
 
-    if (!targetUser) {
-      return false;
-    }
+    // 2. Department approvers can approve members of their department
+    const approverDeptIds = approverUser.departments.map(d => d.id);
+    const targetDeptIds = targetUser.departments.map(d => d.id);
 
-    const isTargetDepartmentHead = targetUser.departments?.some(d => d.departmentHeadId === targetUserId)
+    const isSameDepartment = targetDeptIds.some(id => approverDeptIds.includes(id));
+    if (isSameDepartment) return true;
 
+    // 3. Peer department heads can approve each other
+    const isTargetDepartmentHead = targetUser.approver.length > 0;
+    const isApproverDepartmentHead = approverUser.approver.some(a => a.role === 'DEPT_MANAGER');
 
-    // If approver is global (ADIMN, etc.), they can approve anyone
-    if (approver.user.userRole.includes(Role.ADMIN)) {
-      return true;
-    }
-
-    // Department heads can approve anyone in their department
-    if (targetUser.departments?.some(d => d.departmentHeadId === targetUserId)) {
-      return true;
-    }
-
-    // Special case: Peer department heads can approve each other
-    if (isTargetDepartmentHead && approver.role === 'DEPT_MANAGER') {
-      return true; // Department head approving another department head
-    }
+    if (isTargetDepartmentHead && isApproverDepartmentHead) return true;
 
     return false;
   }
+
 
   async createApprover(userId: string, departmentId: string | null, role: Role) {
     return this.prisma.approver.create({
