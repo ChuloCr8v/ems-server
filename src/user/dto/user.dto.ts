@@ -91,6 +91,11 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Address is Required' })
   address: string;
 
+
+  @IsString()
+  @IsOptional()
+  levelId: string;
+
   @IsString()
   @IsNotEmpty({ message: 'Country is Required' })
   country: string;
@@ -104,7 +109,8 @@ export class CreateUserDto {
   userDocuments: string[];
 }
 
-export class UpdateUserDto extends CreateUserDto { }
+export class UpdateUserDto extends CreateUserDto {
+}
 
 export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
 

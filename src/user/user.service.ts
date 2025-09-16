@@ -105,7 +105,7 @@ export class UserService {
 
     async updateEmployeeData(
         id: string,
-        data: { eId: string; workEmail: string; workPhone: string }
+        data: { eId: string; workEmail: string; workPhone: string, levelId: string }
     ) {
         const { workEmail, workPhone, eId } = data;
         try {
@@ -141,7 +141,13 @@ export class UserService {
 
             const updateEmployee = await this.prisma.user.update({
                 where: { id },
-                data: { workEmail, workPhone, eId },
+                data: {
+                    workEmail, workPhone, eId, level: {
+                        connect: {
+                            id: data.levelId
+                        }
+                    },
+                },
             });
 
             return updateEmployee;
@@ -539,11 +545,14 @@ export class UserService {
                         email,
                     } = e;
 
+
+                    console.log(department)
+
                     // ✅ Basic required field validation
                     if (!firstName || !lastName) bad("First name and last name are required");
                     if (!gender) bad("Gender is required");
                     if (!department) bad("Department is required");
-                    if (!level) bad("Level is required");
+                    // if (!level) bad("Level is required");
                     if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
 
                     // ✅ Duplicate checks
@@ -593,11 +602,11 @@ export class UserService {
 
                         departmentConnect = depts.map(d => ({ id: d.id }));
 
-                        const lvl = await this.prisma.level.findFirst({
-                            where: { name: level.toLowerCase() }
-                        });
-                        if (!lvl) bad(`Level '${level}' does not exist`);
-                        levelConnect = { id: lvl.id };
+                        // const lvl = await this.prisma.level.findFirst({
+                        //     where: { name: level.toLowerCase() }
+                        // });
+                        // if (!lvl) bad(`Level '${level}' does not exist`);
+                        // levelConnect = { id: lvl.id };
 
                     } else {
                         // connect by IDs (array of IDs)
@@ -614,15 +623,15 @@ export class UserService {
                                 lastName,
                                 workEmail,
                                 email,
-                                workPhone: workPhone.toString(),
-                                phone: phone.toString(),
+                                // workPhone: workPhone.toString(),
+                                // phone: phone.toString(),
                                 gender,
                                 role,
                                 userRole,
                                 eId,
                                 departments: { connect: departmentConnect },
                                 level: { connect: levelConnect },
-                                jobType,
+                                jobType: JobType.FULL_TIME,
                                 duration: jobType === "CONTRACT" ? duration.toString() : null,
                                 status: "ACTIVE",
                             },
@@ -632,10 +641,10 @@ export class UserService {
                     });
 
                     // ✅ Send welcome email
-                    await this.mail.sendWelcomeEmail({
-                        email: result.workEmail ?? result.email,
-                        name: `${result.firstName} ${result.lastName}`,
-                    });
+                    // await this.mail.sendWelcomeEmail({
+                    //     email: result.workEmail ?? result.email,
+                    //     name: `${result.firstName} ${result.lastName}`,
+                    // });
 
                     return result;
                 })
