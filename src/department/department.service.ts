@@ -63,6 +63,20 @@ export class DepartmentService {
                             isActive: true,
                         },
                     });
+
+                    await this.prisma.user.update({
+                        where: {
+                            id: deptHead.id,
+                        },
+                        data: {
+                            departments: {
+                                connect: [
+                                    { id: department.id },
+                                ],
+                            },
+                        },
+                    });
+
                 }
 
                 return newDept;
