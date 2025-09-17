@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 export class LevelController {
   constructor(private readonly levelService: LevelService) { }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post()
   async createLevel(@Body() input: LevelDto, @Res() res: Response) {
     const level = await this.levelService.createLevel(input);

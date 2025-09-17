@@ -9,7 +9,7 @@ import { Role } from '@prisma/client';
 export class EntitlementController {
   constructor(private readonly entitlement: EntitlementService) { }
 
-  @Auth([Role.ADMIN, Role.LEAVE_MANAGER])
+  // @Auth([Role.ADMIN, Role.LEAVE_MANAGER])
   @Post()
   async createEntitlement(@Body() dto: EntitlementDto, @Res() res: Response) {
     const entitlement = await this.entitlement.createEntitlement(dto);
@@ -28,14 +28,14 @@ export class EntitlementController {
     return await this.entitlement.getEntitlement(id);
   }
 
-  @Auth([Role.ADMIN])
+  // @Auth([Role.ADMIN])
   @Put(':id')
   async updateEntitlement(@Param('id') id: string, @Body() dto: UpdateEntitlement, @Res() res: Response) {
     const entitlement = await this.entitlement.updateEntitlement(id, dto);
     return res.status(200).json({ message: `An Entitlement Has Been Updated`, entitlement });
   }
 
-  @Auth([Role.ADMIN])
+  // @Auth([Role.ADMIN])
   @Delete(':id')
   async deleteEntitlement(@Param('id') id: string, @Res() res: Response) {
     const entitlement = await this.entitlement.deleteEntitlement(id);
