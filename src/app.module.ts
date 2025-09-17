@@ -22,6 +22,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { EntitlementModule } from './entitlement/entitlement.module';
 import { LeaveModule } from './leave/leave.module';
 import { ApproverModule } from './approver/approver.module';
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -40,7 +41,8 @@ import { ApproverModule } from './approver/approver.module';
     CloudinaryModule,
     EntitlementModule,
     LeaveModule,
-    ApproverModule
+    ApproverModule,
+    PayrollModule
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],
