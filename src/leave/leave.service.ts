@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateLeaveRequestDto } from './dto/leave.dto';
+import { CancelLeaveRequestDto, CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad } from 'src/utils/error.utils';
-import { Approver, Role, User } from '@prisma/client';
+import { Approver, LeaveStatus, Role, User } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeaveApprovedEvent, LeaveRequestedEvent } from 'src/events/leave.event';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -18,7 +18,7 @@ export class LeaveService {
         private readonly approver: ApproverService,
     ) {}
 
-        async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
+    async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
         const { typeId, doaId, reason, startDate, endDate } = data;
         
         try {
@@ -160,7 +160,7 @@ export class LeaveService {
         }
     }
 
-      async initializeApprovalFlow(leaveRequestId: string, userId: string) {
+    async initializeApprovalFlow(leaveRequestId: string, userId: string) {
             try {
                 const employee = await this.prisma.user.findUnique({
                     where: { id: userId },
@@ -211,7 +211,7 @@ export class LeaveService {
                 
                 if (firstApproval) {
                     // Notify first approver
-                     setTimeout(() => {
+                    setTimeout(() => {
                         this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
                         // this.event.emit(
                         //     'leave_approved',
@@ -234,9 +234,9 @@ export class LeaveService {
                 console.error('Error in initializeApprovalFlow:', error);
                 throw new BadRequestException('Failed to initialize approval flow: ' + error.message);
             }
-        }
+     }
 
-       async approveLeaveRequest(approvalId: string, approverId: string, comment?: string) {
+    async approveLeaveRequest(approvalId: string, approverId: string, comment?: string) {
         try {
             return await this.prisma.$transaction(async (tx) => {
                 const approval = await tx.approval.findUnique({
@@ -422,7 +422,81 @@ export class LeaveService {
                   throw new BadRequestException('Failed to get approval history:' + error.message);
           }
     
-}
+    }
+
+    async cancelLeaveRequest(leaveRequestId: string, userId: string, data: CancelLeaveRequestDto) {
+        try {
+            return await this.prisma.$transaction(async (tx) => {
+                //Get leave request with approvals
+                const leaveRequest = await tx.leaveRequest.findUnique({
+                    where: { id: leaveRequestId },
+                    include: {
+                        user: true,
+                        approvals: { include: { approver: true } },
+                        cancelRequest: true
+                    }
+                });
+                if(!leaveRequest) {
+                    bad("Leave Request Not Found");
+                }
+                if (leaveRequest.userId !== userId) {
+                    bad('You can only cancel your own leave requests');
+                }
+                if(leaveRequest.cancelRequest) {
+                    bad("Cancellation already requested for this leave");
+                }
+
+                //Validate that leave can be canceled - PENDING
+                this.validateLeaveCanBeCanceled(leaveRequest);
+
+                //Cancel all pending approvals
+                await tx.approval.updateMany({
+                    where: { 
+                        leaveRequestId,
+                        status: 'PENDING'
+                    },
+                    data: {
+                        status: 'CANCELLED',
+                        reason: data.reason,
+                        actionDate: new Date()
+                    }
+                });
+
+                //Update leave request status to CANCELED
+              const cancelRequest = await tx.cancelRequest.create({
+                    data: {
+                        reason: data.reason,
+                        requestId: leaveRequestId
+                    }
+                }); 
+
+                //Update leave request status to CANCELED
+                await tx.leaveRequest.update({
+                    where: { id: leaveRequestId },
+                    data: {
+                        status: 'CANCELLED',
+                        currentApprovalId: null,
+                    },
+                    include: {
+                        approvals: true,
+                        user: true,
+                        type: true,
+                    }
+                });
+                return {
+                    ...cancelRequest,
+                    message: 'Leave request successfully canceled'
+                };
+            });
+        } catch (error) {
+            if (error instanceof BadRequestException || 
+                      error instanceof NotFoundException || 
+                      error instanceof ConflictException) {
+                    throw error;
+                  }
+                  throw new BadRequestException('Failed to cancel leave request:' + error.message);
+        }
+    }
 
 
 
@@ -459,7 +533,7 @@ export class LeaveService {
         
     }
 
-        private async createApprovalStep(leaveRequestId: string, phase: number, approverId: string) {
+    private async createApprovalStep(leaveRequestId: string, phase: number, approverId: string) {
         try {
             // Verify the approver exists and is active
             const approver = await this.prisma.approver.findFirst({
@@ -539,27 +613,6 @@ export class LeaveService {
                   throw new BadRequestException('Failed to find employee:' + error.message);
              }
     }
-
-//     private async getHrApprover(): Promise<User> {
-//         try {
-//             const hr = await this.prisma.user.findFirst({
-//                 where: { userRole: Role.HR, },
-//             });
-//             if(!hr) {
-//                 throw bad("HR Approver Not Found");
-//             }
-//             return hr;
-//         } catch (error) {
-//                   if (error instanceof BadRequestException || 
-//                       error instanceof NotFoundException || 
-//                       error instanceof ConflictException) {
-//                     throw error;
-//                   }
-//                   throw new BadRequestException('Failed to get HR:' + error.message);
-//              }
-//     }
-
-
 
     private async sendLeaveRequestMail(leaveRequestId: string) {
         try {
@@ -680,6 +733,18 @@ export class LeaveService {
     });
 
     return true;
+    }
+
+    private validateLeaveCanBeCanceled(leaveRequest: any) {
+        //Can only cancel PENDING leaves
+        if(leaveRequest.status !== 'PENDING') {
+            bad(`Cannot cancel leave with status: ${leaveRequest.status}. Only PENDING leaves can be canceled.`)
+        }
+
+        const now = new Date();
+        if(new Date(leaveRequest.startDate) <= now) {
+            bad("Cannot cancel leave that has already started");
+        }
     }
 
 
