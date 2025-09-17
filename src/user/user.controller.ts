@@ -10,16 +10,24 @@ import {
   UploadedFiles,
   Patch,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) { }
+
+  @Auth()
+  @Get('me')
+  async getMe(@AuthUser() user: { sub: string; email: string }) {
+    return await this.userService.getMe(user.sub);
+  }
 
   @Post('invite/:id')
   async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @Res() res: Response) {
@@ -28,7 +36,7 @@ export class UserController {
   }
 
   @Put('update/:id')
-  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string }, @Res() res: Response) {
+  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string, levelId: string }, @Res() res: Response) {
     const user = await this.userService.updateEmployeeData(id, data);
     return res.status(200).json({ message: `User updated successfully`, user });
   }

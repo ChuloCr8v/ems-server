@@ -1,65 +1,205 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DepartmentDto } from './dto/department.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
+import { Role, User } from '@prisma/client';
 
 @Injectable()
 export class DepartmentService {
     constructor(private prisma: PrismaService) { }
+
     async createDepartment(input: DepartmentDto) {
-        if (!input.createdBy) {
-            bad("Created By field is required", 400);
-        }
+        if (!input.createdBy) bad('Created By field is required', 400);
 
         const creator = await this.prisma.user.findUnique({
             where: { id: input.createdBy },
         });
-        mustHave(creator, "Creator Not Found", 404);
+        mustHave(creator, 'Creator Not Found', 404);
 
+        let deptHead: User | null = null;
         if (input.departmentHead) {
-            const deptHead = await this.prisma.user.findUnique({
+            deptHead = await this.prisma.user.findUnique({
                 where: { id: input.departmentHead },
             });
-            mustHave(deptHead, "Department Head Not Found", 404);
+            mustHave(deptHead, 'Department Head Not Found', 404);
         }
 
-        const departments = await this.prisma.department.findMany({
+        const existingDepartment = await this.prisma.department.findFirst({
             where: { name: input.name },
-            orderBy: { createdAt: 'desc' },
         });
-
-        if (departments.length > 0) {
-            bad("Department with this name already exists", 400);
-        }
+        if (existingDepartment)
+            bad('Department with this name already exists', 400);
 
         try {
-            const department = await this.prisma.department.create({
-                data: {
-                    name: input.name,
-                    createdBy: { connect: { id: input.createdBy } },
-                    ...(input.departmentHead && {
-                        departmentHead: { connect: { id: input.departmentHead } },
-                    }),
-                },
-            });
-
-            if (input.departmentHead) {
-                await this.prisma.user.update({
-                    where: { id: input.departmentHead },
+            const department = await this.prisma.$transaction(async (prisma) => {
+                const newDept = await prisma.department.create({
                     data: {
-                        departmentHeadId: department.id,
-                        departmentId: department.id,
+                        name: input.name,
+                        createdBy: { connect: { id: input.createdBy } },
+                        // ...(input.departmentHead && { departmentHead: { connect: { id: input.departmentHead } } }),
                     },
                 });
-            }
+
+                if (deptHead) {
+                    // Remove any previous DEPT_MANAGER assignment for this department & user
+                    await prisma.approver.deleteMany({
+                        where: {
+                            userId: deptHead.id,
+                            departmentId: newDept.id,
+                            role: Role.DEPT_MANAGER,
+                        },
+                    });
+
+                    // Assign DEPT_MANAGER for this department
+                    await prisma.approver.create({
+                        data: {
+                            userId: deptHead.id,
+                            departmentId: newDept.id,
+                            role: Role.DEPT_MANAGER,
+                            isActive: true,
+                        },
+                    });
+
+                    await this.prisma.user.update({
+                        where: {
+                            id: deptHead.id,
+                        },
+                        data: {
+                            departments: {
+                                connect: [
+                                    { id: department.id },
+                                ],
+                            },
+                        },
+                    });
+
+                }
+
+                return newDept;
+            });
 
             return department;
         } catch (error: any) {
+            console.log(error);
             throw new InternalServerErrorException(
                 `Failed to create department: ${error.message}`,
             );
         }
     }
+
+    async updateDepartment(id: string, update: Partial<DepartmentDto>) {
+        const { name, departmentHead } = update;
+
+        const department = await this.__findOneDepartment(id);
+        if (!department) throw new NotFoundException('Department Not Found');
+
+        try {
+            const updatedDepartment = await this.prisma.$transaction(async (prisma) => {
+                const newDept = await prisma.department.update({
+                    where: { id },
+                    data: {
+                        name,
+                    },
+                });
+
+                if (departmentHead) {
+                    const deptHeadUser = await prisma.user.findUnique({
+                        where: { id: departmentHead },
+                        include: { departments: true },
+                    });
+                    if (!deptHeadUser)
+                        throw new NotFoundException('Department Head User Not Found');
+
+                    await prisma.approver.deleteMany({
+                        where: { departmentId: newDept.id, role: Role.DEPT_MANAGER },
+                    });
+
+                    await prisma.approver.create({
+                        data: {
+                            userId: deptHeadUser.id,
+                            departmentId: newDept.id,
+                            role: Role.DEPT_MANAGER,
+                            isActive: true,
+                        },
+                    });
+
+                    const alreadyInDept = deptHeadUser.departments.some(
+                        (d) => d.id === newDept.id,
+                    );
+
+                    if (!alreadyInDept) {
+                        await prisma.user.update({
+                            where: { id: departmentHead },
+                            data: {
+                                departments: {
+                                    connect: [{ id: newDept.id }],
+                                },
+                            },
+                        });
+                    }
+                }
+
+                return newDept;
+            });
+
+            return updatedDepartment;
+        } catch (error: any) {
+            console.error(error);
+            bad(`Failed to update department: ${error.message}`);
+        }
+    }
+
+
+    async addTeamMembers(deptId: string, userIds: string[]) {
+        if (!deptId) bad("Dept id must be provided");
+
+        try {
+            const dept = await this.__findOneDepartment(deptId);
+
+            if (!dept) {
+                mustHave(dept, `Department with id: ${deptId} not found!`);
+            }
+
+            for (const userId of userIds) {
+                if (!userId) continue;
+
+                const user = await this.prisma.user.findUnique({
+                    where: {
+                        id: userId
+                    },
+                    include: {
+                        departments: true
+                    }
+                });
+
+                if (user.departments.some(d => d.id === deptId)) return
+                const updatedTeam = await this.prisma.user.update({
+                    where: {
+                        id: userId
+                    },
+                    data: {
+                        departments: {
+                            connect: {
+                                id: deptId
+                            }
+                        }
+                    }
+                })
+
+                return { message: "Team members added successfully", data: updatedTeam };
+
+            }
+
+        } catch (error: any) {
+            console.error(error);
+            bad(error);
+        }
+    }
+
 
     async getAllDepartment() {
         try {
@@ -67,28 +207,60 @@ export class DepartmentService {
                 include: {
                     departmentHead: true,
                     createdBy: true,
+                    approver: {
+                        include: {
+                            user: true,
+                        },
+                    },
+                    user: true,
                 },
                 orderBy: { createdAt: 'desc' },
             });
         } catch (error) {
-            throw new InternalServerErrorException(`Failed to get all departments ${error.message}`);
+            throw new InternalServerErrorException(
+                `Failed to get all departments ${error.message}`,
+            );
         }
     }
 
-    async getTeam(id: string) {
+    async getTeam(userId: string) {
         try {
-            const department = await this.prisma.user.findMany({
-                where: { departmentId: id },
+            const res = await this.prisma.department.findMany({
+                where: {
+                    user: {
+                        some: { id: userId },
+                    },
+                },
                 include: {
-                    department: true,
+                    user: {
+                        include: {
+                            approver: {
+                                include: {
+                                    user: true,
+                                },
+                            },
+                        },
+                    },
+                    approver: {
+                        include: {
+                            user: true,
+                        },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
             });
 
-            if (!department || department.length === 0) mustHave(department, "No teams found for this department", 404);
-            return department;
-        } catch (error) {
-            bad(`Failed to get teams ${error.message}`);
+            mustHave(
+                res.length > 0 ? res : null,
+                'No teams found for this department',
+                404,
+            );
+
+            const team = res.flatMap((x) => x.user);
+            return team;
+        } catch (error: any) {
+            console.log(error);
+            bad(`Failed to get teams: ${error.message}`);
         }
     }
 
@@ -96,32 +268,15 @@ export class DepartmentService {
         try {
             const department = await this.prisma.department.findUnique({
                 where: { id },
+                include: {
+                    approver: true
+                }
             });
             return department;
         } catch (error) {
-            throw new InternalServerErrorException(`Failed to get department ${error.message}`);
-        }
-    }
-
-    async updateDepartment(id: string, update: Partial<DepartmentDto>) {
-        const { name, departmentHead } = update;
-
-        console.log(update)
-        try {
-            const department = await this.__findOneDepartment(id);
-            if (!department) {
-                throw new NotFoundException("Department Not Found");
-            };
-            return await this.prisma.department.update({
-                where: { id },
-                data: {
-                    name,
-                    departmentHead: { connect: { id: departmentHead } }
-                }
-            });
-        } catch (error) {
-            console.log(error)
-            bad(`Failed to update department ${error.message}`);
+            throw new InternalServerErrorException(
+                `Failed to get department ${error.message}`,
+            );
         }
     }
 
@@ -129,13 +284,15 @@ export class DepartmentService {
         try {
             const department = await this.__findOneDepartment(id);
             if (!department) {
-                throw new NotFoundException("Department Not Found");
+                throw new NotFoundException('Department Not Found');
             }
             return await this.prisma.department.delete({
                 where: { id },
             });
         } catch (error) {
-            throw new InternalServerErrorException(`Failed to delete department ${error.message}`);
+            throw new InternalServerErrorException(
+                `Failed to delete department ${error.message}`,
+            );
         }
     }
 

@@ -1,10 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CancelLeaveRequestDto, CreateLeaveRequestDto } from './dto/leave.dto';
-import { bad } from 'src/utils/error.utils';
-import { Approver, LeaveStatus, Role, User } from '@prisma/client';
+import { CreateLeaveRequestDto } from './dto/leave.dto';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { Approver, Prisma, PrismaClient, Role, User } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LeaveApprovedEvent, LeaveRequestedEvent } from 'src/events/leave.event';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
 import { ApproverService } from 'src/approver/approver.service';
@@ -16,229 +15,370 @@ export class LeaveService {
         private readonly event: EventEmitter2,
         private readonly mail: MailService,
         private readonly approver: ApproverService,
-    ) {}
+    ) { }
 
     async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
-        const { typeId, doaId, reason, startDate, endDate } = data;
-        
-        try {
-            // Find employee with level and entitlements
+        const { typeId, doaId, reason, startDate, endDate, uploads } = data;
+
+        return this.prisma.$transaction(async (tx) => {
+            // 1. Find employee with entitlements
             const employee = await this.findEmployee(userId);
+            if (!employee) {
+                throw new NotFoundException("Employee not found");
+            }
 
-            // Check if requested leave type is available for employee's level
+            // // 2. Check pending requests
+            // const pending = await tx.leaveRequest.findFirst({
+            //     where: { userId, status: "PENDING" },
+            // });
+            // if (pending) {
+            //     throw new ConflictException("You already have a pending leave request");
+            // }
+
+            // // 3. Check active approved leave overlap
+            // const activeLeave = await tx.leaveRequest.findFirst({
+            //     where: {
+            //         userId,
+            //         status: "APPROVED",
+            //         startDate: { lte: endDate },
+            //         endDate: { gte: startDate },
+            //     },
+            // });
+            // if (activeLeave) {
+            //     throw new ConflictException(
+            //         "You already have an active approved leave in this period"
+            //     );
+            // }
+
+            // 4. Validate entitlement
             const availableEntitlement = employee.level.entitlements.find(
-                ent => ent.entitlement.id === typeId
+                (ent) => ent.entitlement.id === typeId
             );
-
             if (!availableEntitlement) {
-                throw bad("Leave type is not available for your level");
+                throw new BadRequestException(
+                    "Leave type not available for your level"
+                );
             }
 
-            // Calculate leave duration against entitlement balance
+            // 5. Calculate duration 
             const duration = this.calculateLeaveDuration(startDate, endDate);
+
+            // return
             if (duration > availableEntitlement.value) {
-                throw bad(`Insufficient leave balance. You have ${availableEntitlement.value} days remaining.`);
+                throw new BadRequestException(
+                    `Insufficient leave balance. You have ${availableEntitlement.value} days remaining.`
+                );
             }
 
-            // Create Leave Request
-            const request = await this.prisma.leaveRequest.create({
+            const request = await tx.leaveRequest.create({
                 data: {
                     doaId,
                     startDate,
                     endDate,
                     typeId,
-                    userId: userId,
+                    userId,
                     reason,
-                    // uploads: {
-                    //     connect: data.uploads.map((uploadId: string) => ({ id: uploadId})),
-                    // }, 
+                    duration,
+                    ...(uploads?.length
+                        ? { uploads: { connect: uploads.map((id: string) => ({ id })) } }
+                        : {}),
                 },
-                include: { 
-                    uploads: true, 
+                include: {
+                    uploads: true,
                     approvals: true,
                     type: true,
                 },
             });
 
-            // Initialize approval process
-            const firstApproval = await this.initializeApprovalFlow(request.id, userId);
-            
+            // 7. Initialize approval flow 
+            const firstApproval = await this.initializeApprovalFlow(
+                request.id,
+                userId,
+                tx
+            );
+
             return {
                 ...request,
                 currentApproval: firstApproval,
             };
-        } catch (error) {
-            if (error instanceof BadRequestException || 
-                error instanceof NotFoundException || 
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to create leave request: ' + error.message);
-        }
+        });
     }
 
     async getAvailableLeaveTypes(userId: string) {
         try {
-            // const userId = user.sub
-            //Find employee
             const employee = await this.findEmployee(userId);
-            const leave =  employee.level.entitlements
-                .filter(ent => ent.entitlement.unit.includes('days'))
+
+            const leave = employee.level.entitlements
+                .filter(ent => ent.entitlement.unit.includes('DAYS'))
                 .map(ent => ({
                     id: ent.entitlement.id,
                     name: ent.entitlement.name,
                     value: ent.value,
                     unit: ent.entitlement.unit
                 }));
-                return leave;
+
+            const leaveWithBalance = await Promise.all(
+                leave.map(async l => {
+                    const balance = await this.checkLeaveBalance(userId, l.id);
+
+                    return {
+                        ...l,
+                        balance
+                    };
+                })
+            );
+
+            return leaveWithBalance;
+
         } catch (error) {
-                  if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to fetch leave requests:' + error.message);
-          }
+            if (
+                error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException
+            ) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to fetch leave requests: ' + error.message);
+        }
+    }
+
+
+    async listLeaveRequests(userId: string) {
+        try {
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+                include: { approver: true },
+            });
+
+            if (!user) mustHave(user, "User not found", 404);
+
+            const leaveRequests = await this.prisma.leaveRequest.findMany({
+                include: {
+                    user: true,
+                    type: true,
+                    uploads: true,
+                    approvals: {
+                        include: {
+                            approver: true
+                        }
+                    },
+                },
+                orderBy: { createdAt: "desc" },
+            });
+
+            if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.LEAVE_MANAGER)) {
+                return leaveRequests;
+            }
+
+            if (user.approver.length) {
+                return leaveRequests.filter(l =>
+                    l.approvals.some(a => a.approverId === userId)
+                );
+            }
+
+            return leaveRequests.filter(l => l.userId === userId);
+
+        } catch (error: any) {
+            bad("Failed to fetch leave requests: " + error.message);
+        }
+    }
+
+    async listUserLeaveRequests(userId: string) {
+        try {
+
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId }
+            })
+
+            if (!user) mustHave(user, "User not found!", 404)
+
+            const leave = this.prisma.leaveRequest.findMany({
+                where: {
+                    userId
+                },
+                include: {
+                    user: true,
+                    type: true,
+                    uploads: true,
+                    approvals: {
+                        include: {
+                            approver: true
+                        },
+                        orderBy: {
+                            phase: "asc"
+                        }
+                    },
+                }
+                ,
+                orderBy: { createdAt: 'desc' }
+            })
+            return leave ?? [];
+        } catch (error) {
+            bad('Failed to fetch leave requests:' + error.message);
+        }
+    }
+
+    async listUserLeave(userId: string) {
+        try {
+            // const userId = user.sub
+            //Find employee
+            const employee = await this.findEmployee(userId);
+
+            !employee && mustHave(employee, "Employee not found", 404)
+            const leave = this.prisma.leaveRequest.findMany({
+                where: {
+                    userId
+                }
+            })
+            return leave ?? [];
+        } catch (error) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to fetch leave requests:' + error.message);
+        }
     }
 
     async checkLeaveBalance(userId: string, typeId: string) {
         try {
-            // const userId = user.sub
-            // Get the entitlement value for this user's level
             const levelEntitlement = await this.prisma.levelEntitlement.findFirst({
                 where: {
                     entitlementId: typeId,
                     level: {
-                        users: {
-                            some: { id: userId }
-                        }
+                        users: { some: { id: userId } }
                     }
                 },
-                include: {
-                    entitlement: true
-                }
+                include: { entitlement: true }
             });
 
             if (!levelEntitlement) {
-                throw bad("Leave type not available for your level");
+                throw new BadRequestException("Leave type not available for your level");
             }
 
-            // Get approved leave requests for current year
+            const countBusinessDays = (start: Date, end: Date) => {
+                let days = 0;
+                let current = new Date(start);
+                while (current <= end) {
+                    const day = current.getDay();
+                    if (day !== 0 && day !== 6) days++;
+                    current.setDate(current.getDate() + 1);
+                }
+                return days;
+            };
+
+            const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+
+            // Fetch leave requests for current year
             const leaveRequests = await this.prisma.leaveRequest.findMany({
                 where: {
                     userId,
                     typeId,
-                    status: 'APPROVED',
-                    startDate: { 
-                        gte: new Date(new Date().getFullYear(), 0, 1) 
-                    },
+                    startDate: { gte: startOfYear },
                 },
-                select: { startDate: true, endDate: true },
+                select: { startDate: true, endDate: true, status: true },
             });
 
-            // Calculate total used leave days
-            const usedDays = leaveRequests.reduce((total, leave) => {
-                const start = new Date(leave.startDate);
-                const end = new Date(leave.endDate);
-                const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
-                return total + days;
-            }, 0);
+            // Separate approved and rejected leaves
+            const usedDays = leaveRequests
+                .filter(l => l.status === 'APPROVED')
+                .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
+
+            const rejectedLeaveDays = leaveRequests
+                .filter(l => l.status === 'REJECTED')
+                .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
+
+            const pendingLeaveDays = leaveRequests
+                .filter(l => l.status === 'REJECTED')
+                .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
 
             return {
                 entitlement: levelEntitlement.value,
                 usedLeaveDays: usedDays,
+                pendingLeaveDays,
+                rejectedLeaveDays,
                 balance: levelEntitlement.value - usedDays,
                 unit: levelEntitlement.entitlement.unit
             };
+
         } catch (error) {
-            if (error instanceof BadRequestException || 
-                error instanceof NotFoundException || 
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
                 error instanceof ConflictException) {
                 throw error;
             }
-            throw new BadRequestException('Failed to check leave balance:' + error.message);
+            throw new BadRequestException('Failed to check leave balance: ' + error.message);
         }
     }
 
-    async initializeApprovalFlow(leaveRequestId: string, userId: string) {
-            try {
-                const employee = await this.prisma.user.findUnique({
-                    where: { id: userId },
-                    include: { department: true },
-                });
-                
-                if (!employee) {
-                    throw new NotFoundException("Employee Not Found");
-                }
 
-                // Get all potential approvers for this user
-                const approvers = await this.approver.getApproversForUser(userId);
-                
-                if (approvers.length === 0) {
-                    throw new NotFoundException("No approvers found for this employee");
-                }
+    async initializeApprovalFlow(
+        leaveRequestId: string,
+        userId: string,
+        prisma: PrismaClient | Prisma.TransactionClient = this.prisma
+    ) {
+        const employee = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { departments: true },
+        });
+        if (!employee) throw new NotFoundException("Employee Not Found");
 
-                // Filter out the department head themselves if they're applying
-                const filteredApprovers = approvers.filter(approver => 
-                    approver.userId !== userId // Don't allow self-approval
+        const approvers = await this.approver.getApproversForUser(userId);
+        if (approvers.length === 0) {
+            throw new NotFoundException("No approvers found for this employee");
+        }
+
+        // Filter out self
+        const filteredApprovers = approvers.filter((a) => a.id !== userId);
+        if (filteredApprovers.length === 0) {
+            throw new NotFoundException("No valid approvers found (cannot self-approve)");
+        }
+
+        // Create approval steps
+        const approvalSteps = [];
+        let phase = 1;
+
+        for (const approver of filteredApprovers) {
+
+            const canApprove = await this.approver.canUserApprove(approver.id, userId);
+
+            if (canApprove) {
+                const approval = await this.createApprovalStep(
+                    leaveRequestId,
+                    phase,
+                    approver.id,
+                    prisma
                 );
-
-                if (filteredApprovers.length === 0) {
-                    throw new NotFoundException("No valid approvers found (cannot self-approve)");
-                }
-
-                // Create approval steps for each approver
-                const approvalSteps = [];
-                let phase = 1;
-                
-                for (const approver of approvers) {
-                    // Check if this approver can approve for this employee
-                    const canApprove = await this.approver.canUserApprove(approver.userId, userId);
-                    
-                    if (canApprove) {
-                        // THIS IS WHERE createApprovalStep IS CALLED
-                        const approval = await this.createApprovalStep(leaveRequestId, phase, approver.userId);
-                        approvalSteps.push(approval);
-                        phase++;
-                    }
-                }
-
-                if (approvalSteps.length === 0) {
-                    throw new NotFoundException("No valid approvers found for this employee");
-                }
-
-                const firstApproval = approvalSteps[0];
-                
-                if (firstApproval) {
-                    // Notify first approver
-                    setTimeout(() => {
-                        this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
-                        // this.event.emit(
-                        //     'leave_approved',
-                        //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                        // );
-                    }, 0)
-                    // this.event.emit(
-                    //     'leave.requested',
-                    //     new LeaveRequestedEvent(leaveRequestId, [userId], firstApproval.id)
-                    // );
-                    
-                    await this.prisma.leaveRequest.update({
-                        where: { id: leaveRequestId },
-                        data: { currentApprovalId: firstApproval.id },
-                    });
-                }
-                
-                return firstApproval;
-            } catch (error) {
-                console.error('Error in initializeApprovalFlow:', error);
-                throw new BadRequestException('Failed to initialize approval flow: ' + error.message);
+                approvalSteps.push(approval);
+                phase++;
             }
-     }
+        }
 
-    async approveLeaveRequest(approvalId: string, approverId: string, comment?: string) {
+        if (approvalSteps.length === 0) {
+            throw new NotFoundException("No valid approvers found for this employee");
+        }
+
+        const firstApproval = approvalSteps[0];
+
+        if (firstApproval) {
+            await prisma.leaveRequest.update({
+                where: { id: leaveRequestId },
+                data: { currentApprovalId: firstApproval.id },
+            });
+
+            // Send notification outside transaction
+            setTimeout(() => {
+                this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
+            }, 0);
+        }
+
+        return firstApproval;
+    }
+
+    async approveLeaveRequest(approvalId: string, approverId: string, note?: string) {
         try {
-            return await this.prisma.$transaction(async (tx) => {
+            await this.prisma.$transaction(async (tx) => {
                 const approval = await tx.approval.findUnique({
                     where: { id: approvalId },
                     include: {
@@ -249,20 +389,20 @@ export class LeaveService {
                         }
                     }
                 });
-                
+
                 if (!approval) {
-                    throw bad('Approval not found');
+                    bad('Approval not found');
                 }
 
                 // Check if the user can approve this request
                 const canApprove = await this.approver.canUserApprove(approverId, approval.leaveRequest.userId);
-                
+
                 if (!canApprove) {
-                    throw bad('You are not authorized to approve this request');
+                    bad('You are not authorized to approve this request');
                 }
 
                 if (approval.status !== 'PENDING') {
-                    throw bad('This request has already been processed');
+                    bad('This request has already been processed');
                 }
 
                 // Approve current phase
@@ -270,7 +410,7 @@ export class LeaveService {
                     where: { id: approvalId },
                     data: {
                         status: 'APPROVED',
-                        reason: comment,
+                        note: note,
                         actionDate: new Date(),
                     },
                 });
@@ -283,7 +423,7 @@ export class LeaveService {
                         status: 'PENDING',
                     },
                 });
-                
+
                 if (nextApproval) {
                     // Update to next approval phase
                     await tx.leaveRequest.update({
@@ -299,288 +439,211 @@ export class LeaveService {
                         // );
                     }, 0);
 
-                    return { 
-                        approval: nextApproval, 
+                    return {
+                        approval: nextApproval,
                         isFinal: false,
-                        message: 'Approval moved to next phase' 
+                        message: 'Approval moved to next phase'
                     };
+
                 } else {
                     // No more phases, approve the entire leave request
                     await tx.leaveRequest.update({
                         where: { id: approval.leaveRequestId },
-                        data: { 
+                        data: {
                             status: 'APPROVED',
                             currentApprovalId: null,
                         },
                     });
 
-                    // Notify employee of approval
-                    setTimeout(() => {
-                        this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                        // this.event.emit(
-                        //     'leave_approved',
-                        //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                        // );
-                    }, 0);
 
-                    return { 
-                        approval: null, 
-                        isFinal: true,
-                        message: 'Leave request fully approved' 
-                    };
                 }
-            }, {
-                maxWait: 10000,
-                timeout: 10000,
+
+                setTimeout(() => {
+                    this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
+                    // this.event.emit(
+                    //     'leave_approved',
+                    //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
+                    // );
+                }, 0);
+
+                return {
+                    approval: null,
+                    isFinal: true,
+                    message: 'Leave request fully approved'
+                };
             });
+
+
         } catch (error) {
-            if (error instanceof BadRequestException || 
-                error instanceof NotFoundException || 
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to approve leave request: ' + error.message);
+            // if (error instanceof BadRequestException ||
+            //     error instanceof NotFoundException ||
+            //     error instanceof ConflictException) {
+            //     throw error;
+            // }
+            bad('Failed to approve leave request: ' + error.message);
         }
     }
 
-    async rejectLeaveRequest(approvalId: string, approverId: string, comment: string) { 
+    async rejectLeaveRequest(approvalId: string, approverId: string, note: string) {
         try {
             // const approverId = approver.sub;
-            return this.prisma.$transaction(async(tx) =>{
-            const approval = await tx.approval.findUnique({
-                 where: { id: approvalId },
-                 include: { leaveRequest: true },
-            });
-            if (!approval) {
-                throw bad('Approval not found');
-            }
-
-            if (approval.approverId !== approverId) {
-                throw bad('You are not authorized to reject this request');
-            }
-
-            if (approval.status !== 'PENDING') {
-                throw bad('This request has already been processed');
-            }
-            // Reject the current approval step
-            await tx.approval.update({
-                where: {id: approvalId },
-                data: {
-                    status: 'REJECTED',
-                    actionDate: new Date(),
-                    reason: comment,
+            return this.prisma.$transaction(async (tx) => {
+                const approval = await tx.approval.findUnique({
+                    where: { id: approvalId },
+                    include: { leaveRequest: true },
+                });
+                if (!approval) {
+                    throw bad('Approval not found');
                 }
-            });
-            //Reject the entire leave request
-            await tx.leaveRequest.update({
-                where: { id: approval.leaveRequestId },
-                data: {
-                    status: 'REJECTED',
-                    currentApprovalId: null,
-                }
-            });
 
-            // Notify employee of rejection
-            setTimeout(() => {
-                this.sendRejectionMail(approval.leaveRequestId, comment).catch(console.error);
-            }, 0);
-            
-            return approval;
+                if (approval.approverId !== approverId) {
+                    throw bad('You are not authorized to reject this request');
+                }
+
+                if (approval.status !== 'PENDING') {
+                    throw bad('This request has already been processed');
+                }
+                // Reject the current approval step
+                await tx.approval.update({
+                    where: { id: approvalId },
+                    data: {
+                        status: 'REJECTED',
+                        actionDate: new Date(),
+                        note: note,
+                    }
+                });
+                //Reject the entire leave request
+                await tx.leaveRequest.update({
+                    where: { id: approval.leaveRequestId },
+                    data: {
+                        status: 'REJECTED',
+                        currentApprovalId: null,
+                    }
+                });
+
+                // Notify employee of rejection
+                setTimeout(() => {
+                    this.sendRejectionMail(approval.leaveRequestId, note).catch(console.error);
+                }, 0);
+
+                return approval;
             });
         } catch (error) {
-                  if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to reject leave request:' + error.message);
-          }
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to reject leave request:' + error.message);
+        }
     }
 
     async getApprovalHistory(leaveRequestId: string) {
         try {
             return this.prisma.approval.findMany({
-               where: { leaveRequestId },
+                where: { leaveRequestId },
                 include: {
                     approver: {
+                        select: {
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            role: true,
+                        },
+                    },
+                },
+                orderBy: { phase: 'asc' },
+            });
+        } catch (error) {
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to get approval history:' + error.message);
+        }
+
+    }
+
+
+
+    //     /////////////////////////////////////// HELPERS ////////////////////////////////////////
+    private calculateLeaveDuration(startDate: Date, endDate: Date): number {
+        try {
+            if (!startDate || !endDate) {
+                throw bad("Start date and end date are required");
+            }
+
+            if (startDate > endDate) {
+                throw bad("Start date cannot be after end date");
+            }
+
+            // Normalize to midnight (prevents partial-day issues)
+            let currentDate = new Date(startDate);
+            currentDate.setHours(0, 0, 0, 0);
+            const finalDate = new Date(endDate);
+            finalDate.setHours(0, 0, 0, 0);
+
+            let businessDays = 0;
+
+            while (currentDate <= finalDate) {
+                const weekDay = currentDate.getDay();
+                // Exclude weekends: 0 = Sunday, 6 = Saturday
+                if (weekDay !== 0 && weekDay !== 6) {
+                    businessDays++;
+                }
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            return businessDays;
+        } catch (error: any) {
+            if (
+                error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException
+            ) {
+                throw error;
+            }
+            throw new BadRequestException("Failed to calculate leave duration: " + error.message);
+        }
+    }
+
+
+    private async createApprovalStep(
+        leaveRequestId: string,
+        phase: number,
+        approverId: string,
+        prisma: PrismaClient | Prisma.TransactionClient = this.prisma
+    ) {
+        // const approver = await prisma.approver.findFirst({
+        //     where: { userId: approverId, isActive: true },
+        // });
+
+        // if (!approver) {
+        //     throw new NotFoundException(`Approver with user ID ${approverId} not found or inactive`);
+        // }
+
+        return prisma.approval.create({
+            data: {
+                leaveRequestId,
+                phase,
+                approverId,
+                status: "PENDING",
+            },
+            include: {
+                approver: {
                     select: {
+                        id: true,
                         firstName: true,
                         lastName: true,
                         email: true,
                         role: true,
                     },
-                    },
                 },
-                orderBy: { phase: 'asc' },  
-            });
-        } catch (error) {
-                  if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to get approval history:' + error.message);
-          }
-    
+            },
+        });
     }
-
-    async cancelLeaveRequest(leaveRequestId: string, userId: string, data: CancelLeaveRequestDto) {
-        try {
-            return await this.prisma.$transaction(async (tx) => {
-                //Get leave request with approvals
-                const leaveRequest = await tx.leaveRequest.findUnique({
-                    where: { id: leaveRequestId },
-                    include: {
-                        user: true,
-                        approvals: { include: { approver: true } },
-                        cancelRequest: true
-                    }
-                });
-                if(!leaveRequest) {
-                    bad("Leave Request Not Found");
-                }
-                if (leaveRequest.userId !== userId) {
-                    bad('You can only cancel your own leave requests');
-                }
-                if(leaveRequest.cancelRequest) {
-                    bad("Cancellation already requested for this leave");
-                }
-
-                //Validate that leave can be canceled - PENDING
-                this.validateLeaveCanBeCanceled(leaveRequest);
-
-                //Cancel all pending approvals
-                await tx.approval.updateMany({
-                    where: { 
-                        leaveRequestId,
-                        status: 'PENDING'
-                    },
-                    data: {
-                        status: 'CANCELLED',
-                        reason: data.reason,
-                        actionDate: new Date()
-                    }
-                });
-
-                //Update leave request status to CANCELED
-              const cancelRequest = await tx.cancelRequest.create({
-                    data: {
-                        reason: data.reason,
-                        requestId: leaveRequestId
-                    }
-                }); 
-
-                //Update leave request status to CANCELED
-                await tx.leaveRequest.update({
-                    where: { id: leaveRequestId },
-                    data: {
-                        status: 'CANCELLED',
-                        currentApprovalId: null,
-                    },
-                    include: {
-                        approvals: true,
-                        user: true,
-                        type: true,
-                    }
-                });
-                return {
-                    ...cancelRequest,
-                    message: 'Leave request successfully canceled'
-                };
-            });
-        } catch (error) {
-            if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to cancel leave request:' + error.message);
-        }
-    }
-
-
-
-//     /////////////////////////////////////// HELPERS ////////////////////////////////////////
-    private calculateLeaveDuration(startDate: Date, endDate: Date): number {
-        try {
-            if(!startDate || !endDate) {
-            throw bad("Start date and end date are required");
-            }
-            if(startDate > endDate) {
-                throw bad("Start date cannot be after end date");
-            }
-
-            //Bussiness days
-            let currentDate = new Date(startDate);
-            let businessDays = 0;
-            while(currentDate <= endDate) {
-                const weekDay = currentDate.getDay();
-                //Exclude Weekends 
-                if(weekDay !== 0 && weekDay !== 6) {
-                    businessDays++;
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            return businessDays;
-        } catch (error) {
-                  if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to find employee:' + error.message);
-             }
-        
-    }
-
-    private async createApprovalStep(leaveRequestId: string, phase: number, approverId: string) {
-        try {
-            // Verify the approver exists and is active
-            const approver = await this.prisma.approver.findFirst({
-                where: {
-                    userId: approverId,
-                    isActive: true
-                }
-            });
-
-            if (!approver) {
-                throw new NotFoundException(`Approver with user ID ${approverId} not found or inactive`);
-            }
-
-            return await this.prisma.approval.create({
-                data: {
-                    leaveRequestId,
-                    phase,
-                    approverId,
-                    status: 'PENDING',
-                },
-                include: {
-                    approver: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            role: true
-                        }
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('Error creating approval step:', error);
-            
-            if (error.code === 'P2002') {
-                throw new ConflictException(`Approval phase ${phase} already exists for this leave request`);
-            }
-            
-            if (error.code === 'P2003') {
-                throw new NotFoundException(`Approver with ID ${approverId} not found`);
-            }
-            
-            throw new BadRequestException('Failed to create approval step: ' + error.message);
-        }
-    }
-
 
     private async findEmployee(userId: string) {
         try {
@@ -588,7 +651,7 @@ export class LeaveService {
                 where: { id: userId },
                 include: {
                     requests: true,
-                    department: true,
+                    departments: true,
                     level: {
                         include: {
                             entitlements: {
@@ -600,30 +663,30 @@ export class LeaveService {
                     },
                 },
             });
-            if(!employee) {
+            if (!employee) {
                 throw bad("Employee Not Found");
             }
             return employee;
         } catch (error) {
-                  if (error instanceof BadRequestException || 
-                      error instanceof NotFoundException || 
-                      error instanceof ConflictException) {
-                    throw error;
-                  }
-                  throw new BadRequestException('Failed to find employee:' + error.message);
-             }
+            if (error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException) {
+                throw error;
+            }
+            throw new BadRequestException('Failed to find employee:' + error.message);
+        }
     }
 
     private async sendLeaveRequestMail(leaveRequestId: string) {
         try {
             const leaveRequest = await this.prisma.leaveRequest.findUnique({
                 where: { id: leaveRequestId },
-                include: { 
+                include: {
                     user: true,
                     type: true,
-                    approvals: { 
-                        include: { 
-                            approver: true 
+                    approvals: {
+                        include: {
+                            approver: true
                         },
                         orderBy: {
                             phase: 'asc'
@@ -639,7 +702,7 @@ export class LeaveService {
 
             // Get the current approval (first pending approval)
             const currentApproval = leaveRequest.approvals.find(a => a.status === 'PENDING');
-            
+
             if (!currentApproval || !currentApproval.approver) {
                 console.error('Current approver not found for leave request');
                 return false;
@@ -669,7 +732,7 @@ export class LeaveService {
                 leaveValue: levelEntitlement?.value,
                 reason: leaveRequest.reason || 'No reason provided',
             });
-            
+
             return true;
         } catch (error) {
             console.error('Failed to send leave request email:', error);
@@ -680,7 +743,7 @@ export class LeaveService {
     private async sendApprovalMail(leaveRequestId: string) {
         const approval = await this.prisma.leaveRequest.findUnique({
             where: { id: leaveRequestId },
-            include: { 
+            include: {
                 approvals: {
                     include: {
                         approver: true,
@@ -701,51 +764,41 @@ export class LeaveService {
             leaveValue: duration,
         });
         return true;
-      }
+    }
 
     private async sendRejectionMail(leaveRequestId: string, comment: string) {
-    const leaveRequest = await this.prisma.leaveRequest.findUnique({
+        const leaveRequest = await this.prisma.leaveRequest.findUnique({
             where: { id: leaveRequestId },
             include: {
                 user: true,
                 type: { include: { levels: true } },
                 approvals: {
-                include: { approver: true },
-                orderBy: { actionDate: 'desc' },
-                take: 1,
+                    include: { approver: true },
+                    orderBy: { actionDate: 'desc' },
+                    take: 1,
                 },
             },
-       });
+        });
 
-     if (!leaveRequest?.user) return false;
+        if (!leaveRequest?.user) return false;
 
-    // const lastApproval = leaveRequest.approvals[0];
-    const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
+        // const lastApproval = leaveRequest.approvals[0];
+        const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
 
-    await this.mail.sendLeaveRejectMail({
-        email: leaveRequest.user.workEmail,
-        name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
-        leaveType: leaveRequest.type.name,
-        leaveValue: duration,
-        startDate: leaveRequest.startDate,
-        endDate: leaveRequest.endDate,
-        reason: comment,
-    });
+        await this.mail.sendLeaveRejectMail({
+            email: leaveRequest.user.workEmail,
+            name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+            leaveType: leaveRequest.type.name,
+            leaveValue: duration,
+            startDate: leaveRequest.startDate,
+            endDate: leaveRequest.endDate,
+            reason: comment,
+        });
 
-    return true;
+        return true;
     }
 
-    private validateLeaveCanBeCanceled(leaveRequest: any) {
-        //Can only cancel PENDING leaves
-        if(leaveRequest.status !== 'PENDING') {
-            bad(`Cannot cancel leave with status: ${leaveRequest.status}. Only PENDING leaves can be canceled.`)
-        }
 
-        const now = new Date();
-        if(new Date(leaveRequest.startDate) <= now) {
-            bad("Cannot cancel leave that has already started");
-        }
-    }
 
 
 }

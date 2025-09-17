@@ -91,6 +91,11 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Address is Required' })
   address: string;
 
+
+  @IsString()
+  @IsOptional()
+  levelId: string;
+
   @IsString()
   @IsNotEmpty({ message: 'Country is Required' })
   country: string;
@@ -104,19 +109,19 @@ export class CreateUserDto {
   userDocuments: string[];
 }
 
-export class UpdateUserDto extends CreateUserDto { }
+export class UpdateUserDto extends CreateUserDto {
+}
 
 export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
 
 export class ApproveUserDto {
-
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
   levelId: string;
 
+  @IsOptional()
   @IsEnum(Role, { each: true })
-  @IsNotEmpty({ message: 'User Role is Required' })
-  userRole: Role;
+  userRole?: Role[];
 }
 
 
@@ -128,7 +133,8 @@ export class UpdateUserInfo {
 
 // add-employee.dto.ts
 
-export class AddEmployeeDto {
+export class
+  AddEmployeeDto {
   @IsNotEmpty()
   @IsString()
   firstName: string;
@@ -158,8 +164,8 @@ export class AddEmployeeDto {
   gender: string;
 
   @IsNotEmpty()
-  @IsString()
-  department: string;
+  @IsArray()
+  department: string[];
 
   @IsOptional()
   @IsString()
@@ -174,8 +180,8 @@ export class AddEmployeeDto {
   role: string;
 
   @IsOptional()
-  @IsEnum(Role)
-  userRole?: Role;
+  @IsEnum(Role, { each: true })
+  userRole?: Role[];
 
   @IsOptional()
   @IsString()

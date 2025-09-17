@@ -53,13 +53,13 @@ export class InviteService {
 
       return true;
     } catch (error) {
-      if (error instanceof BadRequestException || 
-          error instanceof NotFoundException || 
-          error instanceof ConflictException) {
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
         throw error;
       }
       throw new BadRequestException('Failed to send invite');
-      }
+    }
   }
 
   async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
@@ -136,13 +136,13 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to create prospect');
-          }
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to create prospect');
+    }
   }
 
 
@@ -161,11 +161,11 @@ export class InviteService {
     const prospect = invite.prospect
 
 
-      if (!invite || invite.expiresAt < currentDate) {
-        bad('Invalid or Expired Invitation');
-      }
+    if (!invite || invite.expiresAt < currentDate) {
+      bad('Invalid or Expired Invitation');
+    }
 
-      if (invite.status !== 'PENDING') bad('Invitation Has Already Been Accepted or Declined');
+    if (invite.status !== 'PENDING') bad('Invitation Has Already Been Accepted or Declined');
 
     //Update the invite status to ACCEPTED
     const updatedInvite = await this.prisma.invite.update({
@@ -192,7 +192,7 @@ export class InviteService {
         startDate: prospect.startDate,
         role: prospect.role,
         prospect: { connect: { id: prospect.id } },
-        department: {
+        departments: {
           connect: {
             id: prospect.departmentId
           }
@@ -200,25 +200,25 @@ export class InviteService {
       }
     })
 
-      const recipients = await this.prisma.user.findMany({
-        where: {
-          userRole: {
-            in: [Role.ADMIN, Role.FACILITY]
-          }
+    const recipients = await this.prisma.user.findMany({
+      where: {
+        userRole: {
+          hasSome: [Role.ADMIN]
         }
-      })
+      }
+    })
 
-      const recipientIds = recipients.map(r => r.id)
+    const recipientIds = recipients.map(r => r.id)
 
-      this.eventEmitter.emit(
-        'employment.accepted',
-        new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
-      );
+    this.eventEmitter.emit(
+      'employment.accepted',
+      new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
+    );
 
-      await this.mail.sendAcceptanceMail({
-        email: updatedInvite.sentBy.email,
-        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-      });
+    await this.mail.sendAcceptanceMail({
+      email: updatedInvite.sentBy.email,
+      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+    });
 
     return {
       user,
@@ -229,7 +229,7 @@ export class InviteService {
   async declineInvite(token: string, reasons?: Array<string>) {
     const currentDate = new Date();
     try {
-       const invite = await this.prisma.invite.findUnique({
+      const invite = await this.prisma.invite.findUnique({
         where: { token },
         include: {
           prospect: true,
@@ -251,7 +251,7 @@ export class InviteService {
           declinedAt: currentDate,
           declineReasons: reasons.map(r => r),
         },
-        include: { 
+        include: {
           prospect: true,
           sentBy: true,
         },
@@ -264,13 +264,13 @@ export class InviteService {
 
       return updatedInvite;
     } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to decline invite');
-          }
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to decline invite');
+    }
   }
 
   async getAllProspects() {
@@ -325,14 +325,14 @@ export class InviteService {
       });
 
       return prospects;
-    } catch(error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to fetch prospect');
-          }
+    } catch (error) {
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to fetch prospect');
+    }
   }
 
   async getInviteByToken(token: string) {
@@ -365,26 +365,26 @@ export class InviteService {
       return invite;
 
     } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to fetch invite');
-          }
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to fetch invite');
+    }
   }
 
   async getOneProspect(id: string) {
     try {
       return await this.__findProspectById(id);
     } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to fetch prospect');
-          }
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to fetch prospect');
+    }
   }
 
   async deleteProspect(id: string) {
@@ -401,13 +401,13 @@ export class InviteService {
 
       return true;
     } catch (error) {
-          if (error instanceof BadRequestException || 
-              error instanceof NotFoundException || 
-              error instanceof ConflictException) {
-            throw error;
-          }
-          throw new BadRequestException('Failed to delete prospect');
-          }
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to delete prospect');
+    }
   }
 
 

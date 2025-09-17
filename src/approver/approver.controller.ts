@@ -4,17 +4,17 @@ import { Role } from '@prisma/client';
 
 @Controller('approvers')
 export class ApproverController {
-  constructor(private readonly approverService: ApproverService) {}
+  constructor(private readonly approverService: ApproverService) { }
 
   @Get()
   findAll() {
     return this.approverService.getGlobalApprovers();
   }
 
-  @Get('department/:departmentId')
-  findByDepartment(@Param('departmentId', ParseUUIDPipe) departmentId: string) {
-    return this.approverService.getApproversForDepartment(departmentId);
-  }
+  // @Get('department/:departmentId')
+  // findByDepartment(@Param('departmentId', ParseUUIDPipe) departmentId: string) {
+  //   return this.approverService.getApproversForDepartment(departmentId);
+  // }
 
   @Get('user/:userId')
   findByUser(@Param('userId', ParseUUIDPipe) userId: string) {

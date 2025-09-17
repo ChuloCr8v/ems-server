@@ -12,45 +12,45 @@ export class MailService {
     private config: ConfigService,
   ) { this.registerHandlebarsHelpers(); }
 
-    private registerHandlebarsHelpers() {
-        Handlebars.registerHelper('formatDate', function(date: Date, format?: string) {
-            if (!date) return '';
-            
-            const dateObj = new Date(date);
-            const options: Intl.DateTimeFormatOptions = {};
-            
-            // Default format
-            if (!format) {
-                return dateObj.toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
-            }
-            
-            // Custom format parsing
-            if (format.includes('MMMM')) options.month = 'long';
-            else if (format.includes('MMM')) options.month = 'short';
-            else if (format.includes('MM')) options.month = '2-digit';
-            
-            if (format.includes('DD')) options.day = '2-digit';
-            else if (format.includes('D')) options.day = 'numeric';
-            
-            if (format.includes('YYYY')) options.year = 'numeric';
-            else if (format.includes('YY')) options.year = '2-digit';
-            
-            return dateObj.toLocaleDateString('en-US', options);
-        });
+  private registerHandlebarsHelpers() {
+    Handlebars.registerHelper('formatDate', function (date: Date, format?: string) {
+      if (!date) return '';
 
-        // Additional helper for time if needed
-        Handlebars.registerHelper('formatTime', function(date: Date) {
-            if (!date) return '';
-            return new Date(date).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+      const dateObj = new Date(date);
+      const options: Intl.DateTimeFormatOptions = {};
+
+      // Default format
+      if (!format) {
+        return dateObj.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
         });
-    }
+      }
+
+      // Custom format parsing
+      if (format.includes('MMMM')) options.month = 'long';
+      else if (format.includes('MMM')) options.month = 'short';
+      else if (format.includes('MM')) options.month = '2-digit';
+
+      if (format.includes('DD')) options.day = '2-digit';
+      else if (format.includes('D')) options.day = 'numeric';
+
+      if (format.includes('YYYY')) options.year = 'numeric';
+      else if (format.includes('YY')) options.year = '2-digit';
+
+      return dateObj.toLocaleDateString('en-US', options);
+    });
+
+    // Additional helper for time if needed
+    Handlebars.registerHelper('formatTime', function (date: Date) {
+      if (!date) return '';
+      return new Date(date).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    });
+  }
 
   async sendProspectMail(input: ProspectInviteDto) {
     const { email, firstName, token, attachments } = input;
@@ -59,7 +59,7 @@ export class MailService {
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.PROSPECT_INVITATION,
-      template: 'invite', 
+      template: 'invite',
       attachments,
       context: { firstName, link, attachments }
     });
@@ -123,8 +123,9 @@ export class MailService {
     });
   }
 
-  async sendLeaveRequestMail(data: LeaveRequest){
+  async sendLeaveRequestMail(data: LeaveRequest) {
     const { email, leaveType, leaveValue, name, startDate, endDate, reason } = data;
+
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
@@ -133,7 +134,7 @@ export class MailService {
     });
   }
 
-  async sendLeaveApprovalMail(data: ApproveLeaveRequest){
+  async sendLeaveApprovalMail(data: ApproveLeaveRequest) {
     const { email, name, startDate, endDate, leaveType, leaveValue } = data;
     await this.mailerService.sendMail({
       to: email,
@@ -143,7 +144,7 @@ export class MailService {
     })
   }
 
-  async sendLeaveRejectMail(data: RejectLeaveRequest){
+  async sendLeaveRejectMail(data: RejectLeaveRequest) {
     const { email, name, startDate, endDate, leaveType, leaveValue, reason } = data;
     await this.mailerService.sendMail({
       to: email,

@@ -1,14 +1,14 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
 import { LeaveService } from './leave.service';
-import { CancelLeaveRequestDto, CreateLeaveRequestDto } from './dto/leave.dto';
+import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @Controller('leave')
 export class LeaveController {
-  constructor(private readonly leave: LeaveService) {}
+  constructor(private readonly leave: LeaveService) { }
 
   @Post(":userId")
   async createLeaveRequest(
@@ -22,7 +22,19 @@ export class LeaveController {
 
   @Get(":userId")
   async getAvailableLeaveTypes(@Param('userId') userId: string,) {
-    return  this.leave.getAvailableLeaveTypes(userId);
+    return this.leave.getAvailableLeaveTypes(userId);
+  }
+
+  @Auth(["ADMIN", "DEPT_MANAGER", "LEAVE_MANAGER"])
+  @Get("")
+  async listLeaveRequests(@Req() req: { user: { id: string } }) {
+    return this.leave.listLeaveRequests(req.user.id);
+  }
+
+  @Auth()
+  @Get("/user/:userId")
+  async listUserLeave(@Param("userId") userId: string) {
+    return this.leave.listUserLeaveRequests(userId);
   }
 
   // @Auth()
@@ -34,41 +46,23 @@ export class LeaveController {
     return this.leave.checkLeaveBalance(userId, typeId);
   }
 
-  // @Auth([Role.ADMIN, Role.MANAGER, Role.HR])
+  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER])
   @Post('approve/:approvalId/:userId')
-  async approveLeaveRequest(
-    @Param('approvalId') approvalId: string, 
-    @Param('userId') userId: string, 
-    @Res() res: Response, 
-    comment?: string
-  ) {
-    const request = this.leave.approveLeaveRequest(approvalId, userId, comment);
-    return res.status(200).json({ message: 'Leave Request Approved', request });
+  async approveLeaveRequest(@Param('approvalId') approvalId: string, @Param('userId') userId: string, @Body() body?: { note: string }) {
+    const { note } = body
+    return this.leave.approveLeaveRequest(approvalId, userId, note);
   }
 
-  @Post('reject/userId:/:approvalId')
-  async rejectLeaveRequest(
-    @Param('approvalId') approvalId: string, 
-    @Param('userId') userId: string, 
-    @Res() res: Response, 
-    comment: string
-  ) {
-    const request = this.leave.rejectLeaveRequest(approvalId, userId, comment);
-    return res.status(200).json({ message: 'Leave Request Rejected', request });
+  @Post('reject/:approvalId/:userId')
+  async rejectLeaveRequest(@Param('approvalId') approvalId: string, @Param('userId') userId: string, @Body() body?: { note: string }) {
+    const { note } = body
+    console.log(note)
+    return this.leave.rejectLeaveRequest(approvalId, userId, note);
+
   }
 
   @Get('history/:leaveRequestId')
   async getApprovalHistory(@Param('leaveRequestId') leaveRequestId: string) {
     return this.leave.getApprovalHistory(leaveRequestId);
   }
-
-  @Patch('cancel/:leaveRequestId/:userId/') 
-  async cancelLeaveRequest(
-    @Param('leaveRequestId', ParseUUIDPipe) leaveRequestId: string,
-    @Param('userId') userId: string, 
-    @Body() data: CancelLeaveRequestDto,
-  ) {
-    return this.leave.cancelLeaveRequest(leaveRequestId, userId, data);
-  }
-
- }
+}
