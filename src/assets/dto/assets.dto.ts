@@ -67,13 +67,13 @@ export class CreateAssetDto {
   @IsString()
   category: AssetCategory;
 
-  @ApiProperty({
-    description: 'Purchase date of the asset in YYYY-MM-DD format',
-    example: '2023-05-15',
-  })
-  @IsOptional()
-  @IsDateString()
-  purchaseDate?: Date;
+  // @ApiProperty({
+  //   description: 'Purchase date of the asset in YYYY-MM-DD format',
+  //   example: '2023-05-15',
+  // })
+  // @IsOptional()
+  // @IsDateString()
+  // purchaseDate?: Date;
 
   @ApiProperty({
     description: 'Vendor from whom the asset was purchased',
@@ -117,6 +117,11 @@ export class CreateAssetDto {
   })
   @IsOptional()
   barcodeImage?: ImageDto;
+
+  @IsOptional()
+  @IsString()
+  assignee?: string;
+
 }
 
 export class AssignAssetDto {

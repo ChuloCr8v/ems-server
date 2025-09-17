@@ -89,7 +89,7 @@ export class AuthService {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
-          email
+          workEmail: email
         },
       })
       if (!user) mustHave(user, "User not found", 404)

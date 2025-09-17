@@ -496,12 +496,18 @@ enum Role {
 }
 
 enum AssetCategory {
-  HARDWARE
-  ACCESSORY
-  LOGISTICS
-  OFFICE_FURNITURE
-  SOFTWARE
-  SAFETY_EQUIPMENT
+  HARDWARE // Laptops, desktops, monitors, printers, scanners, etc.
+  ACCESSORY // ID cards, bags, keys, stamps, clip pads
+  LOGISTICS // Transport, delivery-related items (still available if needed)
+  OFFICE_FURNITURE // Desks, chairs, etc.
+  SOFTWARE // Licensed software, apps
+  SAFETY_EQUIPMENT // Safety jackets, raincoats, toolboxes, splicers
+
+  TELECOM // SIM cards, hotspots, routers
+  MEDICAL_EQUIPMENT // BP Monitor, health-related devices
+  AUDIO_VISUAL // Cameras, webcams, lights, mics, gimbals, speakers
+  PAYMENT_DEVICE // POS machines, financial devices
+  GENERAL
 }
 
 enum AssetStatus {
