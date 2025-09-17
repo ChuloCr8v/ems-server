@@ -243,20 +243,20 @@ model Comment {
 
 //////////////////////////////// ASSETS ///////////////////////
 model Asset {
-  id           String        @id @default(uuid()) @db.Uuid
-  assetId      String        @unique
+  id           String         @id @default(uuid()) @db.Uuid
+  assetId      String         @unique
   name         String
-  serialNo     String        @unique
-  category     AssetCategory
-  purchaseDate DateTime
-  vendor       String
-  cost         Float
-  assetImages  Upload[]      @relation("AssetImages")
+  serialNo     String?        @unique
+  category     AssetCategory?
+  purchaseDate DateTime?
+  vendor       String?
+  cost         Float?
+  assetImages  Upload[]       @relation("AssetImages")
   description  String?
-  isReturned   Boolean       @default(false)
-  status       AssetStatus   @default(AVAILABLE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  isReturned   Boolean?       @default(false)
+  status       AssetStatus?   @default(AVAILABLE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   assignments  Assignment[]
   faults       Fault[]
 }
