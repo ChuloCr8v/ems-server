@@ -15,7 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } fr
 export class InviteController {
   constructor(private inviteService: InviteService) { }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post('send')
   @ApiOperation({ summary: 'Send an invitation to create a new prospect' })
   @ApiConsumes('multipart/form-data')
@@ -64,7 +64,7 @@ export class InviteController {
     return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get()
   @ApiOperation({ summary: 'Get all prospects' })
   @ApiResponse({ status: 200, description: 'All Prospects' })
@@ -79,7 +79,7 @@ export class InviteController {
     return res.status(200).json(invite);
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Get(':id')
   @ApiOperation({ summary: 'Get a single prospect by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
@@ -90,7 +90,7 @@ export class InviteController {
 
 
   @Delete(":id")
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @ApiOperation({ summary: 'Delete a prospect by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
   @ApiResponse({ status: 200, description: 'Prospect deleted successfully' })

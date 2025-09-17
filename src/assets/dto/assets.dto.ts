@@ -43,6 +43,7 @@ export class CreateAssetDto {
     description: 'Images of the asset',
     example: 'laptop.jpg',
   })
+
   @IsOptional()
   @IsArray()
   assetImages?: string[];
@@ -52,9 +53,10 @@ export class CreateAssetDto {
     description: 'Serial number of the asset',
     example: 'DXPS152023-001',
   })
-  @IsNotEmpty()
+
+  @IsOptional()
   @IsString()
-  serialNo: string;
+  serialNo?: string;
 
   @ApiProperty({
     enum: AssetCategory,
@@ -69,27 +71,27 @@ export class CreateAssetDto {
     description: 'Purchase date of the asset in YYYY-MM-DD format',
     example: '2023-05-15',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsDateString()
-  purchaseDate: Date;
+  purchaseDate?: Date;
 
   @ApiProperty({
     description: 'Vendor from whom the asset was purchased',
     example: 'Dell Technologies',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  vendor: string;
+  vendor?: string;
 
   @ApiProperty({
     description: 'Cost of the asset',
     example: 1499.99,
     type: Number,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
   @Transform(({ value }) => parseFloat(value))
-  cost: Number;
+  cost?: Number;
 
   @ApiPropertyOptional({
     description: 'Additional description of the asset',

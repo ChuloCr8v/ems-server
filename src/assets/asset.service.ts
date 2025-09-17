@@ -516,7 +516,8 @@ export class AssetService {
     for (const [index, row] of jsonData.entries()) {
       try {
         // Validate required fields
-        if (!row['name'] || !row['serialNo'] || !row['category']) {
+        // if (!row['name'] || !row['serialNo'] || !row['category']) {
+        if (!row['name'] || !row['category']) {
           bad(`Row ${index + 2}: Missing required fields (name, serialNo, category)`);
         }
 
@@ -534,11 +535,11 @@ export class AssetService {
           name: row['name'],
           serialNo: row['serialNo'],
           category: row['category'],
-          purchaseDate: row['purchaseDate'] ? new Date(row['purchaseDate']) : undefined,
-          vendor: row['vendor'] || null,
-          cost: row['cost'] ? (row['cost']) : 0,
+          // purchaseDate: row['purchaseDate'] ? new Date(row['purchaseDate']) : undefined,
+          // vendor: row['vendor'] || null,
+          // cost: row['cost'] ? (row['cost']) : 0,
           description: row['description'] || null,
-          assetImage: row['imageUrl'] ? { url: row['imageUrl'] } : null,
+          // assetImage: row['imageUrl'] ? { url: row['imageUrl'] } : null,
           // barcodeImage: null, // Can't handle barcode images in Excel
         };
 

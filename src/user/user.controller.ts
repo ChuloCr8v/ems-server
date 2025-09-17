@@ -36,7 +36,7 @@ export class UserController {
   }
 
   @Put('update/:id')
-  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string }, @Res() res: Response) {
+  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string, levelId: string }, @Res() res: Response) {
     const user = await this.userService.updateEmployeeData(id, data);
     return res.status(200).json({ message: `User updated successfully`, user });
   }

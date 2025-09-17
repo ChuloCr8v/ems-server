@@ -67,7 +67,7 @@ model User {
   address       String?
   startDate     DateTime?
   status        Status         @default(PENDING)
-  userRole      Role[]         @default([USER])
+  userRole      Role[]
   maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
@@ -243,20 +243,20 @@ model Comment {
 
 //////////////////////////////// ASSETS ///////////////////////
 model Asset {
-  id           String        @id @default(uuid()) @db.Uuid
-  assetId      String        @unique
+  id           String         @id @default(uuid()) @db.Uuid
+  assetId      String         @unique
   name         String
-  serialNo     String        @unique
-  category     AssetCategory
-  purchaseDate DateTime
-  vendor       String
-  cost         Float
-  assetImages  Upload[]      @relation("AssetImages")
+  serialNo     String?        @unique
+  category     AssetCategory?
+  purchaseDate DateTime?
+  vendor       String?
+  cost         Float?
+  assetImages  Upload[]       @relation("AssetImages")
   description  String?
-  isReturned   Boolean       @default(false)
-  status       AssetStatus   @default(AVAILABLE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  isReturned   Boolean?       @default(false)
+  status       AssetStatus?   @default(AVAILABLE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   assignments  Assignment[]
   faults       Fault[]
 }
@@ -423,7 +423,7 @@ model Approval {
   approver       User           @relation(fields: [approverId], references: [id])
   approverId     String         @db.Uuid
   status         ApprovalStatus @default(PENDING)
-  reason         String?
+  note           String?
   actionDate     DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -492,6 +492,7 @@ enum Role {
   FACILITY
   HR
   ASSET_MANAGER
+  LEAVE_MANAGER
 }
 
 enum AssetCategory {
