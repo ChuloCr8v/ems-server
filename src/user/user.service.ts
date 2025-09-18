@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssetStatus, JobType, Prisma, Role, Status, User } from '@prisma/client';
-import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
@@ -32,82 +32,12 @@ export class UserService {
         }
     }
 
-    async updateUserData(
-        id: string,
-        data: PartialCreateUserDto
-    ) {
-        const { jobType, duration } = data;
-
-        try {
-            const invite = await this.prisma.invite.findUnique({
-                where: { id },
-                include: {
-                    prospect: {
-                        include: {
-                            user: true,
-                        },
-                    },
-                },
-            });
-
-            if (!invite) mustHave(invite, "invitation not found", 404);
-
-            const existingUser = invite.prospect.user;
-            if (!existingUser) mustHave(existingUser, "user not found for prospect", 404);
-
-            const result = await this.prisma.$transaction(async (prisma) => {
-                const user = await prisma.user.update({
-                    where: { id: existingUser.id },
-                    data: {
-                        // only update provided fields
-                        ...(data.country !== undefined ? { country: data.country } : {}),
-                        ...(data.state !== undefined ? { state: data.state } : {}),
-                        ...(data.address !== undefined ? { address: data.address } : {}),
-                        ...(data.maritalStatus !== undefined ? { maritalStatus: data.maritalStatus } : {}),
-                        ...(jobType === JobType.CONTRACT && duration ? { duration } : {}),
-
-                        ...(data.userDocuments?.length
-                            ? {
-                                userDocuments: {
-                                    connect: data.userDocuments.map((docId: string) => ({ id: docId })),
-                                },
-                            }
-                            : {}),
-                    },
-                    include: { contacts: true, prospect: true },
-                });
-
-                // Update or create contacts if passed
-                if (data.guarantor || data.emergency) {
-                    await prisma.contacts.upsert({
-                        where: { userId: user.id },
-                        update: {
-                            ...(data.guarantor ? { guarantor: { upsert: { update: data.guarantor, create: data.guarantor } } } : {}),
-                            ...(data.emergency ? { emergency: { upsert: { update: data.emergency, create: data.emergency } } } : {}),
-                        },
-                        create: {
-                            userId: user.id,
-                            ...(data.guarantor ? { guarantor: { create: data.guarantor } } : {}),
-                            ...(data.emergency ? { emergency: { create: data.emergency } } : {}),
-                        },
-                    });
-                }
-
-                return { user };
-            });
-
-            return result;
-        } catch (error) {
-            bad(error);
-        }
-    }
-
 
     async updateEmployeeData(
         id: string,
-        data: { eId: string; workEmail: string; workPhone: string, levelId: string }
+        data: { eId: string; email: string; workPhone: string, levelId: string }
     ) {
-        const { workEmail, workPhone, eId } = data;
+        const { email, workPhone, eId } = data;
         try {
             const user = await this.prisma.user.findUnique({ where: { id } });
             !user && mustHave(user, "User not found", 404);
@@ -132,17 +62,17 @@ export class UserService {
 
             const existingWorkEmail = await this.prisma.user.findFirst({
                 where: {
-                    workEmail,
+                    email,
                     NOT: { id },
                 },
             });
             if (existingWorkEmail)
-                bad(`Work email "${workEmail}" is already assigned to another employee`);
+                bad(`Work email "${email}" is already assigned to another employee`);
 
             const updateEmployee = await this.prisma.user.update({
                 where: { id },
                 data: {
-                    workEmail, workPhone, eId, level: {
+                    email, workPhone, eId, level: {
                         connect: {
                             id: data.levelId
                         }
@@ -155,6 +85,95 @@ export class UserService {
             console.error(error);
             bad(error);
         }
+    }
+
+    async updateEmployee(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
+        const { duration, jobType } = data;
+        const user = await this.__findUserById(id);
+
+        const updateUser = await this.prisma.$transaction(async (tx) => {
+            const updatedUser = await tx.user.update({
+                where: { id },
+                data: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    gender: data.gender,
+                    phone: data.phone,
+                    role: data.role,
+                    country: data.country,
+                    address: data.address,
+                    maritalStatus: data.maritalStatus,
+                    state: data.state,
+                    departments: {
+                        connect: user.departments.map(u => ({ id: u.id })),
+                    },
+                    ...(jobType === JobType.CONTRACT ? { duration } : {}),
+
+                    // ✅ Update userDocuments safely
+                    ...(data.userDocuments?.length
+                        ? {
+                            userDocuments: {
+                                set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                            },
+                        }
+                        : {}),
+
+                    contacts: {
+                        update: {
+                            emergency: {
+                                upsert: {
+                                    where: { contactId: user.contacts.id },
+                                    update: {
+                                        firstName: data.emergency.firstName,
+                                        lastName: data.emergency.lastName,
+                                        email: data.emergency.email,
+                                        phone: data.emergency.phone,
+                                    },
+                                    create: {
+                                        firstName: data.emergency.firstName,
+                                        lastName: data.emergency.lastName,
+                                        email: data.emergency.email,
+                                        phone: data.emergency.phone,
+                                    },
+                                },
+                            },
+                            guarantor: {
+                                upsert: {
+                                    where: { contactId: user.contacts.id },
+                                    update: {
+                                        firstName: data.guarantor.firstName,
+                                        lastName: data.guarantor.lastName,
+                                        email: data.guarantor.email,
+                                        phone: data.guarantor.phone,
+                                    },
+                                    create: {
+                                        firstName: data.guarantor.firstName,
+                                        lastName: data.guarantor.lastName,
+                                        email: data.guarantor.email,
+                                        phone: data.guarantor.phone,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                include: {
+                    contacts: {
+                        include: {
+                            emergency: true,
+                            guarantor: true,
+                        },
+                    },
+                    userDocuments: {
+                        select: { name: true },
+                    },
+                },
+            });
+
+            return updatedUser;
+        });
+
+        return updateUser;
     }
 
     async assignAssets(id: string, assetIds: string[]) {
@@ -265,115 +284,84 @@ export class UserService {
         }
     }
 
-    async updateUserInfo(id: string, data: UpdateUserInfo) {
-        const { comment } = data;
-        try {
-            //Find Existing User
-            const user = await this.__findUserById(id);
-            const editUser = await this.prisma.comment.create({
-                data: {
-                    comment,
-                    user: {
-                        connect: {
-                            id: user.id
-                        },
-                    },
-                },
-            });
+    async updateUser(
+        id: string,
+        data: UpdateUserDto,
+        context: "invite" | "employee" | "admin" = "admin",
+    ) {
 
-            const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-            const link = `${frontendUrl}/onboarding/invitation?id=${id}`;
-
-            await this.mail.sendProspectUpdateMail({
-                email: user.email,
-                name: `${user.firstName}`,
-                comment: editUser.comment,
-                link: link,
-            });
-
-            return editUser;
-        } catch (error) {
-            console.log(error.message)
-            bad("Edit User Link could not be Sent");
-        }
-    }
-
-    async updateUser(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
-        const { duration, jobType } = data;
         const user = await this.__findUserById(id);
 
-        const updateUser = await this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
+            const updateData: any = {};
+
+
+            if ("firstName" in data) updateData.firstName = data.firstName;
+            if ("lastName" in data) updateData.lastName = data.lastName;
+            if ("gender" in data) updateData.gender = data.gender;
+            if ("phone" in data) updateData.phone = data.phone;
+            if ("role" in data) updateData.role = data.role;
+            if ("country" in data) updateData.country = data.country;
+            if ("address" in data) updateData.address = data.address;
+            if ("state" in data) updateData.state = data.state;
+            if ("maritalStatus" in data) updateData.maritalStatus = data.maritalStatus;
+            if ("userRole" in data) updateData.userRole = data.userRole;
+
+
+            if (context === "invite") {
+                if (data.jobType === JobType.CONTRACT && data.duration) {
+                    updateData.duration = data.duration;
+                }
+
+                if (data.userDocuments?.length) {
+                    updateData.userDocuments = {
+                        connect: data.userDocuments.map((docId: string) => ({ id: docId })),
+                    };
+                }
+            }
+
+            if (context === "employee") {
+                await this.ensureUniqueEmployeeFields(data, id, tx);
+
+                Object.assign(updateData, {
+                    email: data.email,
+                    workPhone: data.workPhone,
+                    eId: data.eId,
+                    level: { connect: { id: data.levelId } },
+                });
+            }
+
+            if (context === "admin") {
+                if (data.jobType === JobType.CONTRACT && data.duration) {
+                    updateData.duration = data.duration;
+                }
+
+                if (data.userDocuments?.length) {
+                    updateData.userDocuments = {
+                        set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                    };
+                }
+            }
+
+
+            if (data.guarantor || data.emergency) {
+                await this.updateContacts(tx, user.id, data.guarantor, data.emergency);
+            }
+
+
+            if ("departments" in user && user.departments?.length) {
+                updateData.departments = {
+                    connect: user.departments.map((d) => ({ id: d.id })),
+                };
+            }
+
+
             const updatedUser = await tx.user.update({
                 where: { id },
-                data: {
-                    firstName: data.firstName,
-                    lastName: data.lastName,
-                    gender: data.gender,
-                    phone: data.phone,
-                    role: data.role,
-                    country: data.country,
-                    address: data.address,
-                    maritalStatus: data.maritalStatus,
-                    state: data.state,
-                    departments: {
-                        connect: user.departments.map(u => ({ id: u.id })),
-                    },
-                    ...(jobType === JobType.CONTRACT ? { duration } : {}),
-
-                    // ✅ Update userDocuments safely
-                    ...(data.userDocuments?.length
-                        ? {
-                            userDocuments: {
-                                set: data.userDocuments.map((docId: string) => ({ id: docId })),
-                            },
-                        }
-                        : {}),
-
-                    contacts: {
-                        update: {
-                            emergency: {
-                                upsert: {
-                                    where: { contactId: user.contacts.id },
-                                    update: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        email: data.emergency.email,
-                                        phone: data.emergency.phone,
-                                    },
-                                    create: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        email: data.emergency.email,
-                                        phone: data.emergency.phone,
-                                    },
-                                },
-                            },
-                            guarantor: {
-                                upsert: {
-                                    where: { contactId: user.contacts.id },
-                                    update: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        email: data.guarantor.email,
-                                        phone: data.guarantor.phone,
-                                    },
-                                    create: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        email: data.guarantor.email,
-                                        phone: data.guarantor.phone,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                },
+                data: updateData,
                 include: {
                     contacts: {
-                        include: {
-                            emergency: true,
-                            guarantor: true,
-                        },
+                        include: { emergency: true, guarantor: true },
                     },
                     userDocuments: {
                         select: { name: true },
@@ -383,8 +371,6 @@ export class UserService {
 
             return updatedUser;
         });
-
-        return updateUser;
     }
 
 
@@ -464,7 +450,83 @@ export class UserService {
 
 
 
+
+
+
+
     //////////////////////////////// HELPER METHODS ////////////////////////////////
+
+    private async ensureUniqueEmployeeFields(
+        data: UpdateUserDto,
+        userId: string,
+        tx: Prisma.TransactionClient,
+    ) {
+        const { eId, email, workPhone } = data;
+
+        if (eId) {
+            const existingEId = await tx.user.findFirst({
+                where: { eId, NOT: { id: userId } },
+            });
+            if (existingEId)
+                bad(`Employee ID "${eId}" is already assigned to another employee`);
+        }
+
+        if (workPhone) {
+            const existingWorkPhone = await tx.user.findFirst({
+                where: { workPhone, NOT: { id: userId } },
+            });
+            if (existingWorkPhone)
+                bad(`Work phone "${workPhone}" is already assigned to another employee`);
+        }
+
+        if (email) {
+            const existingEmail = await tx.user.findFirst({
+                where: { email, NOT: { id: userId } },
+            });
+            if (existingEmail)
+                bad(`Work email "${email}" is already assigned to another employee`);
+        }
+    }
+
+    private async updateContacts(
+        tx: Prisma.TransactionClient,
+        userId: string,
+        guarantor?: any,
+        emergency?: any,
+    ) {
+        await tx.contacts.upsert({
+            where: { userId },
+            update: {
+                ...(guarantor
+                    ? {
+                        guarantor: {
+                            upsert: {
+                                update: guarantor,
+                                create: guarantor,
+                            },
+                        },
+                    }
+                    : {}),
+                ...(emergency
+                    ? {
+                        emergency: {
+                            upsert: {
+                                update: emergency,
+                                create: emergency,
+                            },
+                        },
+                    }
+                    : {}),
+            },
+            create: {
+                userId,
+                ...(guarantor ? { guarantor: { create: guarantor } } : {}),
+                ...(emergency ? { emergency: { create: emergency } } : {}),
+            },
+        });
+    }
+
+
 
     async __findUserById(id: string) {
         try {
@@ -485,7 +547,6 @@ export class UserService {
         } catch (error) {
             bad("Unable to find user")
         }
-
     }
 
     async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
@@ -535,20 +596,19 @@ export class UserService {
                         level,
                         firstName,
                         lastName,
-                        workEmail,
+                        email,
+                        personalEmail,
                         workPhone,
                         gender,
                         role,
                         userRole,
                         eId,
                         phone,
-                        email,
                     } = e;
 
 
                     console.log(department)
 
-                    // ✅ Basic required field validation
                     if (!firstName || !lastName) bad("First name and last name are required");
                     if (!gender) bad("Gender is required");
                     if (!department) bad("Department is required");
@@ -556,10 +616,10 @@ export class UserService {
                     if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
 
                     // ✅ Duplicate checks
-                    if (workEmail) {
-                        const existingWorkEmail = await this.prisma.user.findUnique({ where: { workEmail } });
+                    if (email) {
+                        const existingWorkEmail = await this.prisma.user.findUnique({ where: { email } });
                         if (existingWorkEmail) {
-                            bad(`Work email ${workEmail} already belongs to ${existingWorkEmail.firstName} ${existingWorkEmail.lastName}`);
+                            bad(`Work email ${email} already belongs to ${existingWorkEmail.firstName} ${existingWorkEmail.lastName}`);
                         }
                     }
                     if (email) {
@@ -621,8 +681,8 @@ export class UserService {
                             data: {
                                 firstName,
                                 lastName,
-                                workEmail,
                                 email,
+                                personalEmail,
                                 // workPhone: workPhone.toString(),
                                 // phone: phone.toString(),
                                 gender,

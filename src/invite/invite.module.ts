@@ -4,11 +4,13 @@ import { InviteController } from './invite.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailModule } from 'src/mail/mail.module';
 import { AuthService } from 'src/auth/auth.service';
+import { UploadsModule } from 'src/uploads/uploads.module';
 
 @Module({
   imports: [
     PrismaModule,
-    MailModule],
+    MailModule,
+    UploadsModule],
   providers: [InviteService, AuthService],
   controllers: [InviteController],
   exports: [InviteService,],

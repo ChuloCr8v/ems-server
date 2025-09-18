@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { generateUploadKey } from 'src/utils/uploadkey-generator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Injectable()
 export class UploadsService {
@@ -83,10 +84,10 @@ export class UploadsService {
         user: IAuthUser,
     ) {
         const dbUser = await this.prisma.user.findUnique({
-            where: { email: user.email },
+            where: { id: user.sub },
         });
 
-        mustHave(dbUser, `No user found with email ${user.email}`, 404);
+        mustHave(dbUser, `No user found with email ${dbUser.email}`, 404);
 
         const key = await this.upload(file);
 
@@ -113,6 +114,7 @@ export class UploadsService {
                 message: "Upload successful",
                 uri: cloudinaryUpload.secure_url,
                 publicId: cloudinaryUpload.public_id,
+                id
             };
 
         } catch (error) {
@@ -254,5 +256,3 @@ export class UploadsService {
     }
 
 }
-
-

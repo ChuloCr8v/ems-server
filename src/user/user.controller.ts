@@ -13,7 +13,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { AddEmployeeDto, ApproveUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
@@ -30,21 +30,19 @@ export class UserController {
   }
 
   @Post('invite/:id')
-  async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @Res() res: Response) {
-    const user = await this.userService.updateUserData(id, data);
-    return res.status(200).json({ message: `A User Has Sent His/Her Details`, user });
+  async createUser(@Param('id') id: string, @Body() data: UpdateUserDto) {
+    return await this.userService.updateUser(id, data, "invite");
   }
 
   @Put('update/:id')
-  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, workEmail: string, workPhone: string, levelId: string }, @Res() res: Response) {
-    const user = await this.userService.updateEmployeeData(id, data);
-    return res.status(200).json({ message: `User updated successfully`, user });
+  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, email: string, workPhone: string, levelId: string }) {
+    return this.userService.updateUser(id, data, "employee");
   }
 
   @Put('assign-assets/:id')
   async assignAssets(@Param('id') id: string, @Body() data: string[], @Res() res: Response) {
     const user = await this.userService.assignAssets(id, data);
-    return res.status(200).json({ message: `Assets assid`, user });
+    return res.status(200).json({ message: `Assets assigned`, user });
   }
 
   @Get()
@@ -54,27 +52,20 @@ export class UserController {
 
   @Get(":id")
   async getUser(@Param("id") id: string) {
-    return await this.userService.getUser(id);
+    return this.userService.getUser(id);
   }
 
   @Put('approve/:id')
-  async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto, @Res() res: Response) {
-    const user = await this.userService.approveUser(id, data);
-    return res.status(200).json({ message: `User has been Approved`, user })
-  }
+  async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto) {
+    return this.userService.approveUser(id, data);
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Post('info/:id')
-  async updateUserInfo(@Param('id') id: string, @Body() comment: UpdateUserInfo, @Res() res: Response) {
-    const user = await this.userService.updateUserInfo(id, comment);
-    return res.status(200).json({ message: `Update Info Request Sent`, user });
   }
 
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
   async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @UploadedFiles() uploads: { uploads?: Express.Multer.File[] }, @Res() res: Response) {
 
-    const user = await this.userService.updateUser(id, data, uploads?.uploads || []);
+    const user = await this.userService.updateEmployee(id, data, uploads?.uploads || []);
     return res.status(200).json({ message: `User Details Has Been Updated`, user })
   }
 

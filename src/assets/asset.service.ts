@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto, ImageDto } from './dto/assets.dto';
-import { AssetStatus, FaultStatus } from '@prisma/client';
+import { AssetCategory, AssetStatus, FaultStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { bad, mustHave } from 'src/utils/error.utils';
 
@@ -23,7 +23,7 @@ export class AssetService {
       name: createAssetDto.name,
       serialNo: createAssetDto.serialNo,
       category: createAssetDto.category,
-      purchaseDate: new Date(createAssetDto.purchaseDate),
+      // purchaseDate: new Date(createAssetDto.purchaseDate),
       vendor: createAssetDto.vendor,
       cost: Number(createAssetDto.cost),
       description: createAssetDto.description,
@@ -142,8 +142,6 @@ export class AssetService {
     };
   }
 
-
-
   async updateAsset(
     id: string,
     updateAssetDto: CreateAssetDto,
@@ -173,9 +171,9 @@ export class AssetService {
       name: updateAssetDto.name,
       serialNo: updateAssetDto.serialNo,
       category: updateAssetDto.category,
-      purchaseDate: updateAssetDto.purchaseDate
-        ? new Date(updateAssetDto.purchaseDate)
-        : existing.purchaseDate,
+      // purchaseDate: updateAssetDto.purchaseDate
+      //   ? new Date(updateAssetDto.purchaseDate)
+      //   : existing.purchaseDate,
       vendor: updateAssetDto.vendor,
       cost: updateAssetDto.cost ?? existing.cost,
       description: updateAssetDto.description,
@@ -362,7 +360,6 @@ export class AssetService {
     });
   }
 
-
   async getFaultyAssets() {
     return this.prisma.asset.findMany({
       where: {
@@ -515,39 +512,158 @@ export class AssetService {
 
     for (const [index, row] of jsonData.entries()) {
       try {
-        // Validate required fields
-        if (!row['name'] || !row['serialNo'] || !row['category']) {
-          bad(`Row ${index + 2}: Missing required fields (name, serialNo, category)`);
+        // ✅ Validate required fields
+        if (!row['name']) {
+          errors.push({
+            row: index + 2,
+            error: `Missing required field: name`,
+            data: row,
+          });
+          continue;
         }
 
-        // Check if asset with this serialNo already exists
-        const existing = await this.prisma.asset.findUnique({
-          where: { serialNo: row['serialNo'] },
-        });
+        // ✅ Check serialNo/name uniqueness
+        let existing = null;
+        if (row['serialNo'] || row['name']) {
+          existing = await this.prisma.asset.findFirst({
+            where: {
+              OR: [
+                row['serialNo'] ? { serialNo: row['serialNo'] } : {},
+                // row['name'] ? { name: row['name'] } : {},
+              ],
+            },
+          });
+        }
 
         if (existing) {
-          bad(`Row ${index + 2}: Asset with serial number ${row['serialNo']} already exists`);
+          errors.push({
+            row: index + 2,
+            error: `Asset with this serialNo or name already exists`,
+            data: row,
+          });
+          continue; // skip this row
         }
 
-        // Prepare asset data
-        const assetData: CreateAssetDto = {
-          name: row['name'],
-          serialNo: row['serialNo'],
-          category: row['category'],
-          purchaseDate: row['purchaseDate'] ? new Date(row['purchaseDate']) : undefined,
-          vendor: row['vendor'] || null,
-          cost: row['cost'] ? (row['cost']) : 0,
-          description: row['description'] || null,
-          assetImage: row['imageUrl'] ? { url: row['imageUrl'] } : null,
-          // barcodeImage: null, // Can't handle barcode images in Excel
+        // ✅ Handle assignee safely
+        const assigneeName: string | undefined = row['assignee'];
+        let assignee = null;
+
+        console.log(assigneeName)
+
+        if (assigneeName) {
+          const parts = assigneeName.trim().split(/\s+/);
+          const firstName = parts[0] || null;
+          const lastName = parts.slice(1).join(" ") || null;
+
+          console.log(parts, firstName, lastName);
+
+          if (firstName) {
+            assignee = await this.prisma.user.findFirst({
+              where: lastName
+                ? {
+                  firstName: {
+                    equals: firstName,
+                    mode: "insensitive",
+                  },
+                  lastName: {
+                    equals: lastName,
+                    mode: "insensitive",
+                  },
+                }
+                : {
+                  firstName: {
+                    equals: firstName,
+                    mode: "insensitive",
+                  },
+                },
+            });
+          }
+        }
+
+
+        console.log(assignee)
+
+        // ✅ Category mapping with switch
+        const mapCategory = (raw?: string): AssetCategory => {
+          if (!raw) return AssetCategory.GENERAL;
+
+          const normalized = raw.trim().toLowerCase();
+
+          switch (normalized) {
+            // Telecom
+            case "mtn sim":
+            case "airtel sim":
+            case "cug sim":
+            case "mtn 4g lte hotspot b300":
+              return AssetCategory.TELECOM;
+
+            // Computing Hardware
+            case "laptop":
+            case "mac laptop":
+            case "hard drive":
+            case "nasco brand":
+            case "phone":
+            case "monitor":
+            case "printer":
+            case "scanner":
+            case "webcam":
+            case "mouse":
+            case "lg sound box":
+            case "pos":
+            case "rollup banner":
+            case "tripod stand":
+            case "ring light":
+            case "wireless mic":
+            case "gimbal":
+              return AssetCategory.HARDWARE;
+
+            // Office Accessories
+            case "id card":
+            case "back bag":
+            case "back pack":
+            case "keys":
+            case "stamp":
+            case "clip pad":
+              return AssetCategory.ACCESSORY;
+
+            // Safety Equipment
+            case "safety jacket":
+            case "raincoat":
+            case "toolbox":
+            case "splicer":
+              return AssetCategory.SAFETY_EQUIPMENT;
+
+            // Medical
+            case "bp monitor":
+              return AssetCategory.MEDICAL_EQUIPMENT;
+
+            // Default
+            default:
+              return AssetCategory.GENERAL;
+          }
         };
 
-        // Create the asset
+        const adjustedCategory = mapCategory(row['category']) as AssetCategory;
+
+        // ✅ Prepare asset data
+        const assetData: CreateAssetDto = {
+          name: row['name'],
+          serialNo: row['serialNo'] || `${"N/A" + index}`,
+          category: adjustedCategory,
+          description: row['description'] || null,
+        };
+
+        // ✅ Create the asset
         const asset = await this.createAsset(assetData);
+
+        if (assignee) {
+          await this.assignAsset(asset.id, { userId: assignee.id });
+        }
+
         results.push(asset);
       } catch (error) {
         errors.push({
-          row: index + 2, // +2 because Excel rows start at 1 and header is row 1
+          row: index + 2, // Excel rows start at 1, headers at row 1
           error: error.message,
           data: row,
         });
@@ -561,6 +677,9 @@ export class AssetService {
       errors,
     };
   }
+
+
+
 
 
   async deleteAsset(id: string) {

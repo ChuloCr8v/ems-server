@@ -205,7 +205,6 @@ export class DepartmentService {
         try {
             return await this.prisma.department.findMany({
                 include: {
-                    departmentHead: true,
                     createdBy: true,
                     approver: {
                         include: {

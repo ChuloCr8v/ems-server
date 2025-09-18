@@ -47,7 +47,11 @@ export class ApproverService {
       include: {
         departments: {
           include: {
-            departmentHead: true
+            approver: {
+              include: {
+                user: true
+              }
+            }
           }
         }
       },
@@ -57,7 +61,9 @@ export class ApproverService {
       throw new NotFoundException('User not found');
     }
 
-    const isDepartmentHead = user.departments?.some(d => d.departmentHeadId === userId);
+    const isDepartmentHead = user.departments?.some(d =>
+      d.approver.some(x => x.departmentId === d.id)
+    );
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
