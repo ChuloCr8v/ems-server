@@ -2,6 +2,8 @@ import {
   Injectable,
   UnauthorizedException,
   InternalServerErrorException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -59,7 +61,7 @@ export class AuthService {
       }
 
       const user = await this.prisma.user.findUnique({
-        where: { workEmail: email },
+        where: { email: email },
         // select: {
         //   id: true,
         //   email: true,
@@ -83,13 +85,39 @@ export class AuthService {
 
   }
 
+  // Generate accesstoken for prospect for documents upload
+
+  async generateProspectAccessToken(userId: string) {
+    if (!userId) bad("User id is required")
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        }
+      })
+
+      if (!user) mustHave(user, "User not found", 404)
+      const payload = { sub: user.id, email: user.email, role: user.userRole };
+      return {
+        access_token: this.jwt.sign(payload),
+        user,
+      };
+
+    } catch (error) {
+      console.log(error)
+      bad(error)
+    }
+  }
+
+
 
   //Temporary. Will remove later so just ignore lack of password.
   async emailLogin(email: string, password: string) {
     try {
       const user = await this.prisma.user.findUnique({
         where: {
-          workEmail: email
+          email: email
         },
       })
       if (!user) mustHave(user, "User not found", 404)

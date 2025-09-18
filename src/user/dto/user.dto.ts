@@ -42,6 +42,19 @@ export class GuarantorContactDto {
 
 
 export class CreateUserDto {
+  @IsString()
+  @IsOptional()
+  eId?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+
+  @IsString()
+  @IsOptional()
+  workPhone?: string;
+
   @IsNotEmpty({ message: 'First Name is Required' })
   @IsString()
   firstName: string;
@@ -91,7 +104,6 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Address is Required' })
   address: string;
 
-
   @IsString()
   @IsOptional()
   levelId: string;
@@ -107,13 +119,14 @@ export class CreateUserDto {
   @IsArray()
   @IsOptional()
   userDocuments: string[];
+
+  @IsArray()
+  @IsOptional()
+  userRole?: Role[];
+
 }
 
-export class UpdateUserDto extends CreateUserDto {
-}
-
-export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
-
+export class UpdateUserDto extends PartialType(CreateUserDto) { }
 export class ApproveUserDto {
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
@@ -145,7 +158,13 @@ export class
 
   @IsNotEmpty()
   @IsEmail()
-  workEmail: string;
+  email: string;
+
+
+  @IsOptional()
+  @IsString()
+  personalEmail?: string;
+
 
   @IsOptional()
   @IsString()
@@ -154,10 +173,6 @@ export class
   @IsOptional()
   @IsString()
   phone?: string;
-
-  @IsOptional()
-  @IsString()
-  email?: string;
 
   @IsNotEmpty()
   @IsString()

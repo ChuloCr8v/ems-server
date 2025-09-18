@@ -142,7 +142,6 @@ export class LeaveService {
         }
     }
 
-
     async listLeaveRequests(userId: string) {
         try {
             const user = await this.prisma.user.findUnique({
@@ -290,7 +289,7 @@ export class LeaveService {
                 .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
 
             const pendingLeaveDays = leaveRequests
-                .filter(l => l.status === 'REJECTED')
+                .filter(l => l.status === 'PENDING')
                 .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
 
             return {
@@ -724,7 +723,7 @@ export class LeaveService {
             });
 
             await this.mail.sendLeaveRequestMail({
-                email: currentApproval.approver.workEmail,
+                email: currentApproval.approver.email,
                 name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
                 leaveType: leaveRequest.type.name,
                 startDate: leaveRequest.startDate,
@@ -756,7 +755,7 @@ export class LeaveService {
 
         const duration = this.calculateLeaveDuration(approval.startDate, approval.endDate);
         await this.mail.sendLeaveApprovalMail({
-            email: approval.user.workEmail,
+            email: approval.user.email,
             name: `${approval.user.firstName} ${approval.user.lastName}`,
             leaveType: approval.type.name,
             startDate: approval.startDate,
@@ -786,7 +785,7 @@ export class LeaveService {
         const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
 
         await this.mail.sendLeaveRejectMail({
-            email: leaveRequest.user.workEmail,
+            email: leaveRequest.user.email,
             name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
             leaveType: leaveRequest.type.name,
             leaveValue: duration,
@@ -797,8 +796,4 @@ export class LeaveService {
 
         return true;
     }
-
-
-
-
 }

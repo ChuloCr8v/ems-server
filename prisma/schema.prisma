@@ -26,33 +26,11 @@ model Notification {
   prospect  Prospect? @relation(fields: [prospectId], references: [id])
 }
 
-model Prospect {
-  id           String         @id @default(uuid()) @db.Uuid
-  email        String         @unique
-  firstName    String         @default("")
-  lastName     String         @default("")
-  phone        String
-  gender       String
-  role         String
-  duration     String?
-  startDate    DateTime
-  departmentId String?        @db.Uuid
-  department   Department?    @relation(fields: [departmentId], references: [id])
-  jobType      JobType
-  user         User?
-  invite       Invite[]
-  upload       Upload[]
-  // comment      Comment[]
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  notification Notification[]
-}
-
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
-  eId           String?        @unique
-  email         String?        @unique
-  workEmail     String?        @unique
+  id            String       @id @default(uuid()) @db.Uuid
+  eId           String?      @unique
+  personalEmail String?      @unique
+  email         String?      @unique
   firstName     String
   lastName      String
   phone         String?
@@ -61,7 +39,8 @@ model User {
   gender        String
   duration      String?
   jobType       JobType?
-  departments   Department[]
+  departments   Department[] // many-to-many
+
   country       String?
   state         String?
   address       String?
@@ -71,12 +50,15 @@ model User {
   maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
-  levelId       String?        @db.Uuid
-  level         Level?         @relation(fields: [levelId], references: [id])
-  prospectId    String?        @unique @db.Uuid
-  prospect      Prospect?      @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  userDocuments Upload[] @relation("UserDocuments")
+  levelId String? @db.Uuid
+  level   Level?  @relation(fields: [levelId], references: [id])
+
+  prospectId String?   @unique @db.Uuid
+  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  prospectDocuments Upload[] @relation("ProspectDocuments")
+  userDocuments     Upload[] @relation("UserDocuments")
 
   invite      Invite[]
   createdAt   DateTime     @default(now())
@@ -86,9 +68,6 @@ model User {
 
   faultReporter Fault[] @relation("reportedBy")
   faultResolver Fault[] @relation("resolvedBy")
-
-  departmentHeadId String?     @db.Uuid
-  departmentHead   Department? @relation("DepartmentHead")
 
   departmentCreator Department? @relation("departmentCreator")
 
@@ -107,6 +86,44 @@ model User {
   @@index([levelId])
 }
 
+model Department {
+  id   String @id @default(uuid()) @db.Uuid
+  name String @unique
+  user User[] // many-to-many
+
+  createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
+  createdById String? @unique @db.Uuid
+
+  status   DepartmentStatus? @default(ACTIVE)
+  approver Approver[]
+
+  prospects Prospect[] // one dept → many prospects
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Prospect {
+  id          String       @id @default(uuid()) @db.Uuid
+  email       String       @unique
+  firstName   String       @default("")
+  lastName    String       @default("")
+  phone       String
+  gender      String
+  role        String
+  duration    String?
+  startDate   DateTime
+  departments Department[]
+
+  jobType      JobType
+  user         User?
+  invite       Invite[]
+  upload       Upload[]
+  notification Notification[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
 model Invite {
   id         String    @id @default(uuid()) @db.Uuid
   email      String
@@ -123,25 +140,6 @@ model Invite {
 
   comment        Comment[]
   declineReasons String[]
-}
-
-model Department {
-  id       String     @id @default(uuid()) @db.Uuid
-  name     String     @unique
-  prospect Prospect[]
-  user     User[]
-
-  createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
-  createdById String? @unique @db.Uuid
-
-  departmentHeadId String? @unique @db.Uuid
-  departmentHead   User?   @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
-
-  status   DepartmentStatus? @default(ACTIVE)
-  approver Approver[]
-
-  createdAt DateTime @default(now())
-  updatedAT DateTime @updatedAt
 }
 
 model Level {
@@ -167,8 +165,10 @@ model Upload {
   prospectId String?   @db.Uuid
   prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  userId        String?           @db.Uuid
-  userDocuments User?             @relation("UserDocuments", fields: [userId], references: [id])
+  userId            String? @db.Uuid
+  userDocuments     User?   @relation("UserDocuments", fields: [userId], references: [id])
+  prospectDocuments User[]  @relation("ProspectDocuments")
+
   offboardingId String?           @db.Uuid
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
   commentId     String?           @db.Uuid
