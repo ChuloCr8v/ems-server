@@ -9,26 +9,27 @@ export class ApproverService {
   async getApproversForDepartment(departments: Department[]) {
     const deptIds = departments.map((d) => d.id);
 
-    return this.prisma.user.findMany({
+    const approver = this.prisma.user.findMany({
       where: {
-        departments: {
-          some: { id: { in: deptIds } },
-        },
         approver: {
           some: {
             departmentId: { in: deptIds },
             role: Role.DEPT_MANAGER,
           },
-        }
-
+        },
       },
       include: {
         departments: true,
-        approver: true
+        approver: true,
       },
     });
-  }
 
+    console.log(approver)
+
+    return approver
+
+
+  }
 
   async getGlobalApprovers() {
     return this.prisma.user.findMany({
@@ -53,7 +54,8 @@ export class ApproverService {
               }
             }
           }
-        }
+        },
+        approver: true
       },
     });
 
@@ -61,9 +63,7 @@ export class ApproverService {
       throw new NotFoundException('User not found');
     }
 
-    const isDepartmentHead = user.departments?.some(d =>
-      d.approver.some(x => x.departmentId === d.id)
-    );
+    const isDepartmentHead = user.approver.length
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
@@ -75,7 +75,6 @@ export class ApproverService {
       ?? [];
 
     const globalApprovers = await this.getGlobalApprovers();
-
 
     return [...departmentApprovers, ...globalApprovers];
   }

@@ -63,7 +63,6 @@ export class LeaveService {
             // 5. Calculate duration 
             const duration = this.calculateLeaveDuration(startDate, endDate);
 
-            // return
             if (duration > availableEntitlement.value) {
                 throw new BadRequestException(
                     `Insufficient leave balance. You have ${availableEntitlement.value} days remaining.`
@@ -168,10 +167,9 @@ export class LeaveService {
             if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.LEAVE_MANAGER)) {
                 return leaveRequests;
             }
-
             if (user.approver.length) {
                 return leaveRequests.filter(l =>
-                    l.approvals.some(a => a.approverId === userId)
+                    l.approvals.filter(a => a.approverId === userId)
                 );
             }
 
@@ -321,9 +319,11 @@ export class LeaveService {
             where: { id: userId },
             include: { departments: true },
         });
+
         if (!employee) throw new NotFoundException("Employee Not Found");
 
         const approvers = await this.approver.getApproversForUser(userId);
+
         if (approvers.length === 0) {
             throw new NotFoundException("No approvers found for this employee");
         }
@@ -367,9 +367,9 @@ export class LeaveService {
             });
 
             // Send notification outside transaction
-            setTimeout(() => {
-                this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
-            }, 0);
+            // setTimeout(() => {
+            //     this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
+            // }, 0);
         }
 
         return firstApproval;
@@ -457,13 +457,13 @@ export class LeaveService {
 
                 }
 
-                setTimeout(() => {
-                    this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                    // this.event.emit(
-                    //     'leave_approved',
-                    //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                    // );
-                }, 0);
+                // setTimeout(() => {
+                //     this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
+                //     // this.event.emit(
+                //     //     'leave_approved',
+                //     //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
+                //     // );
+                // }, 0);
 
                 return {
                     approval: null,

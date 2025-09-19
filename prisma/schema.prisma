@@ -89,7 +89,7 @@ model User {
 model Department {
   id   String @id @default(uuid()) @db.Uuid
   name String @unique
-  user User[] // many-to-many
+  user User[]
 
   createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
   createdById String? @unique @db.Uuid
@@ -97,10 +97,10 @@ model Department {
   status   DepartmentStatus? @default(ACTIVE)
   approver Approver[]
 
-  prospects Prospect[] // one dept → many prospects
+  prospects Prospect[]
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Prospect {
