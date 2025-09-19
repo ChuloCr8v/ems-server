@@ -17,11 +17,13 @@ export class UserService {
     ) { }
 
     async getMe(sub: string) {
-        console.log(sub)
         try {
             const me = await this.prisma.user.findUnique({
                 where: {
                     id: sub
+                },
+                include: {
+                    approver: true
                 }
             })
 
@@ -29,61 +31,6 @@ export class UserService {
         } catch (error) {
             console.log(error)
             bad(error)
-        }
-    }
-
-
-    async updateEmployeeData(
-        id: string,
-        data: { eId: string; email: string; workPhone: string, levelId: string }
-    ) {
-        const { email, workPhone, eId } = data;
-        try {
-            const user = await this.prisma.user.findUnique({ where: { id } });
-            !user && mustHave(user, "User not found", 404);
-
-            const existingEId = await this.prisma.user.findFirst({
-                where: {
-                    eId,
-                    NOT: { id },
-                },
-            });
-            if (existingEId)
-                bad(`Employee ID "${eId}" is already assigned to another employee`);
-
-            const existingWorkPhone = await this.prisma.user.findFirst({
-                where: {
-                    workPhone,
-                    NOT: { id },
-                },
-            });
-            if (existingWorkPhone)
-                bad(`Work phone "${workPhone}" is already assigned to another employee`);
-
-            const existingWorkEmail = await this.prisma.user.findFirst({
-                where: {
-                    email,
-                    NOT: { id },
-                },
-            });
-            if (existingWorkEmail)
-                bad(`Work email "${email}" is already assigned to another employee`);
-
-            const updateEmployee = await this.prisma.user.update({
-                where: { id },
-                data: {
-                    email, workPhone, eId, level: {
-                        connect: {
-                            id: data.levelId
-                        }
-                    },
-                },
-            });
-
-            return updateEmployee;
-        } catch (error) {
-            console.error(error);
-            bad(error);
         }
     }
 
@@ -292,87 +239,84 @@ export class UserService {
 
         const user = await this.__findUserById(id);
 
-        return this.prisma.$transaction(async (tx) => {
-            const updateData: any = {};
+        const updateData: any = {};
 
+        if ("firstName" in data) updateData.firstName = data.firstName;
+        if ("lastName" in data) updateData.lastName = data.lastName;
+        if ("gender" in data) updateData.gender = data.gender;
+        if ("phone" in data) updateData.phone = data.phone;
+        if ("role" in data) updateData.role = data.role;
+        if ("country" in data) updateData.country = data.country;
+        if ("address" in data) updateData.address = data.address;
+        if ("state" in data) updateData.state = data.state;
+        if ("maritalStatus" in data) updateData.maritalStatus = data.maritalStatus;
+        if ("userRole" in data) updateData.userRole = data.userRole;
 
-            if ("firstName" in data) updateData.firstName = data.firstName;
-            if ("lastName" in data) updateData.lastName = data.lastName;
-            if ("gender" in data) updateData.gender = data.gender;
-            if ("phone" in data) updateData.phone = data.phone;
-            if ("role" in data) updateData.role = data.role;
-            if ("country" in data) updateData.country = data.country;
-            if ("address" in data) updateData.address = data.address;
-            if ("state" in data) updateData.state = data.state;
-            if ("maritalStatus" in data) updateData.maritalStatus = data.maritalStatus;
-            if ("userRole" in data) updateData.userRole = data.userRole;
-
-
-            if (context === "invite") {
-                if (data.jobType === JobType.CONTRACT && data.duration) {
-                    updateData.duration = data.duration;
-                }
-
-                if (data.userDocuments?.length) {
-                    updateData.userDocuments = {
-                        connect: data.userDocuments.map((docId: string) => ({ id: docId })),
-                    };
-                }
+        if (context === "invite") {
+            if (data.jobType === JobType.CONTRACT && data.duration) {
+                updateData.duration = data.duration;
             }
 
-            if (context === "employee") {
-                await this.ensureUniqueEmployeeFields(data, id, tx);
-
-                Object.assign(updateData, {
-                    email: data.email,
-                    workPhone: data.workPhone,
-                    eId: data.eId,
-                    level: { connect: { id: data.levelId } },
-                });
-            }
-
-            if (context === "admin") {
-                if (data.jobType === JobType.CONTRACT && data.duration) {
-                    updateData.duration = data.duration;
-                }
-
-                if (data.userDocuments?.length) {
-                    updateData.userDocuments = {
-                        set: data.userDocuments.map((docId: string) => ({ id: docId })),
-                    };
-                }
-            }
-
-
-            if (data.guarantor || data.emergency) {
-                await this.updateContacts(tx, user.id, data.guarantor, data.emergency);
-            }
-
-
-            if ("departments" in user && user.departments?.length) {
-                updateData.departments = {
-                    connect: user.departments.map((d) => ({ id: d.id })),
+            if (data.userDocuments?.length) {
+                updateData.userDocuments = {
+                    connect: data.userDocuments.map((docId: string) => ({ id: docId })),
                 };
             }
+        }
 
+        if (context === "employee") {
+            console.time("ensureUniqueEmployeeFields");
+            await this.ensureUniqueEmployeeFields(data, id, this.prisma);
+            console.timeEnd("ensureUniqueEmployeeFields");
 
-            const updatedUser = await tx.user.update({
-                where: { id },
-                data: updateData,
-                include: {
-                    contacts: {
-                        include: { emergency: true, guarantor: true },
-                    },
-                    userDocuments: {
-                        select: { name: true },
-                    },
-                },
+            Object.assign(updateData, {
+                email: data.email,
+                workPhone: data.workPhone,
+                eId: data.eId,
+                level: { connect: { id: data.levelId } },
             });
+        }
 
-            return updatedUser;
+        if (context === "admin") {
+            if (data.jobType === JobType.CONTRACT && data.duration) {
+                updateData.duration = data.duration;
+            }
+
+            if (data.userDocuments?.length) {
+                updateData.userDocuments = {
+                    set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                };
+            }
+        }
+
+        if (data.guarantor || data.emergency) {
+            console.time("updateContacts");
+            await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency);
+            console.timeEnd("updateContacts");
+        }
+
+        if ("departments" in user && user.departments?.length) {
+            updateData.departments = {
+                connect: user.departments.map((d) => ({ id: d.id })),
+            };
+        }
+
+        console.time("prisma_user_update");
+        const updatedUser = await this.prisma.user.update({
+            where: { id },
+            data: updateData,
+            include: {
+                contacts: {
+                    include: { emergency: true, guarantor: true },
+                },
+                userDocuments: {
+                    select: { name: true },
+                },
+            },
         });
-    }
 
+        return updatedUser;
+    }
 
     async findAllUsers() {
         return this.prisma.user.findMany({
@@ -447,12 +391,6 @@ export class UserService {
         }
 
     }
-
-
-
-
-
-
 
     //////////////////////////////// HELPER METHODS ////////////////////////////////
 
@@ -584,146 +522,107 @@ export class UserService {
     }
 
     async addEmployee(data: AddEmployeeDto[]) {
-        try {
-            const isBulk = data.length > 1;
+        const isBulk = data.length > 1;
 
-            const createdEmployees = await Promise.all(
-                data.map(async (e) => {
-                    const {
-                        jobType,
-                        duration,
-                        department,
-                        level,
-                        firstName,
-                        lastName,
-                        email,
-                        personalEmail,
-                        workPhone,
-                        gender,
-                        role,
-                        userRole,
-                        eId,
-                        phone,
-                    } = e;
+        const emails = data.map((e) => e.email?.toLowerCase()).filter(Boolean);
+        const workPhones = data.map((e) => e.workPhone?.toString()).filter(Boolean);
+        const phones = data.map((e) => e.phone?.toString()).filter(Boolean);
+        const eIds = data.map((e) => e.eId).filter(Boolean);
 
+        const [existingEmails, existingWorkPhones, existingPhones, existingEids] =
+            await Promise.all([
+                this.prisma.user.findMany({
+                    where: { email: { in: emails }, },
+                    select: { email: true, firstName: true, lastName: true },
+                }),
+                this.prisma.user.findMany({
+                    where: { workPhone: { in: workPhones } },
+                    select: { workPhone: true, firstName: true, lastName: true },
+                }),
+                this.prisma.user.findMany({
+                    where: { phone: { in: phones } },
+                    select: { phone: true, firstName: true, lastName: true },
+                }),
+                this.prisma.user.findMany({
+                    where: { eId: { in: eIds } },
+                    select: { eId: true, firstName: true, lastName: true },
+                }),
+            ]);
 
-                    console.log(department)
+        const results: {
+            success: boolean;
+            data?: any;
+            error?: string;
+            input: AddEmployeeDto;
+        }[] = [];
 
-                    if (!firstName || !lastName) bad("First name and last name are required");
-                    if (!gender) bad("Gender is required");
-                    if (!department) bad("Department is required");
-                    // if (!level) bad("Level is required");
-                    if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
+        for (const e of data) {
+            try {
+                if (!e.firstName || !e.lastName) throw new Error("First name and last name are required");
+                if (!e.gender) throw new Error("Gender is required");
+                if (!e.department?.length) throw new Error("Department is required");
+                if (e.jobType === "CONTRACT" && !e.duration)
+                    throw new Error("Duration is required for contract employees");
 
-                    // ✅ Duplicate checks
-                    if (email) {
-                        const existingWorkEmail = await this.prisma.user.findUnique({ where: { email } });
-                        if (existingWorkEmail) {
-                            bad(`Work email ${email} already belongs to ${existingWorkEmail.firstName} ${existingWorkEmail.lastName}`);
-                        }
-                    }
-                    if (email) {
-                        const existingEmail = await this.prisma.user.findUnique({ where: { email } });
-                        if (existingEmail) {
-                            bad(`Email ${email} already belongs to ${existingEmail.firstName} ${existingEmail.lastName}`);
-                        }
-                    }
-                    if (workPhone) {
-                        const existingWorkPhone = await this.prisma.user.findFirst({ where: { workPhone: workPhone.toString() } });
-                        if (existingWorkPhone) {
-                            bad(`Work phone ${workPhone} already belongs to ${existingWorkPhone.firstName} ${existingWorkPhone.lastName}`);
-                        }
-                    }
-                    if (phone) {
-                        const existingPhone = await this.prisma.user.findFirst({ where: { phone: phone.toString() } });
-                        if (existingPhone) {
-                            bad(`Phone ${phone} already belongs to ${existingPhone.firstName} ${existingPhone.lastName}`);
-                        }
-                    }
-                    if (eId) {
-                        const existingEid = await this.prisma.user.findUnique({ where: { eId } });
-                        if (existingEid) {
-                            bad(`Employee ID ${eId} already belongs to ${existingEid.firstName} ${existingEid.lastName}`);
-                        }
-                    }
+                if (e.email) {
+                    const found = existingEmails.find((u) => u.email.toLowerCase() === e.email.toLowerCase());
+                    if (found) throw new Error(`Email ${e.email} already belongs to ${found.firstName} ${found.lastName}`);
+                }
+                if (e.workPhone) {
+                    const found = existingWorkPhones.find((u) => u.workPhone === e.workPhone.toString());
+                    if (found) throw new Error(`Work phone ${e.workPhone} already belongs to ${found.firstName} ${found.lastName}`);
+                }
+                if (e.phone) {
+                    const found = existingPhones.find((u) => u.phone === e.phone.toString());
+                    if (found) throw new Error(`Phone ${e.phone} already belongs to ${found.firstName} ${found.lastName}`);
+                }
+                if (e.eId) {
+                    const found = existingEids.find((u) => u.eId === e.eId);
+                    if (found) throw new Error(`Employee ID ${e.eId} already belongs to ${found.firstName} ${found.lastName}`);
+                }
 
-                    let departmentConnect: { id: string }[] = [];
-                    let levelConnect: { id: string };
+                const departments = await this.prisma.department.findMany({
+                    where: { name: { in: e.department } },
+                });
+                if (departments.length !== e.department.length) {
+                    throw new Error(`Some departments not found: expected ${e.department.length}, found ${departments.length}`);
+                }
 
-                    if (isBulk) {
-                        // connect by names (array of names)
-                        const depts = await this.prisma.department.findMany({
-                            where: { name: { in: department } }
-                        });
+                const employeeData = {
+                    firstName: e.firstName,
+                    lastName: e.lastName,
+                    email: e.email,
+                    personalEmail: e.personalEmail,
+                    workPhone: e.workPhone?.toString(),
+                    phone: e.phone?.toString(),
+                    gender: e.gender,
+                    role: e.role,
+                    userRole: e.userRole,
+                    eId: e.eId,
+                    departments: { connect: departments.map((d) => ({ id: d.id })) },
+                    ...(e.level ? { level: { connect: { id: e.level } } } : {}),
+                    jobType: JobType.FULL_TIME,
+                    duration: e.jobType === "CONTRACT" ? e.duration?.toString() : null,
+                    status: Status.ACTIVE,
+                };
 
-                        if (depts.length !== department.length) {
-                            bad(`Some departments not found: expected ${department.length}, found ${depts.length}`);
-                        }
+                const created = await this.prisma.user.create({ data: employeeData });
 
-                        departmentConnect = depts.map(d => ({ id: d.id }));
-
-                        // const lvl = await this.prisma.level.findFirst({
-                        //     where: { name: level.toLowerCase() }
-                        // });
-                        // if (!lvl) bad(`Level '${level}' does not exist`);
-                        // levelConnect = { id: lvl.id };
-
-                    } else {
-                        // connect by IDs (array of IDs)
-                        departmentConnect = department.map((d: string) => ({ id: d }));
-                        levelConnect = { id: level };
-                    }
-
-
-                    // ✅ Transaction to create employee
-                    const result = await this.prisma.$transaction(async (prisma) => {
-                        const employee = await prisma.user.create({
-                            data: {
-                                firstName,
-                                lastName,
-                                email,
-                                personalEmail,
-                                // workPhone: workPhone.toString(),
-                                // phone: phone.toString(),
-                                gender,
-                                role,
-                                userRole,
-                                eId,
-                                departments: { connect: departmentConnect },
-                                level: { connect: levelConnect },
-                                jobType: JobType.FULL_TIME,
-                                duration: jobType === "CONTRACT" ? duration.toString() : null,
-                                status: "ACTIVE",
-                            },
-                        });
-
-                        return employee;
-                    });
-
-                    // ✅ Send welcome email
-                    // await this.mail.sendWelcomeEmail({
-                    //     email: result.workEmail ?? result.email,
-                    //     name: `${result.firstName} ${result.lastName}`,
-                    // });
-
-                    return result;
-                })
-            );
-
-            return {
-                success: true,
-                data: createdEmployees,
-                message: "Employees added successfully",
-            };
-        } catch (error) {
-            this.logger.error("Failed to add employees", error.stack);
-            if (error instanceof Prisma.PrismaClientKnownRequestError) {
-                bad("Database error: " + error.message, 500);
-            } else {
-                bad(error.message || "Failed to add employee");
+                results.push({ success: true, data: created, input: e });
+            } catch (err: any) {
+                results.push({ success: false, error: err.message || "Unknown error", input: e });
             }
         }
+
+        return {
+            success: true,
+            created: results.filter(r => r.success).map(r => r.data),
+            failed: results.filter(r => !r.success).map(r => ({ error: r.error, input: r.input })),
+            message: `Processed ${data.length} employees: ${results.filter(r => r.success).length} created, ${results.filter(r => !r.success).length} failed.`,
+        };
     }
+
+
 
     async deleteUser(ids: string[]) {
         try {
