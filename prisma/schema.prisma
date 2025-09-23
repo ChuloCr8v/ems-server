@@ -8,6 +8,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/////////////////////////////////  ONBOARDING ////////////////////////////////
+
 model Notification {
   id          String   @id @default(uuid())
   recipientId String   @db.Uuid
@@ -53,20 +55,19 @@ model User {
   workEmail     String?        @unique
   firstName     String
   lastName      String
-  phone         String
+  phone         String?
   workPhone     String?
   role          String?
   gender        String
   duration      String?
   jobType       JobType?
-  departmentId  String?        @db.Uuid
-  department    Department?    @relation("Department", fields: [departmentId], references: [id])
+  departments   Department[]
   country       String?
   state         String?
   address       String?
   startDate     DateTime?
   status        Status         @default(PENDING)
-  userRole      Role?
+  userRole      Role[]         @default([USER])
   maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
@@ -93,12 +94,20 @@ model User {
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
-  claims               Claim[]
+   claims               Claim[]
+
+  assignedTasks UserTask[]
+  createdTasks  Task[]   @relation("CreatedTasks")
+
+  requestDoa LeaveRequest[] @relation("deedOfAssignement")
+  requests   LeaveRequest[] @relation("user")
+  approver   Approver[]
+  approvals  Approval[]
+  responses  Response[]
 
   @@index([email])
   @@index([eId])
   @@index([firstName, lastName])
-  @@index([departmentId])
   @@index([levelId])
 }
 
@@ -122,9 +131,9 @@ model Invite {
 
 model Department {
   id       String     @id @default(uuid()) @db.Uuid
-  name     String
+  name     String     @unique
   prospect Prospect[]
-  user     User[]     @relation("Department")
+  user     User[]
 
   createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
   createdById String? @unique @db.Uuid
@@ -132,19 +141,21 @@ model Department {
   departmentHeadId String? @unique @db.Uuid
   departmentHead   User?   @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
 
-  status DepartmentStatus? @default(ACTIVE)
+  status   DepartmentStatus? @default(ACTIVE)
+  approver Approver[]
 
   createdAt DateTime @default(now())
   updatedAT DateTime @updatedAt
 }
 
 model Level {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  rank      Int
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String             @id @default(uuid()) @db.Uuid
+  name         String
+  rank         Int
+  users        User[]
+  entitlements LevelEntitlement[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 }
 
 model Upload {
@@ -160,16 +171,26 @@ model Upload {
   prospectId String?   @db.Uuid
   prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
 
-  offboardingId String?      @db.Uuid
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  assetId       String?      @db.Uuid
-  asset         Asset?       @relation("AssetImages", fields: [assetId], references: [id])
+  userId        String?           @db.Uuid
+  userDocuments User?             @relation("UserDocuments", fields: [userId], references: [id])
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  commentId     String?           @db.Uuid
+  comment       Comment?          @relation(fields: [commentId], references: [id])
+  handoverId    String?           @db.Uuid
+  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
+  paymentId     String?           @db.Uuid
+  payment       Payment?          @relation(fields: [paymentId], references: [id])
+  assetId       String?           @db.Uuid
+  asset         Asset?            @relation("AssetImages", fields: [assetId], references: [id])
+  requestId     String?           @db.Uuid
+  request       LeaveRequest?     @relation(fields: [requestId], references: [id])
+  // claimId       String?
+  // claim         Claim?            @relation("ClaimImages", fields: [claimId], references: [id])
 
-  claimId   String?
-  claim     Claim?     @relation("ClaimImages", fields: [claimId], references: [id])
-
-  userId        String? @db.Uuid
-  userDocuments User?   @relation("UserDocuments", fields: [userId], references: [id])
+  //cloudinary keys
+  publicId  String? @unique
+  secureUrl String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -208,18 +229,25 @@ model GuarantorContact {
 }
 
 model Comment {
-  id        String   @id @default(uuid()) @db.Uuid
-  comment   String
-  userId    String?  @db.Uuid
-  user      User?    @relation(fields: [userId], references: [id])
-  inviteId  String?  @db.Uuid
-  invite    Invite?  @relation(fields: [inviteId], references: [id])
-  // prospectId String?   @db.Uuid
-  // prospect   Prospect? @relation(fields: [prospectId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String            @id @default(uuid()) @db.Uuid
+  comment       String
+  type          ResponseType?
+  userId        String?           @db.Uuid
+  user          User?             @relation(fields: [userId], references: [id])
+  inviteId      String?           @db.Uuid
+  invite        Invite?           @relation(fields: [inviteId], references: [id])
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  paymentId     String?           @db.Uuid
+  payment       Payment?          @relation(fields: [paymentId], references: [id])
+  handoverId    String?           @db.Uuid
+  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
+  uploads       Upload[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 }
 
+//////////////////////////////// ASSETS ///////////////////////
 model Asset {
   id           String        @id @default(uuid()) @db.Uuid
   assetId      String        @unique
@@ -232,7 +260,6 @@ model Asset {
   assetImages  Upload[]      @relation("AssetImages")
   description  String?
   isReturned   Boolean       @default(false)
-  // paymentProof  Upload[]      @relation("AssetProof")
   status       AssetStatus   @default(AVAILABLE)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -241,15 +268,22 @@ model Asset {
 }
 
 model Assignment {
-  id         String            @id @default(uuid())
-  asset      Asset             @relation(fields: [assetId], references: [id])
-  assetId    String            @db.Uuid
-  user       User              @relation(fields: [userId], references: [id])
-  userId     String            @db.Uuid
-  assignedAt DateTime
-  notes      String?
-  condition  String?
-  status     AssignmentStatus?
+  id            String            @id @default(uuid())
+  asset         Asset             @relation(fields: [assetId], references: [id])
+  assetId       String            @db.Uuid
+  user          User              @relation(fields: [userId], references: [id])
+  userId        String            @db.Uuid
+  assignedAt    DateTime
+  retrievedAt   DateTime?
+  notes         String?
+  condition     String?
+  status        AssignmentStatus?
+  isVerified    Boolean           @default(false)
+  isPaid        Boolean           @default(false)
+  verifiedAt    DateTime?
+  returnedAt    DateTime?
+  offboardingId String?           @db.Uuid
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
 }
 
 model Fault {
@@ -274,20 +308,25 @@ model Fault {
   @@index([status])
 }
 
+///////////////////////////   OFFBOARDING ///////////////////////
+
 model Offboarding {
   id           String                 @id @default(uuid()) @db.Uuid
   type         ExitType
   lastWorkDate DateTime
   reason       String
   noticePeriod Boolean                @default(false)
-  userId       String                 @unique @db.Uuid
   status       Status                 @default(PENDING)
+  userId       String                 @unique @db.Uuid
   user         User                   @relation(fields: [userId], references: [id])
   uploads      Upload[]
   checklist    OffboardingChecklist[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  handover     HandoverDocument[]
+  comment      Comment[]
+  payments     Payment[]
+  assignments  Assignment[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 }
 
 model OffboardingChecklist {
@@ -299,6 +338,129 @@ model OffboardingChecklist {
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
 }
 
+model HandoverDocument {
+  id            String       @id @default(uuid()) @db.Uuid
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  upload        Upload[]
+  comments      Comment[]
+  isApproved    Boolean      @default(false)
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime     @default(now())
+}
+
+model Payment {
+  id            String       @id @default(uuid()) @db.Uuid
+  offboardingId String?      @db.Uuid
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  approved      Boolean      @default(false)
+  approvedBy    String?      @db.Uuid
+  approvedAt    DateTime?
+  notes         String?
+  uploads       Upload[]
+  comment       Comment[]
+  createdAt     DateTime     @default(now())
+}
+
+///////////////////////////////// LEAVE //////////////////////////////////
+
+model Entitlement {
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String             @unique
+  unit      EntitlementUnit
+  levels    LevelEntitlement[]
+  request   LeaveRequest[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model LevelEntitlement {
+  id            String      @id @default(uuid()) @db.Uuid
+  level         Level       @relation(fields: [levelId], references: [id])
+  levelId       String      @db.Uuid
+  entitlement   Entitlement @relation(fields: [entitlementId], references: [id])
+  entitlementId String      @db.Uuid
+  value         Int? // The value of the entitlement for this level
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([levelId, entitlementId])
+}
+
+model LeaveRequest {
+  id                String      @id @default(uuid()) @db.Uuid
+  userId            String      @db.Uuid
+  user              User        @relation("user", fields: [userId], references: [id])
+  doaId             String      @db.Uuid
+  doa               User        @relation("deedOfAssignement", fields: [doaId], references: [id])
+  startDate         DateTime
+  endDate           DateTime
+  duration          Int
+  currentApprovalId String?     @db.Uuid
+  reason            String
+  status            LeaveStatus @default(PENDING)
+  typeId            String      @db.Uuid
+  type              Entitlement @relation(fields: [typeId], references: [id])
+  response          Response[]
+  uploads           Upload[]
+  approvals         Approval[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model Approver {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @db.Uuid
+  user         User        @relation(fields: [userId], references: [id])
+  departmentId String?     @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+  role         Role
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Approval {
+  id             String         @id @default(uuid()) @db.Uuid
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  leaveRequestId String         @db.Uuid
+  phase          Int
+  approver       User           @relation(fields: [approverId], references: [id])
+  approverId     String         @db.Uuid
+  status         ApprovalStatus @default(PENDING)
+  reason         String?
+  actionDate     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([leaveRequestId, phase])
+}
+
+enum ApproverRole {
+  DEPARTMENT_HEAD
+  HR
+  CISO
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Response {
+  id        String        @id @default(uuid()) @db.Uuid
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  type      ResponseType
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String        @db.Uuid
+  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String?       @db.Uuid
+  note      String
+}
+
 model Claim {
   id          String   @id @default(uuid())
   title       String
@@ -306,8 +468,9 @@ model Claim {
   amount      Float
   dateOfExpense DateTime
   description String?
+  notes       String?
   status      ClaimStatus @default(PENDING)
-  uploads     Upload[]    @relation("ClaimImages")
+  proofUrls   String[]   @default([])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String   @db.Uuid
@@ -316,10 +479,56 @@ model Claim {
   @@map("claims")
 }
 
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  category    String?
+  priority    Priority?
+  status      TaskStatus?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  assignees   UserTask[]
+  files       TaskFile[]
+  createdBy   User     @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdById String
+  
+  @@map("tasks")
+}
 
+model UserTask {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  assignedAt DateTime @default(now())
+  
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@unique([taskId, userId])
+  @@map("user_tasks")
+}
 
+model TaskFile {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  path        String
+  mimetype    String
+  size        Int
+  taskId      String
+  uploadedAt  DateTime @default(now())
+  
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@map("task_files")
+}
 
-/////////////////////////////////// ENUMS  /////////////////////////////////////////////
+///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
   PENDING
@@ -330,6 +539,12 @@ enum Status {
   CONFIRMED
   COMPLETED
   IN_PROGRESS
+}
+
+enum ResponseType {
+  COMMENT
+  APPROVAL
+  DENIAL
 }
 
 enum JobType {
@@ -346,8 +561,10 @@ enum Role {
   SUPERADMIN
   ADMIN
   USER
-  MANAGER
+  DEPT_MANAGER
   FACILITY
+  HR
+  ASSET_MANAGER
 }
 
 enum AssetCategory {
@@ -386,9 +603,22 @@ enum ExitType {
   TERMINATION
 }
 
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum DepartmentStatus {
   ACTIVE
   INACTIVE
+}
+
+enum EntitlementUnit {
+  AMOUNT
+  DAYS
+  OTHERS
 }
 
 enum ClaimStatus {
@@ -399,17 +629,22 @@ enum ClaimStatus {
 
 enum ClaimType {
   TRAVEL
-  MEAL
-  ACCOMMODATION
-  TRANSPORTATION
-  OFFICE_SUPPLIES
-  OTHERS
+  MATERIAL
+  LOGISTIC
+  REPAIR
 }
 
 
-// enum AssetStatus {
-//   ACTIVE
-//   RETURNED
-//   DAMAGED
-//   LOST
-// }
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
