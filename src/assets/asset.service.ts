@@ -9,14 +9,6 @@ import { bad, mustHave } from 'src/utils/error.utils';
 export class AssetService {
   constructor(private prisma: PrismaService) { }
 
-  private toImageObject(file: Express.Multer.File): ImageDto {
-    return {
-      url: `/assets/uploads/${file.filename}`,
-      originalName: file.originalname,
-      size: file.size,
-      mimeType: file.mimetype
-    };
-  }
 
   async createAsset(createAssetDto: CreateAssetDto) {
     const assetId = "ZCL" + Date.now().toString().slice(-6);
@@ -25,7 +17,6 @@ export class AssetService {
       where: { serialNo: createAssetDto.serialNo },
     });
     if (existing) bad(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
-
 
     const data = {
       assetId,
@@ -207,76 +198,6 @@ export class AssetService {
     return updatedAsset;
   }
 
-
-
-  // async returnAsset(assetId: string) {
-  //   // Find the latest assignment
-  //   const latestAssignment = await this.prisma.assignment.findFirst({
-  //     where: { assetId, returnedAt: null },
-  //     orderBy: { assignedAt: 'desc' },
-  //   });
-
-  //   if (!latestAssignment) {
-  //     throw new NotFoundException(`No active assignment found for asset with ID ${assetId}`);
-  //   }
-
-  //   // Update assignment with return date
-  //   await this.prisma.assignment.update({
-  //     where: { id: latestAssignment.id },
-  //     data: {
-  //       returnedAt: new Date(),
-  //     },
-  //   });
-
-  //   // Update asset status
-  //   return this.prisma.asset.update({
-  //     where: { id: assetId },
-  //     data: {
-  //       status: 'AVAILABLE',
-  //     },
-  //   });
-  // }
-
-  // async reportFault(reportFaultDto: ReportFaultDto) {
-  //   // Check if asset exists
-  //   const asset = await this.prisma.asset.findUnique({
-  //     where: { id: reportFaultDto.assetId },
-  //   });
-
-  //   if (!asset) {
-  //     throw new NotFoundException(`Asset with ID ${reportFaultDto.assetId} not found`);
-  //   }
-
-  //   // Check if user exists
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { id: reportFaultDto.reportedBy },
-  //   });
-
-  //   if (!user) {
-  //     throw new NotFoundException(`User with ID ${reportFaultDto.reportedBy} not found`);
-  //   }
-
-  //   // Create fault report
-  //   const fault = await this.prisma.fault.create({
-  //     data: {
-  //       assetId: reportFaultDto.assetId,
-  //       reportedBy: reportFaultDto.reportedBy,
-  //       images: reportFaultDto.images,
-  //       reason: reportFaultDto.reason,
-  //     },
-  //   });
-
-  //   // Update asset status
-  //   await this.prisma.asset.update({
-  //     where: { id: reportFaultDto.assetId },
-  //     data: {
-  //       status: 'FAULTY',
-  //     },
-  //   });
-
-  //   return fault;
-  // }
-
   async reportFault(reportFaultDto: ReportFaultDto) {
     mustHave(reportFaultDto.assetId, "Asset ID is required");
     mustHave(reportFaultDto.reportedBy, "Reporter ID is required");
@@ -329,71 +250,70 @@ export class AssetService {
     });
   }
 
-
-  async retrieveAsset(
-    assetId: string,
-    dto: { retrievedById: string; notes?: string }
+  async retrieveAssets(
+    dto: {
+      assetIds: string[],
+      retrievedById: string; notes?: string
+    }
   ) {
+
+    const { assetIds } = dto
+
     mustHave(dto.retrievedById, "Retriever ID is required");
 
     return this.prisma.$transaction(async (prisma) => {
-      const asset = await prisma.asset.findUnique({
-        where: { id: assetId },
-        include: { faults: true }
-      });
-      mustHave(asset, "Asset not found", 404);
 
       const retrieverExists = await prisma.user.count({
         where: { id: dto.retrievedById },
       });
       mustHave(retrieverExists, `User with ID ${dto.retrievedById} not found`, 404);
 
-      const faulty = asset.faults.find(a => a.status === FaultStatus.PENDING);
-      const newStatus = faulty ? 'MAINTENANCE' : 'AVAILABLE';
-
-      if (faulty) {
-        await prisma.fault.update({
-          where: { id: faulty.id },
-          data: {
-            status: FaultStatus.IN_REVIEW,
-            notes: dto.notes
-          }
+      for (const assetId of assetIds) {
+        const asset = await prisma.asset.findUnique({
+          where: { id: assetId },
         });
-      }
 
-      await prisma.asset.update({
-        where: { id: assetId },
-        data: { status: newStatus },
-      });
+        mustHave(asset, `Asset ${assetId} not found`, 404);
 
-      const latestAssignment = await prisma.assignment.findFirst({
-        where: { assetId, status: "ASSIGNED" },
-        orderBy: { assignedAt: 'desc' },
-      });
-
-      if (latestAssignment) {
-        await prisma.assignment.update({
-          where: { id: latestAssignment.id },
-          data: {
-            notes: faulty
-              ? `Asset retrieved for repair. ${dto.notes || ''}`.trim()
-              : `Asset retrieved. ${dto.notes || ''}`.trim(),
-            condition: faulty ? "FAULTY" : "GOOD",
-            status: "RETURNED"
+        const faults = await prisma.fault.findMany({
+          where: {
+            assetId,
+            NOT: {
+              status: "RESOLVED",
+            },
           },
         });
+
+        const assetStatus =
+          faults.length > 0 ? AssetStatus.FAULTY : AssetStatus.AVAILABLE;
+
+        await prisma.asset.update({
+          where: { id: assetId },
+          data: { status: assetStatus },
+        });
+
+        const latestAssignment = await prisma.assignment.findFirst({
+          where: { assetId, status: "ASSIGNED" },
+          orderBy: { assignedAt: "desc" },
+        });
+
+        if (latestAssignment) {
+          await prisma.assignment.update({
+            where: { id: latestAssignment.id },
+            data: {
+              notes: dto.notes ?? "Asset retrieved",
+              status: "RETURNED",
+              retrievedAt: new Date()
+            },
+          });
+        }
       }
 
       return {
-        message: 'Asset retrieved successfully',
-        assetId,
-        newStatus,
-        wasFaulty: !!faulty,
-        faultId: faulty?.id
+        message: `${assetIds.length} asset(s) retrieved successfully`,
       };
     });
   }
-
 
   async resolveFault(
     assetId: string,
@@ -549,7 +469,7 @@ export class AssetService {
                 firstName: true,
                 lastName: true,
                 email: true,
-                department: true
+                departments: true
               }
             }
           }
@@ -656,5 +576,6 @@ export class AssetService {
       throw new InternalServerErrorException(`Failed to delete asset ${error.message}`);
     }
   }
+
 
 }

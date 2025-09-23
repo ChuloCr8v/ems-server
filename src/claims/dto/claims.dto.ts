@@ -6,17 +6,11 @@ export class CreateClaimDto {
   @IsString()
   title: string;
 
-  @IsString()
+  @IsEnum(ClaimType)
   claimType: ClaimType;
 
-   @IsNumber()
-  // @Transform(({ value }) => {
-  //   // Convert string to number
-  //   if (typeof value === 'string') {
-  //     return parseFloat(value);
-  //   }
-  //   return value;
-  // })
+  @Type(() => Number)
+  @IsNumber()
   amount: number;
 
   @IsDate()
@@ -29,7 +23,7 @@ export class CreateClaimDto {
 
   @IsOptional()
   @IsString()
-   uploads?: Express.Multer.File[];
+  proofUrls?: string[]; // <-- array of file IDs
 }
 
 export class UpdateClaimDto {
@@ -59,7 +53,7 @@ export class UpdateClaimDto {
 
   @IsOptional()
   @IsString()
-   uploads?: Express.Multer.File[];
+  proofUrls?: string[]; // <-- optional array for updates
 
 
   @IsOptional()
@@ -86,11 +80,12 @@ export class ClaimResponseDto {
   dateOfExpense: Date;
   description?: string;
   status: ClaimStatus;
-  uploads: FileResponseDto[];
+  proofUrls?: string[];
   userId: string;
   user?: {
     id: string;
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
   };
   createdAt: Date;

@@ -1,12 +1,10 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
-import { CreateProspectDto, DeclineComment, SendInviteDto } from './dto/invite.dto';
+import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { JobType, Role } from '@prisma/client';
-import { AuthService } from 'src/auth/auth.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmploymentAcceptedEvent } from 'src/events/employment.event';
 
@@ -27,7 +25,7 @@ export class InviteService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 2); // expires in 2 days
 
-      // 1. Find Prospect by email
+      //Find Prospect by email
       const prospect = await this.__findProspectByEmail(email);
       await this.prisma.invite.create({
         data: {
@@ -39,8 +37,7 @@ export class InviteService {
         },
       });
 
-      // 2. Send email 
-
+      // Send email 
       const allAttachments = uploads?.map(upload => ({
         filename: upload.originalname,
         content: upload.buffer,
@@ -56,8 +53,12 @@ export class InviteService {
 
       return true;
     } catch (error) {
-      console.log(error)
-      bad(error)
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to send invite');
     }
   }
 
@@ -69,7 +70,7 @@ export class InviteService {
       departmentId,
       jobType,
       gender,
-      duration, //This is conditional
+      duration, //conditional
       phone,
       role,
       startDate,
@@ -77,10 +78,10 @@ export class InviteService {
     try {
 
       if (jobType === JobType.CONTRACT && !duration) {
-        throw new BadRequestException('Duration is required for CONTRACT positions');
+        throw bad('Duration is required for CONTRACT positions');
       }
       if (jobType !== JobType.CONTRACT && duration) {
-        throw new BadRequestException('Duration should only be provided for CONTRACT positions')
+        throw bad('Duration should only be provided for CONTRACT positions')
       }
 
       const existingProspect = await this.prisma.prospect.findUnique({
@@ -125,7 +126,7 @@ export class InviteService {
         return createdProspect;
       });
 
-      // 2. Send invite email
+      // Send invite email
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
@@ -135,7 +136,12 @@ export class InviteService {
 
       return prospect;
     } catch (error) {
-      bad(error)
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to create prospect');
     }
   }
 
@@ -186,7 +192,7 @@ export class InviteService {
         startDate: prospect.startDate,
         role: prospect.role,
         prospect: { connect: { id: prospect.id } },
-        department: {
+        departments: {
           connect: {
             id: prospect.departmentId
           }
@@ -197,7 +203,7 @@ export class InviteService {
     const recipients = await this.prisma.user.findMany({
       where: {
         userRole: {
-          in: [Role.ADMIN, Role.FACILITY]
+          hasSome: [Role.ADMIN]
         }
       }
     })
@@ -209,12 +215,9 @@ export class InviteService {
       new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
     );
 
-    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const link = `${frontendUrl}/onboarding/invitations`;
     await this.mail.sendAcceptanceMail({
       email: updatedInvite.sentBy.email,
       name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-      link: link,
     });
 
     return {
@@ -225,47 +228,49 @@ export class InviteService {
 
   async declineInvite(token: string, reasons?: Array<string>) {
     const currentDate = new Date();
-    const invite = await this.prisma.invite.findUnique({
-      where: { token },
-      include: {
-        prospect: true,
-        sentBy: true
-      },
-    });
-    if (!invite || invite.expiresAt < currentDate) {
-      throw new BadRequestException('Invalid or Expired Invitation')
+    try {
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: true,
+          sentBy: true
+        },
+      });
+      if (!invite || invite.expiresAt < currentDate) {
+        throw new BadRequestException('Invalid or Expired Invitation')
+      }
+      if (invite.status !== 'PENDING') {
+        throw new BadRequestException('Invitation Has Already Been Accepted or Declined')
+      }
+
+      //Update Invite Status to DECLINED
+      const updatedInvite = await this.prisma.invite.update({
+        where: { token },
+        data: {
+          status: 'DECLINED',
+          declinedAt: currentDate,
+          declineReasons: reasons.map(r => r),
+        },
+        include: {
+          prospect: true,
+          sentBy: true,
+        },
+      });
+
+      await this.mail.sendDeclinedMail({
+        email: invite.sentBy.email,
+        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      });
+
+      return updatedInvite;
+    } catch (error) {
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to decline invite');
     }
-    if (invite.status !== 'PENDING') {
-      throw new BadRequestException('Invitation Has Already Been Accepted or Declined')
-    }
-
-    //Update Invite Status to DECLINED
-    const updatedInvite = await this.prisma.invite.update({
-      where: { token },
-      data: {
-        status: 'DECLINED',
-        declinedAt: currentDate,
-        declineReasons: reasons.map(r => r),
-        // comment: {
-        //   create: { comment },
-        // },
-      },
-      include: {
-        prospect: true,
-        sentBy: true,
-      },
-    });
-
-    const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
-    const link = `${frontendUrl}/onboarding/invitations`;
-
-    await this.mail.sendDeclinedMail({
-      email: invite.sentBy.email,
-      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-      link: link
-    });
-
-    return updatedInvite;
   }
 
   async getAllProspects() {
@@ -282,13 +287,16 @@ export class InviteService {
           ],
         },
         include: {
+          department: true,
           user: {
             include: {
               userDocuments: true,
             },
           },
+
           upload: {
             select: {
+              id: true,
               name: true,
               size: true,
               type: true,
@@ -318,10 +326,12 @@ export class InviteService {
 
       return prospects;
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to fetch prospects');
+      throw new BadRequestException('Failed to fetch prospect');
     }
   }
 
@@ -355,7 +365,12 @@ export class InviteService {
       return invite;
 
     } catch (error) {
-      bad(error);
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to fetch invite');
     }
   }
 
@@ -363,8 +378,12 @@ export class InviteService {
     try {
       return await this.__findProspectById(id);
     } catch (error) {
-      console.log(error.message);
-      throw new Error(`Failed to fetch Prospect: ${error.message}`);
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to fetch prospect');
     }
   }
 
@@ -382,7 +401,12 @@ export class InviteService {
 
       return true;
     } catch (error) {
-      bad(error);
+      if (error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to delete prospect');
     }
   }
 
@@ -404,9 +428,8 @@ export class InviteService {
     const prospect = await this.prisma.prospect.findUnique({
       where: { id },
       include: {
-        upload: true
-        ,
-        user: true
+        upload: true,
+        user: true,
       },
     });
     if (!prospect) {

@@ -9,6 +9,7 @@ import { decode } from 'jsonwebtoken';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { AzureAuthDto, IAuthUser } from './dto/auth.dto';
+import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class AuthService {
@@ -59,20 +60,19 @@ export class AuthService {
 
       const user = await this.prisma.user.findUnique({
         where: { email },
-        select: {
-          id: true,
-          email: true,
-          userRole: true,
-          prospect: true
-        },
+        // select: {
+        //   id: true,
+        //   email: true,
+        //   userRole: true,
+        //   prospect: true
+        // },
       });
 
       if (!user) {
         throw new UnauthorizedException('User does not exist in the system');
       }
 
-      const payload = { sub: user.id, id: user.id, email: user.email, role: user.userRole,  };
-       console.log('JWT payload being created:', payload); // Debug log
+      const payload = { sub: user.id, email: user.email, role: user.userRole };
       return {
         access_token: this.jwt.sign(payload),
         user,
@@ -81,6 +81,29 @@ export class AuthService {
       throw new UnauthorizedException('Authentication failed: ' + error.message);
     }
 
+  }
+
+
+  //Temporary. Will remove later so just ignore lack of password.
+  async emailLogin(email: string, password: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: {
+          email
+        },
+      })
+      if (!user) mustHave(user, "User not found", 404)
+      const payload = { sub: user.id, email: user.email, role: user.userRole };
+      return {
+        access_token: this.jwt.sign(payload),
+        user,
+      };
+
+    } catch (error) {
+      console.log(error)
+
+      bad(error)
+    }
   }
 
   async authUser(user: IAuthUser) {

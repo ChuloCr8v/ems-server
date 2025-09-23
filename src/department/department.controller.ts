@@ -10,7 +10,7 @@ import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 export class DepartmentController {
   constructor(private readonly departmentService: DepartmentService) { }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post()
   async createDepartment(@Body() input: DepartmentDto, @Res() res: Response) {
     const department = await this.departmentService.createDepartment(input);
@@ -24,9 +24,9 @@ export class DepartmentController {
     return await this.departmentService.getAllDepartment();
   }
 
-  @Get("/team/:id")
-  async getTeam(@Param('id') id: string) {
-    return await this.departmentService.getTeam(id);
+  @Get("/team/:userId")
+  async getTeam(@Param('userId') userId: string) {
+    return await this.departmentService.getTeam(userId);
   }
 
   @Auth([Role.ADMIN])
@@ -35,11 +35,18 @@ export class DepartmentController {
     return await this.departmentService.getOneDepartment(id);
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Put(':id')
-  async updateDepartment(@Param('id') id: string, @Body() update: DepartmentDto, @Res() res: Response) {
+  async updateDepartment(@Param('id') id: string, @Body() update: Partial<DepartmentDto>, @Res() res: Response) {
     const department = await this.departmentService.updateDepartment(id, update);
     return res.status(200).json({ message: `Department Has Been Updated`, department });
+  }
+
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Put('add-team/:deptId')
+  async addTeamMembers(@Param('deptId') deptId: string, @Body() userIds: string[], @Res() res: Response) {
+    const department = await this.departmentService.addTeamMembers(deptId, userIds);
+    return res.status(200).json({ message: `Teamn members has been successfully added`, department });
   }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
