@@ -639,7 +639,7 @@ export class UserService {
     //   }
     // }
 
-    async addEmployee(data: AddEmployeeDto, files?: Express.Multer.File[]) {
+    async addEmployee(data: AddEmployeeDto, ) {
         const {
             jobType,
             duration,
@@ -649,7 +649,6 @@ export class UserService {
             phone,
             departmentId,
             levelId,
-            // dept,
             role, // Position (string)
             userRole, // System role (enum)
             startDate,
@@ -712,9 +711,6 @@ export class UserService {
                         level: {
                             connect: { id: levelId },
                         },
-
-                        // dept,
-                        // rank,
                         country,
                         state,
                         address,
@@ -755,20 +751,20 @@ export class UserService {
                     },
                 });
 
-                // Handle file uploads if any
-                if (files?.length) {
-                    const uploads = files.map((file) => ({
-                        name: file.originalname,
-                        size: file.size,
-                        type: file.mimetype,
-                        bytes: file.buffer,
-                        userId: user.id,
-                    }));
+                // // Handle file uploads if any
+                // if (files?.length) {
+                //     const uploads = files.map((file) => ({
+                //         name: file.originalname,
+                //         size: file.size,
+                //         type: file.mimetype,
+                //         bytes: file.buffer,
+                //         userId: user.id,
+                //     }));
 
-                    await prisma.upload.createMany({
-                        data: uploads,
-                    });
-                }
+                //     await prisma.upload.createMany({
+                //         data: uploads,
+                //     });
+                // }
 
                 return { user };
             });

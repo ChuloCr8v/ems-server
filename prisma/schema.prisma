@@ -165,6 +165,9 @@ model Upload {
   assetId       String?      @db.Uuid
   asset         Asset?       @relation("AssetImages", fields: [assetId], references: [id])
 
+  claimId   String?
+  claim     Claim?     @relation("ClaimImages", fields: [claimId], references: [id])
+
   userId        String? @db.Uuid
   userDocuments User?   @relation("UserDocuments", fields: [userId], references: [id])
 
@@ -297,21 +300,22 @@ model OffboardingChecklist {
 }
 
 model Claim {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   title       String
-  claimType   String
+  claimType   ClaimType
   amount      Float
   dateOfExpense DateTime
   description String?
   status      ClaimStatus @default(PENDING)
-  proofUrl    String?
+  uploads     Upload[]    @relation("ClaimImages")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  employeeId  String
-  user        User @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id])
 
   @@map("claims")
 }
+
 
 
 
@@ -391,6 +395,15 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum ClaimType {
+  TRAVEL
+  MEAL
+  ACCOMMODATION
+  TRANSPORTATION
+  OFFICE_SUPPLIES
+  OTHERS
 }
 
 

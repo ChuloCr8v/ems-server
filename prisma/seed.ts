@@ -1,189 +1,107 @@
-import { JobType, MaritalStatus, PrismaClient, Role } from '@prisma/client';
+// prisma/seed.ts
+import { PrismaClient, JobType, Role, Status } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Bona (ADMIN)
-  await prisma.user.create({
+  console.log('🌱 Seeding database...');
+
+  // Department
+let department = await prisma.department.findFirst({
+  where: { name: 'Product Management' },
+});
+
+if (!department) {
+  department = await prisma.department.create({
     data: {
-      firstName: "Modesta",
-      lastName: "Wewo",
-      email: "bonaventure@zoracom.com",
-      phone: "09087654321",
-      country: "Nigeria",
-      state: "Lagos",
-      address: "123 Zoracom Street",
-      userRole: Role.ADMIN,
-      maritalStatus: MaritalStatus.SINGLE,
-      gender: "Male",
-      role: "System Engineer",
-      duration: "6 months",
+      name: 'Product & Services',
+      // description: 'Handles all engineering and product development tasks',
+      // createdById: 'SYSTEM', // adjust to valid user id
+      // departmentHeadId: 'SYSTEM', 
+    },
+  });
+}
+
+// Level
+let level = await prisma.level.findFirst({
+  where: { name: 'Senior' },
+});
+
+if (!level) {
+  level = await prisma.level.create({
+    data: {
+      name: 'Senior',
+      rank: 3,
+    },
+  });
+}
+// userRole: [Role.ADMIN, Role.HR, Role.ASSET_MANAGER, Role.FACILITY],
+
+  // 3. Seed an employee
+  const employee = await prisma.user.upsert({
+    where: { email: 'victor@zoracom.com' },
+    update: {},
+    create: {
+      firstName: 'Victor',
+      lastName: 'Ogunwehin',
+      phone: '+23498765432',
+      workPhone: '+2349062431702',
+      gender: 'MALE', // ensure your schema supports enum/string
+      role: 'Software Engineer', // Position
+      userRole: Role.ADMIN, // System role
       jobType: JobType.FULL_TIME,
-      startDate: new Date("2025-07-25T15:30:00.000Z"),
-      eId: "EMP41219",
-      // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
+      startDate: new Date(),
+      duration: null,
+      department: { connect: { id: department.id } },
+      level: { connect: { id: level.id } },
+      country: 'Nigeria',
+      state: 'Lagos',
+      address: '123 Broad Street, Lagos',
+      maritalStatus: 'SINGLE', // adjust if your schema has enum/string
+      email: 'victor@zoracom.com',
+      eId: 'EMP12876', // Employee ID
+      status: Status.ACTIVE,
       contacts: {
         create: {
-          guarantor: {
-            create: {
-              firstName: "Precious",
-              lastName: "Green",
-              email: "pregreen@gmail.com",
-              phone: "08012345678",
-            },
-          },
           emergency: {
             create: {
-              firstName: "John",
-              lastName: "Doe",
-              email: "bryan@gmail.com",
-              phone: "08087654321",
+              firstName: 'Jane',
+              lastName: 'Doe',
+              phone: '+2348111111111',
+              email: 'jane.doe@example.com',
+            },
+          },
+          guarantor: {
+            create: {
+              firstName: 'Mike',
+              lastName: 'Smith',
+              phone: '+2348222222222',
+              email: 'mike.smith@example.com',
             },
           },
         },
       },
     },
+    include: {
+      contacts: {
+        include: {
+          emergency: true,
+          guarantor: true,
+        },
+      },
+      department: true,
+      level: true,
+    },
   });
 
-  // 10 More Users
-  const users = [
-    {
-      firstName: "Chinedu",
-      lastName: "Okafor",
-      email: "chinedu.okafor@zoracom.com",
-      phone: "08011112221",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Software Engineer",
-    },
-    {
-      firstName: "Amaka",
-      lastName: "Eze",
-      email: "amaka.eze@zoracom.com",
-      phone: "08011112222",
-      gender: "Female",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "UI/UX Designer",
-    },
-    {
-      firstName: "Ibrahim",
-      lastName: "Musa",
-      email: "ibrahim.musa@zoracom.com",
-      phone: "08011112223",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Network Engineer",
-    },
-    {
-      firstName: "Ngozi",
-      lastName: "Chukwu",
-      email: "ngozi.chukwu@zoracom.com",
-      phone: "08011112224",
-      gender: "Female",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "Product Manager",
-    },
-    {
-      firstName: "David",
-      lastName: "Adeyemi",
-      email: "david.adeyemi@zoracom.com",
-      phone: "08011112225",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Data Analyst",
-    },
-    {
-      firstName: "Fatima",
-      lastName: "Bello",
-      email: "fatima.bello@zoracom.com",
-      phone: "08011112226",
-      gender: "Female",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "HR Manager",
-    },
-    {
-      firstName: "Emeka",
-      lastName: "Obi",
-      email: "emeka.obi@zoracom.com",
-      phone: "08011112227",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Backend Developer",
-    },
-    {
-      firstName: "Aisha",
-      lastName: "Yusuf",
-      email: "aisha.yusuf@zoracom.com",
-      phone: "08011112228",
-      gender: "Female",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "Frontend Developer",
-    },
-    {
-      firstName: "Samuel",
-      lastName: "Oluwaseun",
-      email: "samuel.oluwaseun@zoracom.com",
-      phone: "08011112229",
-      gender: "Male",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "QA Engineer",
-    },
-    {
-      firstName: "Grace",
-      lastName: "Ifeanyi",
-      email: "grace.ifeanyi@zoracom.com",
-      phone: "08011112230",
-      gender: "Female",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Business Analyst",
-    },
-  ];
-
-  // let counter = 1;
-  // for (const u of users) {
-  //   await prisma.user.create({
-  //     data: {
-  //       ...u,
-  //       country: "Nigeria",
-  //       state: counter % 2 === 0 ? "Lagos" : "Abuja",
-  //       address: `${counter} Zoracom Close`,
-  //       userRole: Role.USER,
-  //       duration: counter % 2 === 0 ? "1 year" : "6 months",
-  //       jobType: counter % 2 === 0 ? JobType.CONTRACT : JobType.FULL_TIME,
-  //       startDate: new Date(`2025-08-${(counter + 10).toString().padStart(2, "0")}T09:00:00.000Z`),
-  //       eId: `EMP30${counter}`,
-  //       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
-  //       contacts: {
-  //         create: {
-  //           guarantor: {
-  //             create: {
-  //               firstName: `Guarantor${counter}`,
-  //               lastName: "Okoro",
-  //               email: `guarantor${counter}@mail.com`,
-  //               phone: `070111111${counter}`,
-  //             },
-  //           },
-  //           emergency: {
-  //             create: {
-  //               firstName: `Emergency${counter}`,
-  //               lastName: "Uche",
-  //               email: `emergency${counter}@mail.com`,
-  //               phone: `070999999${counter}`,
-  //             },
-  //           },
-  //         },
-  //       },
-  //     },
-  //   });
-  //   counter++;
-  // }
-
-  console.log("✅ Seeded Bona + 10 real users");
+  console.log('✅ Department:', department.name);
+  console.log('✅ Level:', level.name);
+  console.log('✅ Employee:', `${employee.firstName} ${employee.lastName}`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Error seeding data:", e);
+    console.error('❌ Error seeding data:', e);
     process.exit(1);
   })
   .finally(async () => {

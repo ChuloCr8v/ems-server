@@ -1,175 +1,91 @@
+// src/claims/claims.controller.ts
 import {
   Controller,
   Get,
   Post,
-  Body,
-  Param,
-  Put,
+  Patch,
   Delete,
+  Param,
+  Body,
+  Query,
+  UploadedFiles,
   UseInterceptors,
-  UploadedFile,
+  UseGuards,
   Req,
-  ParseUUIDPipe,
-  Res,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBody,
-  ApiConsumes,
-  ApiBearerAuth,
-  ApiParam,
-  ApiCreatedResponse,
-  ApiOkResponse,
-} from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { Request, Response } from 'express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { Role } from '@prisma/client';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { join } from 'path';
-import { AuthenticatedRequest } from 'src/types/express';
+import { ClaimStatus, Role } from '@prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from 'src/auth/guards/roles.guards';
+import { AuthGuard } from 'src/auth/guards/auth.guard';
 
-@ApiTags('Claims')
-@ApiBearerAuth()
 @Controller('claims')
+@UseGuards(AuthGuard, RolesGuard)
 export class ClaimsController {
   constructor(private readonly claimsService: ClaimsService) {}
 
-  @Auth([ Role.ADMIN,])
+  // Create new claim with file uploads
   @Post()
-  @ApiOperation({ summary: 'Create a new expense claim' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Claim data with optional proof file',
-    type: CreateClaimDto,
-  })
-  @ApiCreatedResponse({ description: 'Claim successfully created' })
-  @UseInterceptors(FileInterceptor('proof'))
-  async create(
+  @UseInterceptors(FilesInterceptor('files'))
+  async createClaim(
+    @Req() req,
     @Body() createClaimDto: CreateClaimDto,
-    @UploadedFile() file: Express.Multer.File,
-     @Req() req: AuthenticatedRequest,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    // Extract employee ID from authenticated user
-    const userId = req.user.userId;
-    
-    // If file was uploaded, add the file path to DTO
-    if (file) {
-      createClaimDto.proofUrl = `/claims/uploads/${file.filename}`;
-    }
-
-    return this.claimsService.createClaim(createClaimDto, userId);
+    const userId = req.user.id;
+    return this.claimsService.addClaim(userId, createClaimDto, files || []);
   }
 
-  @Auth([Role.ADMIN, Role.MANAGER])
+  // Get all claims (user gets only their own, managers/admins get all)
   @Get()
-  @ApiOperation({ summary: 'Get all claims' })
-  @ApiOkResponse({ description: 'List of all claims' })
-  findAll() {
-    return this.claimsService.getAllClaims();
+  async findAll(
+    @Req() req,
+    @Query('status') status?: ClaimStatus,
+  ) {
+    const userId = req.user.id;
+    const userRole = req.user.role as Role;
+    return this.claimsService.findAll(userId, userRole, { status });
   }
 
-  @Auth([ Role.ADMIN, Role.MANAGER])
-  @Get('my-claims')
-  @ApiOperation({ summary: 'Get current user claims' })
-  @ApiOkResponse({ description: 'List of user claims' })
-  findMyClaims(@Req() req: AuthenticatedRequest) {
-    const userId = req.user.userId;
-    return this.claimsService.getClaimsByEmployee(userId);
-  }
-
-  @Auth([ Role.ADMIN, Role.MANAGER])
+  // Get single claim by ID
   @Get(':id')
-  @ApiOperation({ summary: 'Get claim by ID' })
-  @ApiParam({ name: 'id', description: 'Claim ID' })
-  @ApiOkResponse({ description: 'Claim details' })
-  @ApiResponse({ status: 404, description: 'Claim not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.claimsService.getClaimById(id);
+  async findOne(@Param('id') id: string, @Req() req) {
+    const userId = req.user.id;
+    const userRole = req.user.role as Role;
+    return this.claimsService.findOne(id, userId, userRole);
   }
 
-  @Auth()
-  @Put(':id')
-  @ApiOperation({ summary: 'Update a claim' })
-  @ApiConsumes('multipart/form-data')
-  @ApiBody({
-    description: 'Claim data with optional proof file',
-    type: UpdateClaimDto,
-  })
-  @ApiParam({ name: 'id', description: 'Claim ID' })
-  @ApiOkResponse({ description: 'Claim successfully updated' })
-  @UseInterceptors(FileInterceptor('proof'))
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
+  // Update claim
+  @Patch(':id')
+  async updateClaim(
+    @Param('id') id: string,
+    @Req() req,
     @Body() updateClaimDto: UpdateClaimDto,
-    @UploadedFile() file: Express.Multer.File
   ) {
-    // If file was uploaded, add the file path to DTO
-    if (file) {
-      updateClaimDto.proofUrl = `/claims/uploads/${file.filename}`;
-    }
-
-    return this.claimsService.updateClaim(id, updateClaimDto);
+    const userId = req.user.id;
+    const userRole = req.user.role as Role;
+    return this.claimsService.updateClaim(id, userId, userRole, updateClaimDto);
   }
 
-  @Auth()
+  // Delete claim
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete a claim' })
-  @ApiParam({ name: 'id', description: 'Claim ID' })
-  @ApiOkResponse({ description: 'Claim successfully deleted' })
-  @ApiResponse({ status: 404, description: 'Claim not found' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.claimsService.deleteClaim(id);
+  async remove(@Param('id') id: string, @Req() req) {
+    const userId = req.user.id;
+    const userRole = req.user.role as Role;
+    return this.claimsService.removeClaim(id, userId, userRole);
   }
 
-  @Auth([Role.ADMIN, Role.MANAGER])
-  @Put(':id/approve')
-  @ApiOperation({ summary: 'Approve a claim' })
-  @ApiParam({ name: 'id', description: 'Claim ID' })
-  @ApiOkResponse({ description: 'Claim successfully approved' })
-  @ApiResponse({ status: 404, description: 'Claim not found' })
-  approve(@Param('id', ParseUUIDPipe) id: string) {
-    return this.claimsService.approveClaim(id);
-  }
-
-  @Auth([Role.ADMIN, Role.MANAGER])
-  @Put(':id/reject')
-  @ApiOperation({ summary: 'Reject a claim' })
-  @ApiParam({ name: 'id', description: 'Claim ID' })
-  @ApiOkResponse({ description: 'Claim successfully rejected' })
-  @ApiResponse({ status: 404, description: 'Claim not found' })
-  reject(@Param('id', ParseUUIDPipe) id: string) {
-    return this.claimsService.rejectClaim(id);
-  }
-
-  @Auth([Role.ADMIN, Role.MANAGER])
-  @Get('status/:status')
-  @ApiOperation({ summary: 'Get claims by status' })
-  @ApiParam({ name: 'status', description: 'Claim status (PENDING, APPROVED, REJECTED)' })
-  @ApiOkResponse({ description: 'List of claims by status' })
-  findByStatus(@Param('status') status: string) {
-    return this.claimsService.getClaimsByStatus(status as any);
-  }
-
-  @Auth([Role.ADMIN, Role.MANAGER])
-  @Get('stats/summary')
-  @ApiOperation({ summary: 'Get claims statistics' })
-  @ApiOkResponse({ description: 'Claims statistics summary' })
-  getStats() {
-    return this.claimsService.getClaimsStats();
-  }
-
-  @Get('uploads/:filename')
-  @ApiOperation({ summary: 'Get uploaded claim proof file' })
-  @ApiParam({ name: 'filename', description: 'Proof filename' })
-  async getClaimProof(
-    @Param('filename') filename: string,
-    @Res() res: Response
+  // Update claim status (Managers/Admins only)
+  @Patch(':id/status')
+  @Roles(Role.MANAGER, Role.ADMIN)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: ClaimStatus,
+    @Req() req,
   ) {
-    const filePath = join(process.cwd(), 'uploads', 'claims', filename);
-    res.sendFile(filePath);
+    const managerId = req.user.id;
+    return this.claimsService.updateStatus(id, status, managerId);
   }
 }

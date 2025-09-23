@@ -1,15 +1,22 @@
 import { IsString, IsNumber, IsDate, IsOptional, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ClaimStatus } from '@prisma/client';
+import { Transform, Type } from 'class-transformer';
+import { ClaimStatus, ClaimType } from '@prisma/client';
 
 export class CreateClaimDto {
   @IsString()
   title: string;
 
   @IsString()
-  claimType: string;
+  claimType: ClaimType;
 
-  @IsNumber()
+   @IsNumber()
+  // @Transform(({ value }) => {
+  //   // Convert string to number
+  //   if (typeof value === 'string') {
+  //     return parseFloat(value);
+  //   }
+  //   return value;
+  // })
   amount: number;
 
   @IsDate()
@@ -22,26 +29,29 @@ export class CreateClaimDto {
 
   @IsOptional()
   @IsString()
-  proofUrl?: string;
+   uploads?: Express.Multer.File[];
 }
 
 export class UpdateClaimDto {
-  @IsOptional()
+   @IsString()
+  title: string;
+
   @IsString()
-  title?: string;
+  claimType: ClaimType;
 
-  @IsOptional()
-  @IsString()
-  claimType?: string;
+   @IsNumber()
+  // @Transform(({ value }) => {
+  //   // Convert string to number
+  //   if (typeof value === 'string') {
+  //     return parseFloat(value);
+  //   }
+  //   return value;
+  // })
+  amount: number;
 
-  @IsOptional()
-  @IsNumber()
-  amount?: number;
-
-  @IsOptional()
   @IsDate()
   @Type(() => Date)
-  dateOfExpense?: Date;
+  dateOfExpense: Date;
 
   @IsOptional()
   @IsString()
@@ -49,9 +59,40 @@ export class UpdateClaimDto {
 
   @IsOptional()
   @IsString()
-  proofUrl?: string;
+   uploads?: Express.Multer.File[];
+
 
   @IsOptional()
   @IsEnum(ClaimStatus)
   status?: ClaimStatus;
+}
+
+
+export class FileResponseDto {
+  id: string;
+  filename: string;
+  originalName: string;
+  path: string;
+  mimetype: string;
+  size: number;
+  url: string;
+}
+
+export class ClaimResponseDto {
+  id: string;
+  title: string;
+  claimType: ClaimType;
+  amount: number;
+  dateOfExpense: Date;
+  description?: string;
+  status: ClaimStatus;
+  uploads: FileResponseDto[];
+  userId: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
 }
