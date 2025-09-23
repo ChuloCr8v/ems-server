@@ -545,21 +545,14 @@ export class UserService {
                         email,
                     } = e;
 
-<<<<<<< HEAD
-=======
 
                     console.log(department)
 
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
                     // ✅ Basic required field validation
                     if (!firstName || !lastName) bad("First name and last name are required");
                     if (!gender) bad("Gender is required");
                     if (!department) bad("Department is required");
-<<<<<<< HEAD
-                    if (!level) bad("Level is required");
-=======
                     // if (!level) bad("Level is required");
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
                     if (jobType === "CONTRACT" && !duration) bad("Duration is required for contract employees");
 
                     // ✅ Duplicate checks
@@ -609,19 +602,11 @@ export class UserService {
 
                         departmentConnect = depts.map(d => ({ id: d.id }));
 
-<<<<<<< HEAD
-                        const lvl = await this.prisma.level.findFirst({
-                            where: { name: level.toLowerCase() }
-                        });
-                        if (!lvl) bad(`Level '${level}' does not exist`);
-                        levelConnect = { id: lvl.id };
-=======
                         // const lvl = await this.prisma.level.findFirst({
                         //     where: { name: level.toLowerCase() }
                         // });
                         // if (!lvl) bad(`Level '${level}' does not exist`);
                         // levelConnect = { id: lvl.id };
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
 
                     } else {
                         // connect by IDs (array of IDs)
@@ -638,24 +623,15 @@ export class UserService {
                                 lastName,
                                 workEmail,
                                 email,
-<<<<<<< HEAD
-                                workPhone: workPhone.toString(),
-                                phone: phone.toString(),
-=======
                                 // workPhone: workPhone.toString(),
                                 // phone: phone.toString(),
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
                                 gender,
                                 role,
                                 userRole,
                                 eId,
                                 departments: { connect: departmentConnect },
                                 level: { connect: levelConnect },
-<<<<<<< HEAD
-                                jobType,
-=======
                                 jobType: JobType.FULL_TIME,
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
                                 duration: jobType === "CONTRACT" ? duration.toString() : null,
                                 status: "ACTIVE",
                             },
@@ -665,17 +641,10 @@ export class UserService {
                     });
 
                     // ✅ Send welcome email
-<<<<<<< HEAD
-                    await this.mail.sendWelcomeEmail({
-                        email: result.workEmail ?? result.email,
-                        name: `${result.firstName} ${result.lastName}`,
-                    });
-=======
                     // await this.mail.sendWelcomeEmail({
                     //     email: result.workEmail ?? result.email,
                     //     name: `${result.firstName} ${result.lastName}`,
                     // });
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
 
                     return result;
                 })

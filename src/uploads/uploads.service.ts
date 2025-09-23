@@ -14,6 +14,7 @@ import { generateUploadKey } from 'src/utils/uploadkey-generator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { S3 } from 'aws-sdk';
 
+
 @Injectable()
 export class UploadsService {
     private s3Client = new S3Client({
@@ -23,7 +24,7 @@ export class UploadsService {
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         },
     });
-     private s3 = new S3({
+    private s3 = new S3({
     region: process.env.AWS_REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -259,30 +260,11 @@ export class UploadsService {
         await this.deleteMany(uploadIds);
     }
 
-<<<<<<< HEAD
-//        async getSignedUrl(fileId: string): Promise<string> {
-//     // Using AWS SDK v3, we need @aws-sdk/s3-request-presigner
-//     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-
-//     const command = new GetObjectCommand({
-//       Bucket: process.env.AWS_BUCKET_NAME,
-//       Key: fileId,
-//     });
-
-//     return getSignedUrl(this.s3Client, command, { expiresIn: 60 * 60 }); // 1 hour
-//   }
-
- async getSignedUrl(fileId: string): Promise<string> {
+     async getSignedUrl(fileId: string): Promise<string> {
     return this.s3.getSignedUrlPromise('getObject', {
       Bucket: process.env.AWS_S3_BUCKET,
       Key: fileId,
       Expires: 60 * 60, // 1 hour validity
     });
   }
-
-
-=======
->>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
 }
-
-

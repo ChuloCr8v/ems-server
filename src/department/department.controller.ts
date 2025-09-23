@@ -42,12 +42,6 @@ export class DepartmentController {
     return res.status(200).json({ message: `Department Has Been Updated`, department });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Put('add-team/:deptId')
-  async addTeamMembers(@Param('deptId') deptId: string, @Body() userIds: string[], @Res() res: Response) {
-    const department = await this.departmentService.addTeamMembers(deptId, userIds);
-    return res.status(200).json({ message: `Teamn members has been successfully added`, department });
-  }
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Put('add-team/:deptId')
