@@ -12,6 +12,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { generateUploadKey } from 'src/utils/uploadkey-generator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { S3 } from 'aws-sdk';
+
 
 @Injectable()
 export class UploadsService {
@@ -22,6 +24,11 @@ export class UploadsService {
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         },
     });
+    private s3 = new S3({
+    region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  });
 
     constructor(private readonly prisma: PrismaService, private readonly cloudinaryService: CloudinaryService) { }
 
@@ -253,6 +260,11 @@ export class UploadsService {
         await this.deleteMany(uploadIds);
     }
 
+     async getSignedUrl(fileId: string): Promise<string> {
+    return this.s3.getSignedUrlPromise('getObject', {
+      Bucket: process.env.AWS_S3_BUCKET,
+      Key: fileId,
+      Expires: 60 * 60, // 1 hour validity
+    });
+  }
 }
-
-

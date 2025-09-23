@@ -126,7 +126,6 @@ export class ApproverService {
     return false;
   }
 
-
   async createApprover(userId: string, departmentId: string | null, role: Role) {
     return this.prisma.approver.create({
       data: {

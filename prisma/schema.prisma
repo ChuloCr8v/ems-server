@@ -92,6 +92,10 @@ model User {
   departmentHead   Department? @relation("DepartmentHead")
 
   departmentCreator Department? @relation("departmentCreator")
+  claims               Claim[]
+
+  assignedTasks UserTask[]
+  createdTasks  Task[]   @relation("CreatedTasks")
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -516,6 +520,74 @@ model Payslip {
   createdAt DateTime @default(now())
 }
 
+///////////////////////////////////////////  ///////////////////////////////////////////
+model Claim {
+  id          String   @id @default(uuid())
+  title       String
+  claimType   ClaimType
+  amount      Float
+  dateOfExpense DateTime
+  description String?
+  notes       String?
+  status      ClaimStatus @default(PENDING)
+  proofUrls   String[]   @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("claims")
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  category    String?
+  priority    Priority?
+  status      TaskStatus?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  assignees   UserTask[]
+  files       TaskFile[]
+  createdBy   User     @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdById String
+  
+  @@map("tasks")
+}
+
+model UserTask {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  assignedAt DateTime @default(now())
+  
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@unique([taskId, userId])
+  @@map("user_tasks")
+}
+
+model TaskFile {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  path        String
+  mimetype    String
+  size        Int
+  taskId      String
+  uploadedAt  DateTime @default(now())
+  
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@map("task_files")
+}
+
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -631,4 +703,32 @@ enum EntitlementUnit {
   AMOUNT
   DAYS
   OTHERS
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ClaimType {
+  TRAVEL
+  MATERIAL
+  LOGISTIC
+  REPAIR
+}
+
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
