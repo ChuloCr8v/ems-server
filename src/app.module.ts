@@ -24,7 +24,7 @@ import { LeaveModule } from './leave/leave.module';
 import { ApproverModule } from './approver/approver.module';
 import { ClaimsModule } from './claims/claims.module';
 import { TasksModule } from './tasks/tasks.module';
-
+import { PayrollModule } from './payroll/payroll.module';
 
 @Module({
   imports: [
@@ -45,7 +45,8 @@ import { TasksModule } from './tasks/tasks.module';
     LeaveModule,
     ApproverModule,
     ClaimsModule,
-    TasksModule
+    TasksModule,
+    PayrollModule,
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],

@@ -259,6 +259,7 @@ export class UploadsService {
         await this.deleteMany(uploadIds);
     }
 
+<<<<<<< HEAD
 //        async getSignedUrl(fileId: string): Promise<string> {
 //     // Using AWS SDK v3, we need @aws-sdk/s3-request-presigner
 //     const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
@@ -280,6 +281,8 @@ export class UploadsService {
   }
 
 
+=======
+>>>>>>> 3e4fb9b659e96884b0781242a37d1a1ce4bed8ee
 }
 
 
