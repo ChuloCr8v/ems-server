@@ -10,7 +10,6 @@ import { Response } from 'express';
 import { CreateProspectDto, DeclineComment } from './dto/invite.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { bad } from 'src/utils/error.utils';
 
 @ApiTags('Invite')
 @Controller('invite')

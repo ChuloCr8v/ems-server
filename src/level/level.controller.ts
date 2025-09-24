@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Res } from '@nestjs/common';
 import { LevelService } from './level.service';
 import { LevelDto, UpdateLevelDto } from './dto/level.dto';
 import { Response } from 'express';
@@ -33,5 +33,11 @@ export class LevelController {
   async updateLevel(@Param('id') id: string, @Body() update: UpdateLevelDto, @Res() res: Response) {
     const level = await this.levelService.updateLevel(id, update);
     return res.status(200).json({ message: 'A Level Has Been Updated', level });
+  }
+
+  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Delete(':id')
+  async deleteLevel(@Param('id') id: string) {
+    return this.levelService.deleteLevel(id);
   }
 }
