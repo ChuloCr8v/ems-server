@@ -265,9 +265,7 @@ export class UserService {
         }
 
         if (context === "employee") {
-            console.time("ensureUniqueEmployeeFields");
             await this.ensureUniqueEmployeeFields(data, id, this.prisma);
-            console.timeEnd("ensureUniqueEmployeeFields");
 
             Object.assign(updateData, {
                 email: data.email,
@@ -290,9 +288,7 @@ export class UserService {
         }
 
         if (data.guarantor || data.emergency) {
-            console.time("updateContacts");
             await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency);
-            console.timeEnd("updateContacts");
         }
 
         if ("departments" in user && user.departments?.length) {
@@ -301,7 +297,6 @@ export class UserService {
             };
         }
 
-        console.time("prisma_user_update");
         const updatedUser = await this.prisma.user.update({
             where: { id },
             data: updateData,
@@ -555,6 +550,9 @@ export class UserService {
             error?: string;
             input: AddEmployeeDto;
         }[] = [];
+
+
+        console.log(data)
 
         for (const e of data) {
             try {
