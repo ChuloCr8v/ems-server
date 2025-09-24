@@ -457,13 +457,13 @@ export class LeaveService {
 
                 }
 
-                // setTimeout(() => {
-                //     this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                //     // this.event.emit(
-                //     //     'leave_approved',
-                //     //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                //     // );
-                // }, 0);
+                setTimeout(() => {
+                    this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
+                    // this.event.emit(
+                    //     'leave_approved',
+                    //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
+                    // );
+                }, 0);
 
                 return {
                     approval: null,
