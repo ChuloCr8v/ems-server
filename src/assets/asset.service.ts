@@ -548,7 +548,6 @@ export class AssetService {
         const assigneeName: string | undefined = row['assignee'];
         let assignee = null;
 
-        console.log(assigneeName)
 
         if (assigneeName) {
           const parts = assigneeName.trim().split(/\s+/);
@@ -562,17 +561,17 @@ export class AssetService {
               where: lastName
                 ? {
                   firstName: {
-                    equals: firstName,
+                    contains: firstName,
                     mode: "insensitive",
                   },
                   lastName: {
-                    equals: lastName,
+                    contains: lastName,
                     mode: "insensitive",
                   },
                 }
                 : {
                   firstName: {
-                    equals: firstName,
+                    contains: firstName,
                     mode: "insensitive",
                   },
                 },
