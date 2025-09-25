@@ -50,6 +50,7 @@ model User {
   maritalStatus MaritalStatus?
   contacts      Contacts?
   offboarding   Offboarding?
+  payroll       Payroll?
 
   levelId String? @db.Uuid
   level   Level?  @relation(fields: [levelId], references: [id])
@@ -70,6 +71,10 @@ model User {
   faultResolver Fault[] @relation("resolvedBy")
 
   departmentCreator Department? @relation("departmentCreator")
+  claims            Claim[]
+
+  assignedTasks UserTask[]
+  createdTasks  Task[]     @relation("CreatedTasks")
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -79,6 +84,7 @@ model User {
   approver   Approver[]
   approvals  Approval[]
   responses  Response[]
+  payslip    Payslip[]
 
   @@index([email])
   @@index([eId])
@@ -225,7 +231,6 @@ model GuarantorContact {
 model Comment {
   id            String            @id @default(uuid()) @db.Uuid
   comment       String
-  type          ResponseType?
   userId        String?           @db.Uuid
   user          User?             @relation(fields: [userId], references: [id])
   inviteId      String?           @db.Uuid
@@ -357,7 +362,7 @@ model Payment {
   createdAt     DateTime     @default(now())
 }
 
-///////////////////////////////// LEAVE //////////////////////////////////
+///////////////////////////////// LEAVE ///////////////////////////////////////////////////
 
 model Entitlement {
   id        String             @id @default(uuid()) @db.Uuid
@@ -383,24 +388,34 @@ model LevelEntitlement {
 }
 
 model LeaveRequest {
-  id                String      @id @default(uuid()) @db.Uuid
-  userId            String      @db.Uuid
-  user              User        @relation("user", fields: [userId], references: [id])
-  doaId             String      @db.Uuid
-  doa               User        @relation("deedOfAssignement", fields: [doaId], references: [id])
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @db.Uuid
+  user              User           @relation("user", fields: [userId], references: [id])
+  doaId             String         @db.Uuid
+  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
   startDate         DateTime
   endDate           DateTime
   duration          Int
-  currentApprovalId String?     @db.Uuid
+  currentApprovalId String?        @db.Uuid
   reason            String
-  status            LeaveStatus @default(PENDING)
-  typeId            String      @db.Uuid
-  type              Entitlement @relation(fields: [typeId], references: [id])
+  status            LeaveStatus    @default(PENDING)
+  typeId            String         @db.Uuid
+  type              Entitlement    @relation(fields: [typeId], references: [id])
+  cancelRequest     CancelRequest?
   response          Response[]
   uploads           Upload[]
   approvals         Approval[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+}
+
+model CancelRequest {
+  id        String       @id @default(uuid()) @db.Uuid
+  requestId String       @unique @db.Uuid
+  request   LeaveRequest @relation(fields: [requestId], references: [id])
+  reason    String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 }
 
 model Approver {
@@ -455,6 +470,124 @@ model Response {
   note      String
 }
 
+///////////////////////////////////// PAYROLL ////////////////////////////////////////////////////
+
+model Payroll {
+  id            String             @id @default(uuid()) @db.Uuid
+  salary        Float
+  gross         Float
+  net           Float
+  deductions    Float
+  tax           Float?
+  cra           Float?
+  taxableIncome Float?
+  pension       Float?
+  nhf           Float?
+  laa           Float?
+  taxStatus     TaxStatus          @default(PENDING)
+  userId        String             @unique @db.Uuid
+  user          User               @relation(fields: [userId], references: [id])
+  component     PayrollComponent[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+}
+
+model PayrollComponent {
+  id            String                @id @default(uuid()) @db.Uuid
+  amount        Float //PERCENTAGE or FIXED
+  type          SalaryType
+  title         String
+  calculations  SalaryCalculationType
+  category      ComponentCategory
+  monthlyAmount Float
+  annualAmount  Float
+  duration      Int?
+  startDate     DateTime?
+  isActive      Boolean               @default(true)
+  payrollId     String                @db.Uuid
+  payroll       Payroll               @relation(fields: [payrollId], references: [id])
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+}
+
+model Payslip {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  amount    String
+  data      Bytes
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+///////////////////////////////////////////  ///////////////////////////////////////////
+model Claim {
+  id            String      @id @default(uuid())
+  title         String
+  claimType     ClaimType
+  amount        Float
+  dateOfExpense DateTime
+  description   String?
+  notes         String?
+  status        ClaimStatus @default(PENDING)
+  proofUrls     String[]    @default([])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  userId        String      @db.Uuid
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@map("claims")
+}
+
+model Task {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  category    String?
+  priority    Priority?
+  status      TaskStatus?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  assignees   UserTask[]
+  files       TaskFile[]
+  createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdById String
+
+  @@map("tasks")
+}
+
+model UserTask {
+  id         String   @id @default(cuid())
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@map("user_tasks")
+}
+
+model TaskFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  path         String
+  mimetype     String
+  size         Int
+  taskId       String
+  uploadedAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_files")
+}
+
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -466,6 +599,29 @@ enum Status {
   CONFIRMED
   COMPLETED
   IN_PROGRESS
+}
+
+enum TaxStatus {
+  PENDING
+  CALCULATED
+  PAID
+}
+
+enum SalaryType {
+  EARNING
+  DEDUCTION
+}
+
+enum ComponentCategory {
+  CUSTOM_EARNING
+  CUSTOM_DEDUCTION
+  STATIC_EARNING
+  STATIC_DEDUCTION
+}
+
+enum SalaryCalculationType {
+  PERCENTAGE
+  FIXED
 }
 
 enum ResponseType {
@@ -553,4 +709,31 @@ enum EntitlementUnit {
   AMOUNT
   DAYS
   OTHERS
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ClaimType {
+  TRAVEL
+  MATERIAL
+  LOGISTIC
+  REPAIR
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
