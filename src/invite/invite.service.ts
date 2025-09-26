@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { randomUUID } from 'crypto';
 import { MailService } from '../mail/mail.service';
@@ -7,6 +7,10 @@ import { bad, mustHave } from 'src/utils/error.utils';
 import { JobType, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EmploymentAcceptedEvent } from 'src/events/employment.event';
+import { UploadsService } from 'src/uploads/uploads.service';
+import { v4 as uuidv4 } from 'uuid';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class InviteService {
@@ -15,11 +19,14 @@ export class InviteService {
     private prisma: PrismaService,
     private mail: MailService,
     private eventEmitter: EventEmitter2,
+    private uploadService: UploadsService,
+    private jwt: JwtService
 
   ) { }
 
   async sendInvite(input: SendInviteDto & { uploads: Express.Multer.File[] }, adminUser: string) {
     const { email, uploads } = input;
+
     try {
       const token = randomUUID();
       const expiresAt = new Date();
@@ -53,6 +60,7 @@ export class InviteService {
 
       return true;
     } catch (error) {
+      console.log(error)
       if (error instanceof BadRequestException ||
         error instanceof NotFoundException ||
         error instanceof ConflictException) {
@@ -62,20 +70,21 @@ export class InviteService {
     }
   }
 
-  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: string) {
+  async createProspect(input: CreateProspectDto, uploads: Express.Multer.File[], adminUser: IAuthUser) {
     const {
       firstName,
       lastName,
-      email,
-      departmentId,
+      personalEmail,
+      departments,
       jobType,
       gender,
-      duration, //conditional
+      duration,
       phone,
       role,
       startDate,
     } = input;
     try {
+
 
       if (jobType === JobType.CONTRACT && !duration) {
         throw bad('Duration is required for CONTRACT positions');
@@ -86,13 +95,25 @@ export class InviteService {
 
       const existingProspect = await this.prisma.prospect.findUnique({
         where: {
-          email: email
+          email: personalEmail
         }
       })
 
       existingProspect && bad("Prospect with this email already exists")
-      // 1. Create prospect and uploads
+
       const prospect = await this.prisma.$transaction(async (prisma) => {
+
+        const sender = await prisma.user.findUnique({
+          where: {
+            id: adminUser.sub,
+            userRole: {
+              hasSome: [Role.ADMIN, Role.SUPERADMIN, Role.HR]
+            }
+          }
+        })
+
+        if (!sender) bad("You are not authorized")
+
         const createdProspect = await prisma.prospect.create({
           data: {
             firstName,
@@ -100,51 +121,72 @@ export class InviteService {
             role,
             gender,
             phone,
-            email,
-            departmentId,
+            email: personalEmail,
             jobType,
             startDate,
-            // Conditionally include duration
-            ...(jobType === JobType.CONTRACT ? { duration } : {}),
+            ...(departments?.length
+              ? {
+                departments: {
+                  connect: departments.map((id) => ({ id })),
+                },
+              }
+              : {}),
+            ...(jobType === JobType.CONTRACT
+              ? { duration }
+              : {}),
           },
-          include: { upload: true },
+          include: {
+            upload: true,
+          },
         });
 
-        if (uploads?.length > 0) {
-          const prospectUploads = uploads.map((upload) => ({
-            name: upload.originalname,
-            size: upload.size,
-            type: upload.mimetype,
-            bytes: upload.buffer,
-            prospectId: createdProspect.id,
-          }));
-
-          await prisma.upload.createMany({
-            data: prospectUploads,
-          });
-        }
         return createdProspect;
       });
+
+      if (uploads?.length > 0) {
+
+        for (let index = 0; index < uploads.length; index++) {
+
+          const uploadData = await this.uploadService.uploadFileToS3(
+            uuidv4(),
+            uploads[index],
+            index + 1,
+            adminUser
+
+          )
+
+          await this.prisma.prospect.update({
+            where: {
+              id: prospect.id
+            },
+            data: {
+              upload: {
+                connect: { id: uploadData.id }
+              }
+            }
+          })
+        }
+      }
 
       // Send invite email
       await this.sendInvite({
         email: prospect.email,
         uploads: uploads,
       },
-        adminUser
+        adminUser.sub
       );
 
       return prospect;
     } catch (error) {
+      console.log(error)
       if (error instanceof BadRequestException ||
         error instanceof NotFoundException ||
         error instanceof ConflictException) {
         throw error;
       }
-      throw new BadRequestException('Failed to create prospect');
+      bad(error)
     }
   }
-
 
   async acceptInvite(token: string) {
     const currentDate = new Date();
@@ -153,13 +195,24 @@ export class InviteService {
     const invite = await this.prisma.invite.findUnique({
       where: { token },
       include: {
-        prospect: true,
+        prospect: {
+          include: {
+            departments: true,
+            upload: true,
+            invite: {
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 1,
+            },
+          },
+        },
         sentBy: true,
       },
     });
 
-    const prospect = invite.prospect
 
+    const prospect = invite.prospect
 
     if (!invite || invite.expiresAt < currentDate) {
       bad('Invalid or Expired Invitation');
@@ -180,11 +233,12 @@ export class InviteService {
       },
     });
 
+
     const user = await this.prisma.user.create({
       data: {
         firstName: prospect.firstName,
         lastName: prospect.lastName,
-        email: prospect.email,
+        personalEmail: prospect.email,
         phone: prospect.phone,
         gender: prospect.gender,
         jobType: prospect.jobType,
@@ -192,13 +246,18 @@ export class InviteService {
         startDate: prospect.startDate,
         role: prospect.role,
         prospect: { connect: { id: prospect.id } },
+        prospectDocuments: {
+          connect: prospect.upload.map((x) => ({ id: x.id })),
+        },
         departments: {
-          connect: {
-            id: prospect.departmentId
-          }
-        }
+          connect: prospect.departments.map((dept: { id: string }) => ({
+            id: dept.id,
+          })),
+        },
       }
-    })
+    });
+
+    const payload = { sub: user.id, email: user.email, role: user.userRole };
 
     const recipients = await this.prisma.user.findMany({
       where: {
@@ -222,7 +281,9 @@ export class InviteService {
 
     return {
       user,
-      updatedInvite
+      updatedInvite,
+      access_token: this.jwt.sign(payload),
+
     };
   }
 
@@ -287,7 +348,7 @@ export class InviteService {
           ],
         },
         include: {
-          department: true,
+          departments: true,
           user: {
             include: {
               userDocuments: true,
@@ -408,6 +469,7 @@ export class InviteService {
       }
       throw new BadRequestException('Failed to delete prospect');
     }
+
   }
 
 
@@ -430,6 +492,8 @@ export class InviteService {
       include: {
         upload: true,
         user: true,
+        departments: true,
+
       },
     });
     if (!prospect) {

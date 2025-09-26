@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException } from '@
 import { LevelDto, UpdateLevelDto } from './dto/level.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { ApproverRole } from '@prisma/client';
+import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class LevelService {
@@ -99,6 +100,29 @@ export class LevelService {
             });
         } catch (error) {
             throw new BadRequestException(error.message);
+        }
+    }
+
+
+    async deleteLevel(id: string) {
+        try {
+
+            const level = await this.__findOneLevel(id)
+
+            if (!level) mustHave(level, "Level not found", 404)
+
+            await this.prisma.level.delete({
+                where: {
+                    id
+                }
+            })
+
+            return ({
+                message: "Level Deleted Successfully"
+            })
+        } catch (error) {
+            console.log(error)
+            bad(error)
         }
     }
 

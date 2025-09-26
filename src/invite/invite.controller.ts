@@ -4,18 +4,19 @@ import {
 } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { CreateProspectDto, DeclineComment } from './dto/invite.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @ApiTags('Invite')
 @Controller('invite')
 export class InviteController {
   constructor(private inviteService: InviteService) { }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Post('send')
   @ApiOperation({ summary: 'Send an invitation to create a new prospect' })
   @ApiConsumes('multipart/form-data')
@@ -28,13 +29,12 @@ export class InviteController {
   async create(
     @Body() input: CreateProspectDto,
     @UploadedFiles() uploads: Express.Multer.File[],
-    @Res() res: Response,
-    @Request() req: { user: { id: string } }
+    @AuthUser() req: IAuthUser
   ) {
-    const prospect = await this.inviteService.createProspect(input, uploads,
-      req.user.id
+
+    return this.inviteService.createProspect(input, uploads,
+      req
     );
-    return res.status(200).json({ message: `A New Prospect Has Been Added`, prospect });
   }
 
   @Put('accept/:token')
@@ -43,10 +43,9 @@ export class InviteController {
   @ApiResponse({ status: 200, description: 'Prospect Has Accepted The Invitation' })
   async acceptInvite(
     @Param('token') token: string,
-    @Res() res: Response,
   ) {
-    const prospect = await this.inviteService.acceptInvite(token);
-    return res.status(200).json({ message: `Prospect Has Accepted The Invitation`, prospect });
+    return this.inviteService.acceptInvite(token);
+
   }
 
   @Put('decline/:token')
@@ -64,7 +63,7 @@ export class InviteController {
     return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect });
   }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get()
   @ApiOperation({ summary: 'Get all prospects' })
   @ApiResponse({ status: 200, description: 'All Prospects' })
@@ -79,7 +78,7 @@ export class InviteController {
     return res.status(200).json(invite);
   }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get(':id')
   @ApiOperation({ summary: 'Get a single prospect by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
@@ -90,7 +89,7 @@ export class InviteController {
 
 
   @Delete(":id")
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @ApiOperation({ summary: 'Delete a prospect by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
   @ApiResponse({ status: 200, description: 'Prospect deleted successfully' })

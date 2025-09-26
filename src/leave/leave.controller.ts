@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res } fr
 import { LeaveService } from './leave.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
@@ -25,15 +25,15 @@ export class LeaveController {
     return this.leave.getAvailableLeaveTypes(userId);
   }
 
-  @Auth(["ADMIN", "DEPT_MANAGER", "LEAVE_MANAGER"])
+  @Auth(["ADMIN", "DEPT_MANAGER", "LEAVE_MANAGER", "HR"])
   @Get("")
-  async listLeaveRequests(@Req() req: { user: { id: string } }) {
-    return this.leave.listLeaveRequests(req.user.id);
+  async listLeaveRequests(@AuthUser() req: IAuthUser) {
+    return this.leave.listLeaveRequests(req.sub);
   }
 
   @Auth()
   @Get("/user/:userId")
-  async listUserLeave(@Param("userId") userId: string) {
+  async listUserLeaveRequests(@Param("userId") userId: string) {
     return this.leave.listUserLeaveRequests(userId);
   }
 
