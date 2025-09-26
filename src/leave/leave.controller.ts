@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
 import { LeaveService } from './leave.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
@@ -11,7 +11,11 @@ export class LeaveController {
   constructor(private readonly leave: LeaveService) { }
 
   @Post(":userId")
-  async createLeaveRequest(@Param('userId') userId: string, @Body() data: CreateLeaveRequestDto, @Res() res: Response,) {
+  async createLeaveRequest(
+    @Param('userId') userId: string, 
+    @Body() data: CreateLeaveRequestDto, 
+    @Res() res: Response,
+  ) {
     const request = await this.leave.createLeaveRequest(userId, data);
     return res.status(200).json({ message: 'Leave Request Created', request });
   }
@@ -35,7 +39,10 @@ export class LeaveController {
 
   // @Auth()
   @Get('balance/:userId/:typeId')
-  async getLeaveBalance(@Param('userId') userId: string, @Param('typeId') typeId: string) {
+  async getLeaveBalance(
+    @Param('userId') userId: string, 
+    @Param('typeId') typeId: string
+  ) {
     return this.leave.checkLeaveBalance(userId, typeId);
   }
 
