@@ -188,6 +188,9 @@ model Upload {
   requestId     String?           @db.Uuid
   request       LeaveRequest?     @relation(fields: [requestId], references: [id])
 
+  claim   Claim?  @relation(fields: [claimId], references: [id])
+  claimId String?
+
   //cloudinary keys
   publicId  String? @unique
   secureUrl String? @unique
@@ -530,7 +533,7 @@ model Claim {
   description   String?
   notes         String?
   status        ClaimStatus @default(PENDING)
-  proofUrls     String[]    @default([])
+  proofUrls     Upload[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   userId        String      @db.Uuid
@@ -555,7 +558,7 @@ model Task {
   assignees   UserTask[]
   files       TaskFile[]
   createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
-  createdById String
+  createdById String     @db.Uuid
 
   @@map("tasks")
 }
@@ -563,7 +566,7 @@ model Task {
 model UserTask {
   id         String   @id @default(cuid())
   taskId     String
-  userId     String
+  userId     String   @db.Uuid
   assignedAt DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
