@@ -45,6 +45,7 @@ model User {
   state         String?
   address       String?
   startDate     DateTime?
+  dateOfBirth   DateTime?
   status        Status         @default(PENDING)
   userRole      Role[]
   maritalStatus MaritalStatus?
@@ -85,6 +86,7 @@ model User {
   approvals  Approval[]
   responses  Response[]
   payslip    Payslip[]
+  bank       Bank?
 
   @@index([email])
   @@index([eId])
@@ -191,6 +193,9 @@ model Upload {
   claim   Claim?  @relation(fields: [claimId], references: [id])
   claimId String?
 
+  guarantorId String?           @db.Uuid
+  guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
+
   //cloudinary keys
   publicId  String? @unique
   secureUrl String? @unique
@@ -200,35 +205,67 @@ model Upload {
 }
 
 model Contacts {
-  id        String            @id @default(uuid()) @db.Uuid
-  guarantor GuarantorContact?
-  emergency EmergencyContact?
-  userId    String            @unique @db.Uuid
-  user      User              @relation(fields: [userId], references: [id])
+  id        String             @id @default(uuid()) @db.Uuid
+  guarantor GuarantorContact[]
+  emergency EmergencyContact[]
+  nextOfKin NextOfKin[]
+  userId    String             @unique @db.Uuid
+  user      User               @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Bank {
+  id            String @id @default(uuid()) @db.Uuid
+  bankName      String
+  accountName   String
+  accountNumber String
+
+  userId String? @unique @db.Uuid
+  user   User?   @relation(references: [id], fields: [userId])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model NextOfKin {
+  id        String    @id @default(uuid()) @db.Uuid
+  firstName String
+  lastName  String
+  phone     String
+  address   String?
+  contacts  Contacts? @relation(fields: [contactId], references: [id])
+  contactId String?   @db.Uuid
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model EmergencyContact {
-  id        String   @id @default(uuid()) @db.Uuid
-  firstName String
-  lastName  String
-  email     String
-  phone     String
-  contacts  Contacts @relation(fields: [contactId], references: [id])
-  contactId String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid()) @db.Uuid
+  firstName    String
+  lastName     String
+  phone        String
+  relationship String?
+  address      String?
+  contacts     Contacts? @relation(fields: [contactId], references: [id])
+  contactId    String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model GuarantorContact {
-  id        String   @id @default(uuid()) @db.Uuid
-  firstName String
-  lastName  String
-  email     String
-  phone     String
-  contacts  Contacts @relation(fields: [contactId], references: [id])
-  contactId String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(uuid()) @db.Uuid
+  firstName    String
+  lastName     String
+  phone        String
+  address      String?
+  relationship String?
+  document     Upload[]
+  contacts     Contacts? @relation(fields: [contactId], references: [id])
+  contactId    String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model Comment {
@@ -528,6 +565,7 @@ model Claim {
   id            String      @id @default(uuid())
   title         String
   claimType     ClaimType
+  claimId       String?     @unique()
   amount        Float
   dateOfExpense DateTime
   description   String?
@@ -739,4 +777,9 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+enum Gender {
+  MALE
+  FEMALE
 }

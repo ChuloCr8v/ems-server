@@ -8,9 +8,7 @@ import {
   Param,
   Body,
   Query,
-  UploadedFiles,
   UseGuards,
-  Req,
 } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';

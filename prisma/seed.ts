@@ -29,7 +29,6 @@ async function main() {
             create: {
               firstName: "Precious",
               lastName: "Green",
-              email: "pregreen@gmail.com",
               phone: "08012345678",
             },
           },
@@ -37,7 +36,6 @@ async function main() {
             create: {
               firstName: "John",
               lastName: "Doe",
-              email: "bryan@gmail.com",
               phone: "08087654321",
             },
           },

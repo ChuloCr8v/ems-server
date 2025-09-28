@@ -152,7 +152,9 @@ export class LeaveService {
 
             const leaveRequests = await this.prisma.leaveRequest.findMany({
                 include: {
-                    user: true,
+                    user: {
+                        include: { approver: true }
+                    },
                     type: true,
                     uploads: true,
                     approvals: {
