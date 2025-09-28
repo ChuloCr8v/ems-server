@@ -477,6 +477,11 @@ export class UserService {
             const user = await this.prisma.user.findUnique({
                 where: { id, },
                 include: {
+                    assignments: {
+                        include: {
+                            asset: true
+                        }
+                    },
                     level: true,
                     userDocuments: true,
                     contacts: {

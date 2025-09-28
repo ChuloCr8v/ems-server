@@ -565,6 +565,7 @@ model Claim {
   id            String      @id @default(uuid())
   title         String
   claimType     ClaimType
+  claimId       String?     @unique()
   amount        Float
   dateOfExpense DateTime
   description   String?
