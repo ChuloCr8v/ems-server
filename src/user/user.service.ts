@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, JobType, Prisma, Role, Status, User } from '@prisma/client';
+import { AssetStatus, EmergencyContact, GuarantorContact, JobType, Prisma, Role, Status, User } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
@@ -34,11 +34,11 @@ export class UserService {
         }
     }
 
-    async updateEmployee(id: string, data: UpdateUserDto, uploads: Express.Multer.File[]) {
+    async updateEmployee(id: string, data: UpdateUserDto) {
         const { duration, jobType } = data;
         const user = await this.__findUserById(id);
 
-        const updateUser = await this.prisma.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const updatedUser = await tx.user.update({
                 where: { id },
                 data: {
@@ -52,15 +52,16 @@ export class UserService {
                     maritalStatus: data.maritalStatus,
                     state: data.state,
                     departments: {
-                        connect: user.departments.map(u => ({ id: u.id })),
+                        connect: user.departments.map((u) => ({ id: u.id })),
                     },
                     ...(jobType === JobType.CONTRACT ? { duration } : {}),
 
-                    // ✅ Update userDocuments safely
                     ...(data.userDocuments?.length
                         ? {
                             userDocuments: {
-                                set: data.userDocuments.map((docId: string) => ({ id: docId })),
+                                set: data.userDocuments.map((docId: string) => ({
+                                    id: docId,
+                                })),
                             },
                         }
                         : {}),
@@ -68,60 +69,54 @@ export class UserService {
                     contacts: {
                         update: {
                             emergency: {
-                                upsert: {
-                                    where: { contactId: user.contacts.id },
-                                    update: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        email: data.emergency.email,
-                                        phone: data.emergency.phone,
-                                    },
-                                    create: {
-                                        firstName: data.emergency.firstName,
-                                        lastName: data.emergency.lastName,
-                                        email: data.emergency.email,
-                                        phone: data.emergency.phone,
-                                    },
+                                deleteMany: {},
+                                createMany: {
+                                    data: data.emergency.map((contact) => ({
+                                        firstName: contact.firstName,
+                                        lastName: contact.lastName,
+                                        phone: contact.phone,
+                                        address: contact.address,
+                                        relationship: contact.relationship,
+                                    })),
                                 },
                             },
                             guarantor: {
-                                upsert: {
-                                    where: { contactId: user.contacts.id },
-                                    update: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        email: data.guarantor.email,
-                                        phone: data.guarantor.phone,
-                                    },
-                                    create: {
-                                        firstName: data.guarantor.firstName,
-                                        lastName: data.guarantor.lastName,
-                                        email: data.guarantor.email,
-                                        phone: data.guarantor.phone,
-                                    },
+                                deleteMany: {},
+                                create: data.guarantor.map((contact) => ({
+                                    firstName: contact.firstName,
+                                    lastName: contact.lastName,
+                                    phone: contact.phone,
+                                    address: contact.address,
+                                    relationship: contact.relationship,
+                                    ...(contact.document?.length
+                                        ? {
+                                            document: {
+                                                connect: contact.document.map((d) => ({ id: d })),
+                                            },
+                                        }
+                                        : {}),
+                                })),
+                            },
+                            nextOfKin: {
+                                deleteMany: {},
+                                createMany: {
+                                    data: data.nextOfKin.map((contact) => ({
+                                        firstName: contact.firstName,
+                                        lastName: contact.lastName,
+                                        phone: contact.phone,
+                                        address: contact.address,
+                                    })),
                                 },
                             },
                         },
-                    },
-                },
-                include: {
-                    contacts: {
-                        include: {
-                            emergency: true,
-                            guarantor: true,
-                        },
-                    },
-                    userDocuments: {
-                        select: { name: true },
                     },
                 },
             });
 
             return updatedUser;
         });
-
-        return updateUser;
     }
+
 
     async assignAssets(id: string, assetIds: string[]) {
         try {
@@ -268,10 +263,13 @@ export class UserService {
             await this.ensureUniqueEmployeeFields(data, id, this.prisma);
 
             Object.assign(updateData, {
-                email: data.email,
-                workPhone: data.workPhone,
-                eId: data.eId,
-                level: { connect: { id: data.levelId } },
+                ...(data.email && { email: data.email }),
+                ...(data.dateOfBirth && { dateOfBirth: data.dateOfBirth }),
+                ...(data.workPhone && { workPhone: data.workPhone }),
+                ...(data.eId && { eId: data.eId }),
+                ...(data.levelId && {
+                    level: { connect: { id: data.levelId } },
+                }),
             });
         }
 
@@ -287,8 +285,8 @@ export class UserService {
             }
         }
 
-        if (data.guarantor || data.emergency) {
-            await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency);
+        if (data.guarantor || data.emergency || data.nextOfKin) {
+            await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency, data.nextOfKin);
         }
 
         if ("departments" in user && user.departments?.length) {
@@ -329,10 +327,16 @@ export class UserService {
                 departments: true,
                 contacts: {
                     include: {
-                        emergency: true,
-                        guarantor: true,
+                        guarantor: {
+                            include: {
+                                document: true
+                            }
+                        },
+                        nextOfKin: true,
+                        emergency: true
                     }
                 },
+                bank: true,
                 comment: true,
                 invite: true,
             },
@@ -345,37 +349,7 @@ export class UserService {
     async getUser(id: string) {
         try {
 
-            const user = await this.prisma.user.findUnique({
-                where: {
-                    id
-                },
-                include: {
-                    prospect: true,
-                    userDocuments: {
-                        select: {
-                            id: true,
-                            name: true,
-                            size: true,
-                            type: true
-                        }
-                    },
-                    level: true,
-                    departments: true,
-                    contacts: {
-                        include: {
-                            emergency: true,
-                            guarantor: true,
-                        }
-                    },
-                    comment: true,
-                    invite: true,
-                    assignments: {
-                        include: {
-                            asset: true
-                        }
-                    }
-                }
-            })
+            const user = await this.__findUserById(id)
 
             if (!user) mustHave(user, "User not found", 404)
             return user
@@ -395,6 +369,8 @@ export class UserService {
         tx: Prisma.TransactionClient,
     ) {
         const { eId, email, workPhone } = data;
+
+        console.log(data)
 
         if (eId) {
             const existingEId = await tx.user.findFirst({
@@ -424,41 +400,76 @@ export class UserService {
     private async updateContacts(
         tx: Prisma.TransactionClient,
         userId: string,
-        guarantor?: any,
-        emergency?: any,
+        guarantors?: {
+            firstName: string;
+            lastName: string;
+            phone: string;
+            address?: string;
+            relationship?: string;
+            document?: string[];
+        }[],
+        emergencies?: Prisma.EmergencyContactCreateManyInput[],
+        nextOfKin?: Prisma.NextOfKinCreateManyInput[],
     ) {
-        await tx.contacts.upsert({
+        const contact = await tx.contacts.upsert({
             where: { userId },
-            update: {
-                ...(guarantor
-                    ? {
-                        guarantor: {
-                            upsert: {
-                                update: guarantor,
-                                create: guarantor,
-                            },
-                        },
-                    }
-                    : {}),
-                ...(emergency
-                    ? {
-                        emergency: {
-                            upsert: {
-                                update: emergency,
-                                create: emergency,
-                            },
-                        },
-                    }
-                    : {}),
-            },
-            create: {
-                userId,
-                ...(guarantor ? { guarantor: { create: guarantor } } : {}),
-                ...(emergency ? { emergency: { create: emergency } } : {}),
-            },
+            update: {},
+            create: { userId },
         });
-    }
 
+        if (guarantors?.length) {
+            await tx.guarantorContact.deleteMany({
+                where: { contactId: contact.id },
+            });
+
+            for (const g of guarantors) {
+                await tx.guarantorContact.create({
+                    data: {
+                        firstName: g.firstName,
+                        lastName: g.lastName,
+                        phone: g.phone,
+                        address: g.address,
+                        relationship: g.relationship,
+                        contactId: contact.id,
+                        ...(g.document?.length
+                            ? {
+                                document: {
+                                    connect: g.document.map((docId) => ({ id: docId })),
+                                },
+                            }
+                            : {}),
+                    },
+                });
+            }
+        }
+
+
+        if (emergencies?.length) {
+            await tx.emergencyContact.deleteMany({
+                where: { contactId: contact.id },
+            });
+
+            await tx.emergencyContact.createMany({
+                data: emergencies.map((e) => ({
+                    ...e,
+                    contactId: contact.id,
+                })),
+            });
+        }
+
+        if (nextOfKin?.length) {
+            await tx.nextOfKin.deleteMany({
+                where: { contactId: contact.id },
+            });
+
+            await tx.nextOfKin.createMany({
+                data: nextOfKin.map((n) => ({
+                    ...n,
+                    contactId: contact.id,
+                })),
+            });
+        }
+    }
 
 
     async __findUserById(id: string) {
@@ -468,7 +479,19 @@ export class UserService {
                 include: {
                     level: true,
                     userDocuments: true,
-                    contacts: true,
+                    contacts: {
+                        include: {
+                            guarantor: {
+
+                                include: {
+                                    document: true
+                                }
+                            },
+                            nextOfKin: true,
+                            emergency: true
+                        }
+                    },
+                    bank: true,
                     departments: true,
                     prospect: true,
                 },
@@ -619,8 +642,6 @@ export class UserService {
             message: `Processed ${data.length} employees: ${results.filter(r => r.success).length} created, ${results.filter(r => !r.success).length} failed.`,
         };
     }
-
-
 
     async deleteUser(ids: string[]) {
         try {

@@ -10,7 +10,6 @@ import {
   UploadedFiles,
   Patch,
   Delete,
-  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
@@ -65,7 +64,7 @@ export class UserController {
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
   async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @UploadedFiles() uploads: { uploads?: Express.Multer.File[] }, @Res() res: Response) {
 
-    const user = await this.userService.updateEmployee(id, data, uploads?.uploads || []);
+    const user = await this.userService.updateEmployee(id, data);
     return res.status(200).json({ message: `User Details Has Been Updated`, user })
   }
 
