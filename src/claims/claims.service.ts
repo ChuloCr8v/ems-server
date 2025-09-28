@@ -13,8 +13,12 @@ export class ClaimsService {
   ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
+
+    const claimId = "CLM" + Date.now().toString().slice(-4);
+
     const claim = await this.prisma.claim.create({
       data: {
+        claimId,
         title: createClaimDto.title,
         claimType: createClaimDto.claimType,
         amount: Number(createClaimDto.amount),
@@ -25,7 +29,6 @@ export class ClaimsService {
             id: userId
           }
         },
-        // proofUrls: createClaimDto.proofUrls || [],
         proofUrls: createClaimDto.proofUrls
           ? {
             connect: createClaimDto.proofUrls.map((id) => ({ id })),
