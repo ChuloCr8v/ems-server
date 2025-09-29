@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Res } from '@nestjs/common';
 import { LeaveService } from './leave.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
@@ -12,8 +12,8 @@ export class LeaveController {
 
   @Post(":userId")
   async createLeaveRequest(
-    @Param('userId') userId: string, 
-    @Body() data: CreateLeaveRequestDto, 
+    @Param('userId') userId: string,
+    @Body() data: CreateLeaveRequestDto,
     @Res() res: Response,
   ) {
     const request = await this.leave.createLeaveRequest(userId, data);
@@ -40,7 +40,7 @@ export class LeaveController {
   // @Auth()
   @Get('balance/:userId/:typeId')
   async getLeaveBalance(
-    @Param('userId') userId: string, 
+    @Param('userId') userId: string,
     @Param('typeId') typeId: string
   ) {
     return this.leave.checkLeaveBalance(userId, typeId);
@@ -64,5 +64,11 @@ export class LeaveController {
   @Get('history/:leaveRequestId')
   async getApprovalHistory(@Param('leaveRequestId') leaveRequestId: string) {
     return this.leave.getApprovalHistory(leaveRequestId);
+  }
+
+  @Auth()
+  @Delete('delete/:id')
+  async deleteRequest(@Param('id') id: string, @AuthUser() req: IAuthUser) {
+    return this.leave.deleteRequest(id, req.sub);
   }
 }

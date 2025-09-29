@@ -479,7 +479,11 @@ export class UserService {
                 include: {
                     assignments: {
                         include: {
-                            asset: true
+                            asset: {
+                                include: {
+                                    assetImages: true
+                                }
+                            }
                         }
                     },
                     level: true,

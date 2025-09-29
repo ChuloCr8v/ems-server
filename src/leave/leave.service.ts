@@ -564,6 +564,39 @@ export class LeaveService {
             throw new BadRequestException('Failed to get approval history:' + error.message);
         }
 
+
+
+
+    }
+
+    async deleteRequest(id: string, userId: string) {
+        try {
+            const request = await this.prisma.leaveRequest.findUnique(
+                {
+                    where: {
+                        id,
+                        userId
+                    },
+
+                }
+            )
+
+            if (!request) mustHave(request, "Request not found", 404)
+
+            if (request.userId !== userId) bad("You can only delete your request.")
+
+            await this.prisma.leaveRequest.delete({
+                where: {
+                    id
+                }
+            })
+
+            return {
+                message: "Requst deleted successfully"
+            }
+        } catch (error) {
+            bad(error)
+        }
     }
 
 
