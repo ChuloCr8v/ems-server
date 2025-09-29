@@ -21,7 +21,7 @@ model Notification {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  recipient User      @relation("NotificationRecipient", fields: [recipientId], references: [id])
+  recipient User      @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
   prospect  Prospect? @relation(fields: [prospectId], references: [id])
 }
@@ -210,7 +210,7 @@ model Contacts {
   emergency EmergencyContact[]
   nextOfKin NextOfKin[]
   userId    String             @unique @db.Uuid
-  user      User               @relation(fields: [userId], references: [id])
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -461,7 +461,7 @@ model CancelRequest {
 model Approver {
   id           String      @id @default(uuid()) @db.Uuid
   userId       String      @db.Uuid
-  user         User        @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id])
   role         Role
@@ -475,7 +475,7 @@ model Approval {
   leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
   leaveRequestId String         @db.Uuid
   phase          Int
-  approver       User           @relation(fields: [approverId], references: [id])
+  approver       User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
   approverId     String         @db.Uuid
   status         ApprovalStatus @default(PENDING)
   note           String?
