@@ -472,7 +472,7 @@ model Approver {
 
 model Approval {
   id             String         @id @default(uuid()) @db.Uuid
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
   leaveRequestId String         @db.Uuid
   phase          Int
   approver       User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
@@ -545,7 +545,7 @@ model PayrollComponent {
   startDate     DateTime?
   isActive      Boolean               @default(true)
   payrollId     String                @db.Uuid
-  payroll       Payroll               @relation(fields: [payrollId], references: [id])
+  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 }

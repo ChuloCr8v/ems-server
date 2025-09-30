@@ -18,9 +18,8 @@ export class PayrollService {
             const existingPayroll = await this.prisma.payroll.findUnique({
                 where: { userId },
             });
-            if (existingPayroll) {
-                throw bad("User already has a payroll");
-            }
+            if (existingPayroll) bad("User already has a payroll");
+
 
             //Create payroll with static components
             const { gross, net, deductions, components } = await this.createStaticComponents(salary);
@@ -32,7 +31,8 @@ export class PayrollService {
                 data: {
                     salary,
                     gross,
-                    net: net - taxResults.tax - taxResults.pension - taxResults.nhf,
+                    // net: net - taxResults.tax - taxResults.pension - taxResults.nhf,
+                    net: net - taxResults.tax - taxResults.pension,
                     deductions: deductions + taxResults.tax - taxResults.pension - taxResults.nhf,
                     tax: taxResults.tax,
                     cra: taxResults.cra,
@@ -615,6 +615,9 @@ export class PayrollService {
             const basicComponent = components.find(c => c.title === 'Basic');
             const housingComponent = components.find(c => c.title === 'Housing');
             const transportComponent = components.find(c => c.title === 'Transport');
+            // const lifeStyleComponent = components.find(c => c.title === 'LifeStyle');
+            // const wardrobeComponent = components.find(c => c.title === 'Wardrope');
+            // const entertainmentComponent = components.find(c => c.title === 'Entertainment');
 
             //Extract life assurance component if exists
             const lifeAssuranceComponent = components.find(c =>
@@ -622,18 +625,26 @@ export class PayrollService {
                 c.title.toLowerCase('assurance')
             );
 
-            const basic = basicComponent?.amount || 0;
-            const housing = housingComponent?.amount || 0;
-            const transport = transportComponent?.amount || 0;
+            const basic = (basicComponent?.amount / 100) * gross || 0;
+            const housing = (housingComponent?.amount / 100) * gross || 0;
+            const transport = (transportComponent?.amount / 100) * gross || 0;
+
+
+            // const lifeStyle = lifeStyleComponent?.amount || 0;
+            // const wardrobe = wardrobeComponent?.amount || 0;
+            // const entertainment = entertainmentComponent?.amount || 0;
             const lifeAssurance = lifeAssuranceComponent?.amount || 0;
 
-            return this.taxService.calculateTotalTax(
+            const data = this.taxService.calculateTotalTax(
                 gross,
                 basic,
                 housing,
                 transport,
-                lifeAssurance
+                lifeAssurance,
             );
+
+            console.log("data", data)
+            return data
         } catch (error) {
             if (error instanceof BadRequestException ||
                 error instanceof NotFoundException ||
