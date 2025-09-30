@@ -114,13 +114,23 @@ export class AuthService {
 
   //Temporary. Will remove later so just ignore lack of password.
   async emailLogin(email: string, password: string) {
+    const isDev = process.env.IS_DEV
+
+    console.log(isDev)
+
+    if (!isDev) bad("Login with your microsoft account")
     try {
       const user = await this.prisma.user.findUnique({
         where: {
           email: email
         },
       })
+
+
       if (!user) mustHave(user, "User not found", 404)
+
+      if (user.email !== password) bad("Incorrect Password")
+
       const payload = { sub: user.id, email: user.email, role: user.userRole };
       return {
         access_token: this.jwt.sign(payload),

@@ -267,6 +267,7 @@ export class UserService {
                 ...(data.dateOfBirth && { dateOfBirth: data.dateOfBirth }),
                 ...(data.workPhone && { workPhone: data.workPhone }),
                 ...(data.eId && { eId: data.eId }),
+                ...(data.status && { status: data.status }),
                 ...(data.levelId && {
                     level: { connect: { id: data.levelId } },
                 }),

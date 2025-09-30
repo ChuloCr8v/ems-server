@@ -5,17 +5,17 @@ import { Response } from 'express';
 
 @Controller('payroll')
 export class PayrollController {
-  constructor(private readonly payroll: PayrollService) {}
+  constructor(private readonly payroll: PayrollService) { }
   @Post()
   async createPayroll(@Body() data: PayrollDto, @Res() res: Response) {
     const payroll = await this.payroll.createPayroll(data);
-    return res.status(200).json({ message: `A Payroll Has Been Created For ${payroll.user.firstName}`, payroll});
+    return res.status(200).json({ message: `A Payroll Has Been Created For ${payroll.user.firstName}`, payroll });
   }
 
-  @Get() 
+  @Get()
   async findAllPayrolls(@Res() res: Response) {
     const payrolls = await this.payroll.findAllPayroll();
-    return res.status(200).json({ message: `All Payrolls`, payrolls });
+    return res.status(200).json(payrolls.data);
   }
 
   @Get(':payrollId')
@@ -27,7 +27,7 @@ export class PayrollController {
   @Patch(':payrollId')
   async updatePayroll(@Param('payrollId') payrollId: string, @Body() update: UpdatePayrollDto, @Res() res: Response) {
     const payroll = await this.payroll.updatePayroll(payrollId, update);
-    return res.status(200).json({ message: `Payroll Has Been Updated`, payroll});
+    return res.status(200).json({ message: `Payroll Has Been Updated`, payroll });
   }
 
   @Post(':payrollId/custom-component')
@@ -38,7 +38,7 @@ export class PayrollController {
 
   @Delete(':componentId')
   async removeCustomComponent(@Param('componentId') componentId: string, @Res() res: Response) {
-    const component =  await this.payroll.removeCustomComponent(componentId);
-    return res.status(200).json({ message: `Custom Component Has Been Removed`, component});
+    const component = await this.payroll.removeCustomComponent(componentId);
+    return res.status(200).json({ message: `Custom Component Has Been Removed`, component });
   }
 }
