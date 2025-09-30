@@ -10,6 +10,7 @@ import {
   Res,
   ParseUUIDPipe,
   UploadedFile,
+  Delete,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { join } from 'path';
@@ -24,11 +25,11 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
 } from '@nestjs/swagger';
-import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
 import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto } from './dto/assets.dto';
+import { Role } from '@prisma/client';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 
 @ApiTags('Assets')
 @ApiBearerAuth()
@@ -45,30 +46,10 @@ export class AssetsController {
     type: CreateAssetDto,
   })
   @ApiCreatedResponse({ description: 'Asset successfully created' })
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'assetImage', maxCount: 5 },
-      { name: 'barcodeImage', maxCount: 5 },
-    ], {
-      storage: diskStorage({
-        destination: './uploads/assets',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
-    }),
-  )
   async create(
     @Body() createAssetDto: CreateAssetDto,
-    @UploadedFiles() files: {
-      assetImage?: Express.Multer.File[],
-      barcodeImage?: Express.Multer.File[]
-    }
   ) {
-    return this.assetsService.createAsset(createAssetDto, files);
+    return this.assetsService.createAsset(createAssetDto);
   }
 
   @Put("update/:id")
@@ -80,22 +61,6 @@ export class AssetsController {
   })
   @ApiParam({ name: 'id', description: 'Asset ID' })
   @ApiCreatedResponse({ description: 'Asset successfully updated' })
-  @UseInterceptors(
-    FileFieldsInterceptor([
-      { name: 'assetImage', maxCount: 5 },
-      { name: 'barcodeImage', maxCount: 5 },
-    ], {
-      storage: diskStorage({
-        destination: './uploads/assets',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `${file.fieldname}-${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
-    }),
-  )
   async updateAsset(
     @Param('id') id: string,
     @Body() updateAssetDto: CreateAssetDto,
@@ -104,33 +69,8 @@ export class AssetsController {
       barcodeImage?: Express.Multer.File[]
     }
   ) {
-    return this.assetsService.updateAsset(id, updateAssetDto, files);
+    return this.assetsService.updateAsset(id, updateAssetDto);
   }
-
-  @Post()
-  @UseInterceptors(
-    FilesInterceptor('files', 20, {
-      dest: './uploads',
-      fileFilter: (req, file, cb) => {
-        // You can add file filtering logic here
-        cb(null, true);
-      },
-      limits: {
-        fileSize: 1024 * 1024 * 5, // 5MB limit per file
-      },
-    }),
-  )
-  async createAsset(
-    @Body() createAssetDto: CreateAssetDto,
-    @UploadedFiles() files: Express.Multer.File[],
-  ) {
-    const processedFiles = {
-      assetImage: files?.filter(f => f.fieldname === 'assetImage'),
-      barcodeImage: files?.filter(f => f.fieldname === 'barcodeImage'),
-    };
-    return this.assetsService.createAsset(createAssetDto, processedFiles);
-  }
-
 
   @Get('uploads/:filename')
   @ApiOperation({ summary: 'Get uploaded asset image' })
@@ -297,9 +237,19 @@ export class AssetsController {
     return this.assetsService.createMultiAssets(file);
   }
 
-  @Put("retrieve/:assetId")
-  async retrieveAsset(@Param("assetId") assetId: string, @Body() dto: { retrievedById: string, notes: string }) {
-    return this.assetsService.retrieveAsset(assetId, dto)
+  @Put("retrieve")
+  async retrieveAsset(@Body() dto: { assetIds: string[], retrievedById: string, notes: string }) {
+    return this.assetsService.retrieveAssets(dto)
+  }
+
+  @Delete(":id")
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @ApiOperation({ summary: 'Delete asset by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
+  @ApiResponse({ status: 200, description: 'Asset deleted successfully' })
+  async deleteAsset(@Param('id') id: string, @Res() res: Response) {
+    await this.assetsService.deleteAsset(id);
+    return res.status(200).json({ message: `Asset has been deleted successfully` });
   }
 }
 

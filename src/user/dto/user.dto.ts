@@ -1,47 +1,23 @@
 import { JobType, MaritalStatus, Role } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsDate, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf, ValidateNested } from 'class-validator';
+import { IsArray, IsDate, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
-
-export class EmergencyContactDto {
-  @IsNotEmpty({ message: 'First Name is Required' })
-  @IsString()
-  firstName: string;
-
-  @IsNotEmpty({ message: 'Last Name is Required' })
-  @IsString()
-  lastName: string;
-
-  @IsNotEmpty({ message: 'Email is Required' })
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty({ message: 'Phone Number is Required' })
-  @IsString()
-  phone: string;
-}
-
-
-export class GuarantorContactDto {
-  @IsNotEmpty({ message: 'First Name is Required' })
-  @IsString()
-  firstName: string;
-
-  @IsNotEmpty({ message: 'Last Name is Required' })
-  @IsString()
-  lastName: string;
-
-  @IsNotEmpty({ message: 'Email is Required' })
-  @IsEmail()
-  email: string;
-
-  @IsNotEmpty({ message: 'Phone Number is Required' })
-  @IsString()
-  phone: string;
-}
-
+import { ContactDto } from 'src/contacts/contacts.dto';
 
 export class CreateUserDto {
+  @IsString()
+  @IsOptional()
+  eId?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+
+  @IsString()
+  @IsOptional()
+  workPhone?: string;
+
   @IsNotEmpty({ message: 'First Name is Required' })
   @IsString()
   firstName: string;
@@ -66,21 +42,34 @@ export class CreateUserDto {
   @IsString()
   gender: string;
 
-  @IsNotEmpty({ message: 'Duration is Required' })
+  @IsOptional({ message: 'Duration is Required' })
   @IsString()
-  duration: string;
+  duration?: string;
 
   @IsNotEmpty({ message: 'Start Date is Required' })
-  @IsString()
+  @IsDate()
+  @Transform(({ value }) => new Date(value))
   startDate: Date;
 
-  @ValidateNested()
-  @Type(() => GuarantorContactDto)
-  guarantor: GuarantorContactDto;
+  @IsOptional()
+  @IsDate()
+  @Transform(({ value }) => new Date(value))
+  dateOfBirth?: Date;
 
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  emergency: EmergencyContactDto;
+  @ValidateNested({ each: true })
+  @IsArray()
+  @Type(() => ContactDto)
+  guarantor: ContactDto[];
+
+  @ValidateNested({ each: true })
+  @IsArray()
+  @Type(() => ContactDto)
+  emergency: ContactDto[];
+
+  @ValidateNested({ each: true })
+  @IsArray()
+  @Type(() => ContactDto)
+  nextOfKin: ContactDto[];
 
   @IsNotEmpty({ message: 'Marital Status is Required' })
   @IsEnum(MaritalStatus, { each: true, message: 'Marital Status must be one of the following: SINGLE, MARRIED' })
@@ -91,38 +80,37 @@ export class CreateUserDto {
   address: string;
 
   @IsString()
+  @IsOptional()
+  levelId: string;
+
+  @IsString()
   @IsNotEmpty({ message: 'Country is Required' })
   country: string;
 
   @IsString()
   @IsNotEmpty({ message: 'State is Required' })
   state: string;
+
+  @IsArray()
+  @IsOptional()
+  userDocuments: string[];
+
+  @IsArray()
+  @IsOptional()
+  userRole?: Role[];
+
 }
 
-export class UpdateUserDto extends CreateUserDto { }
-
-export class PartialCreateUserDto extends PartialType(CreateUserDto) { }
-
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+}
 export class ApproveUserDto {
-  @IsEmail()
-  @IsNotEmpty({ message: 'Work Email is Required' })
-  email: string;
-
-  @IsString()
-  @IsNotEmpty({ message: 'Work Phone Number is Required' })
-  workPhone: string;
-
   @IsString()
   @IsNotEmpty({ message: 'Level is Required' })
   levelId: string;
 
-  @IsString()
-  @IsNotEmpty({ message: 'Employee ID Number is Required' })
-  eId: string;
-
+  @IsOptional()
   @IsEnum(Role, { each: true })
-  @IsNotEmpty({ message: 'User Role is Required' })
-  userRole: Role;
+  userRole?: Role[];
 }
 
 
@@ -134,7 +122,8 @@ export class UpdateUserInfo {
 
 // add-employee.dto.ts
 
-export class AddEmployeeDto {
+export class
+  AddEmployeeDto {
   @IsNotEmpty()
   @IsString()
   firstName: string;
@@ -147,21 +136,31 @@ export class AddEmployeeDto {
   @IsEmail()
   email: string;
 
-  @IsNotEmpty()
+
+  @IsOptional()
   @IsString()
-  phone: string;
+  personalEmail?: string;
+
+
+  @IsOptional()
+  @IsString()
+  workPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @IsNotEmpty()
   @IsString()
   gender: string;
 
   @IsNotEmpty()
-  @IsString()
-  departmentId: string;
+  @IsArray()
+  department: string[];
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  levelId: string;
+  level: string;
 
   @IsNotEmpty()
   @IsEnum(JobType)
@@ -171,54 +170,9 @@ export class AddEmployeeDto {
   @IsString()
   role: string;
 
-  @IsNotEmpty()
-  @IsEnum(Role)
-  userRole: Role;
-
-  //    @IsNotEmpty()
-  //   @IsEnum(Dept)
-  //   dept: Dept;  
-
-  //   @IsOptional()
-  //   @IsEnum(Rank)
-  //   rank?: Rank;  
-
-  @IsNotEmpty()
-  @IsString()
-  country: string;
-
-  @IsNotEmpty()
-  @IsString()
-  state: string;
-
-  @IsNotEmpty()
-  @IsEnum(MaritalStatus)
-  maritalStatus: MaritalStatus;
-
-  @IsNotEmpty()
-  @IsString()
-  address: string;
-
-  @IsNotEmpty()
-  @IsDate()
-  @Transform(({ value }) => new Date(value))
-  startDate: Date;
-
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  emergencyContact: EmergencyContactDto;
-
-  @ValidateNested()
-  @Type(() => EmergencyContactDto)
-  guarantorContact: EmergencyContactDto;
-
   @IsOptional()
-  @IsString()
-  workPhone?: string;
-
-  //   @IsOptional()
-  //   @IsString()
-  //   levelId?: string;
+  @IsEnum(Role, { each: true })
+  userRole?: Role[];
 
   @IsOptional()
   @IsString()

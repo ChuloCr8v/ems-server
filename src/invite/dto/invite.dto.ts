@@ -1,6 +1,7 @@
 import { JobType } from "@prisma/client";
-import { IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { IsArray, IsDate, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 
 
 export class SendInviteDto {
@@ -27,7 +28,7 @@ export class CreateProspectDto {
     @ApiProperty({ example: "john.doe@example.com", description: "Email address of the prospect" })
     @IsNotEmpty({ message: 'Email is Required' })
     @IsEmail()
-    readonly email: string;
+    readonly personalEmail: string;
 
     @ApiProperty({ example: "+2348012345678", description: "Phone number of the prospect" })
     @IsNotEmpty({ message: 'Phone Number is Required' })
@@ -40,12 +41,14 @@ export class CreateProspectDto {
     readonly role: string;
 
     @ApiProperty({ example: "dept123", description: "Department ID" })
-    @IsNotEmpty({ message: 'Department is Required' })
-    readonly departmentId: string;
+    @IsOptional()
+    @IsArray()
+    readonly departments?: string[];
 
     @ApiProperty({ example: "2025-09-01", description: "Start date in YYYY-MM-DD format" })
     @IsNotEmpty({ message: 'Start Date is Required' })
-    @IsString()
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
     startDate: Date;
 
     @ApiProperty({
@@ -70,22 +73,6 @@ export class CreateProspectDto {
     readonly duration?: string;
 }
 
-export class CreateUserDto {
-    @ApiProperty({ example: "Nigeria", description: "Country of the user" })
-    @IsString()
-    @IsNotEmpty({ message: 'Country is Required' })
-    readonly country: string;
-
-    @ApiProperty({ example: "Lagos", description: "State of the user" })
-    @IsString()
-    @IsNotEmpty({ message: 'State is Required' })
-    readonly state: string;
-
-    @ApiProperty({ example: "123 Main Street", description: "Residential address of the user" })
-    @IsString()
-    @IsNotEmpty({ message: 'Address is Required' })
-    readonly address: string;
-}
 
 export class DeclineComment {
     @ApiProperty({ example: "Not interested at the moment", description: "Reason for declining" })

@@ -40,12 +40,23 @@ export class CreateAssetDto {
   name: string;
 
   @ApiProperty({
+    description: 'Images of the asset',
+    example: 'laptop.jpg',
+  })
+
+  @IsOptional()
+  @IsArray()
+  assetImages?: string[];
+
+
+  @ApiProperty({
     description: 'Serial number of the asset',
     example: 'DXPS152023-001',
   })
-  @IsNotEmpty()
+
+  @IsOptional()
   @IsString()
-  serialNo: string;
+  serialNo?: string;
 
   @ApiProperty({
     enum: AssetCategory,
@@ -56,31 +67,31 @@ export class CreateAssetDto {
   @IsString()
   category: AssetCategory;
 
-  @ApiProperty({
-    description: 'Purchase date',
-    example: '2023-05-15',
-  })
-  @IsNotEmpty()
-  @IsDateString()
-  purchaseDate: string;
+  // @ApiProperty({
+  //   description: 'Purchase date of the asset in YYYY-MM-DD format',
+  //   example: '2023-05-15',
+  // })
+  // @IsOptional()
+  // @IsDateString()
+  // purchaseDate?: Date;
 
   @ApiProperty({
     description: 'Vendor from whom the asset was purchased',
     example: 'Dell Technologies',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  vendor: string;
+  vendor?: string;
 
   @ApiProperty({
     description: 'Cost of the asset',
     example: 1499.99,
     type: Number,
   })
-  @IsNotEmpty()
-  @IsString()
+  @IsOptional()
+  @IsNumber()
   @Transform(({ value }) => parseFloat(value))
-  cost: number
+  cost?: Number;
 
   @ApiPropertyOptional({
     description: 'Additional description of the asset',
@@ -106,6 +117,11 @@ export class CreateAssetDto {
   })
   @IsOptional()
   barcodeImage?: ImageDto;
+
+  @IsOptional()
+  @IsString()
+  assignee?: string;
+
 }
 
 export class AssignAssetDto {

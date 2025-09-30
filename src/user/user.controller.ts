@@ -4,36 +4,44 @@ import {
   Param,
   Post,
   Body,
-  NotFoundException,
-  UseGuards,
   Put,
   Res,
   UseInterceptors,
   UploadedFiles,
   Patch,
-  UsePipes,
-  BadRequestException,
-  Req,
+  Delete,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { AddEmployeeDto, ApproveUserDto, CreateUserDto, PartialCreateUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
-import { FileFieldsInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { validate } from 'class-validator';
-import { plainToInstance } from 'class-transformer';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) { }
 
+  @Auth()
+  @Get('me')
+  async getMe(@AuthUser() user: { sub: string; email: string }) {
+    return await this.userService.getMe(user.sub);
+  }
+
   @Post('invite/:id')
-  @UseInterceptors(FilesInterceptor('uploads'))
-  async createUser(@Param('id') id: string, @Body() data: PartialCreateUserDto, @UploadedFiles() upload: Express.Multer.File[], @Res() res: Response) {
-    const user = await this.userService.createUser(id, data, upload);
-    return res.status(200).json({ message: `A User Has Sent His/Her Details`, user });
+  async createUser(@Param('id') id: string, @Body() data: UpdateUserDto) {
+    return await this.userService.updateUser(id, data, "invite");
+  }
+
+  @Put('update/:id')
+  async updateEmployee(@Param('id') id: string, @Body() data: { eId: string, email: string, workPhone: string, levelId: string }) {
+    return this.userService.updateUser(id, data, "employee");
+  }
+
+  @Put('assign-assets/:id')
+  async assignAssets(@Param('id') id: string, @Body() data: string[], @Res() res: Response) {
+    const user = await this.userService.assignAssets(id, data);
+    return res.status(200).json({ message: `Assets assigned`, user });
   }
 
   @Get()
@@ -41,124 +49,34 @@ export class UserController {
     return await this.userService.findAllUsers();
   }
 
-  @Put('approve/:id')
-  async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto, @Res() res: Response) {
-    const user = await this.userService.approveUser(id, data);
-    return res.status(200).json({ message: `User has been Approved`, user })
+  @Get(":id")
+  async getUser(@Param("id") id: string) {
+    return this.userService.getUser(id);
   }
 
-  // @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Post('info/:id')
-  async updateUserInfo(@Param('id') id: string, @Body() comment: UpdateUserInfo, @Res() res: Response) {
-    const user = await this.userService.updateUserInfo(id, comment);
-    return res.status(200).json({ message: `Update Info Request Sent`, user });
+  @Put('approve/:id')
+  async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto) {
+    return this.userService.approveUser(id, data);
+
   }
 
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
   async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @UploadedFiles() uploads: { uploads?: Express.Multer.File[] }, @Res() res: Response) {
 
-    const user = await this.userService.updateUser(id, data, uploads?.uploads || []);
+    const user = await this.userService.updateEmployee(id, data);
     return res.status(200).json({ message: `User Details Has Been Updated`, user })
   }
 
-  @Post('add')
-  @UseInterceptors(
-    FilesInterceptor('files', 5, {
-      storage: diskStorage({
-        destination: './uploads/employees',
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `${uniqueSuffix}${ext}`);
-        },
-      }),
-      fileFilter: (req, file, callback) => {
-        if (
-          !file.originalname.match(
-            /\.(jpg|jpeg|png|gif|pdf|doc|docx|xls|xlsx)$/i,
-          )
-        ) {
-          return callback(
-            new Error('Only image, PDF and document files are allowed!'),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
-    }),
-  )
-
-
-  //     // Check if email already exists
-  //     const existingEmployee = await this.userService.findByEmail(
-  //       body.email,
-  //     );
-  //     if (existingEmployee) {
-  //       throw new BadRequestException('Email already exists');
-  //     }
-
-  //     // Process file paths
-  //     const filePaths = files?.map((file) => ({
-  //       path: file.path,
-  //       originalname: file.originalname,
-  //       mimetype: file.mimetype,
-  //       size: file.size,
-  //     }));
-
-  //     // Create employee with file references
-  //     // const employee = await this.userService.create({
-  //     //   ...body,
-  //     //   files: filePaths,
-  //     // });
-
-  //     // return {
-  //     //   success: true,
-  //     //   data: employee,
-  //     //   message: 'Employee created successfully',
-  //     // };
-  //   } catch (error) {
-  //     // Clean up uploaded files if error occurs
-  //     // if (files?.length) {
-  //     //   await this.userService.cleanupFiles(files);
-  //     // }
-  //     throw new BadRequestException(
-  //       error.message || 'Failed to create employee',
-  //     );
-  //   }
-  // }
-
+  @Post('create')
   async addEmployee(
-    @Body() body: any,
-    @UploadedFiles() files: Express.Multer.File[]
+    @Body() dto: AddEmployeeDto[],
   ) {
-    try {
-      // Parse nested JSON strings
-      const parsedBody = {
-        ...body,
-        emergencyContact: JSON.parse(body.emergencyContact),
-        guarantorContact: JSON.parse(body.guarantorContact),
-      };
-
-      // Validate using class-validator
-      const dto = plainToInstance(AddEmployeeDto, parsedBody);
-      const errors = await validate(dto);
-
-      if (errors.length > 0) {
-        throw new BadRequestException(errors);
-      }
-
-      return this.userService.addEmployee(dto, files);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Invalid request format');
-    }
+    return this.userService.addEmployee(dto);
   }
 
+  @Delete("")
+  async deleteUSer(@Body() ids: string[]) {
+    return this.userService.deleteUser(ids)
+  }
 }
