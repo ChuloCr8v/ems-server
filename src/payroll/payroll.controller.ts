@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Res } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
@@ -7,9 +7,13 @@ import { Response } from 'express';
 export class PayrollController {
   constructor(private readonly payroll: PayrollService) { }
   @Post()
-  async createPayroll(@Body() data: PayrollDto, @Res() res: Response) {
-    const payroll = await this.payroll.createPayroll(data);
-    return res.status(200).json({ message: `A Payroll Has Been Created For ${payroll.user.firstName}`, payroll });
+  async createPayroll(@Body() data: PayrollDto) {
+    return await this.payroll.createPayroll(data);
+  }
+
+  @Put("calculate")
+  async calculatePayroll(@Body() data: PayrollDto) {
+    return await this.payroll.calculatePayRoll(data);
   }
 
   @Get()
@@ -21,7 +25,7 @@ export class PayrollController {
   @Get(':payrollId')
   async findOnePayroll(@Param('payrollId') payrollId: string, @Res() res: Response) {
     const payroll = await this.payroll.findOnePayroll(payrollId);
-    return res.status(200).json({ message: `Payroll Details`, payroll });
+    return res.status(200).json(payroll);
   }
 
   @Patch(':payrollId')

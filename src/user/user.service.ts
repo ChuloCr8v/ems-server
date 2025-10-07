@@ -340,6 +340,11 @@ export class UserService {
                 bank: true,
                 comment: true,
                 invite: true,
+                payroll: {
+                    include: {
+                        user: true
+                    }
+                }
             },
             orderBy: {
                 createdAt: "desc"

@@ -85,8 +85,10 @@ model User {
   approver   Approver[]
   approvals  Approval[]
   responses  Response[]
-  payslip    Payslip[]
   bank       Bank?
+
+  payslip      Payslip[]
+  payComponent PayrollComponent[]
 
   @@index([email])
   @@index([eId])
@@ -545,9 +547,12 @@ model PayrollComponent {
   startDate     DateTime?
   isActive      Boolean               @default(true)
   payrollId     String                @db.Uuid
-  payroll       Payroll               @relation(fields: [payrollId], references: [id])
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  userId        String?               @db.Uuid
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payslip {
