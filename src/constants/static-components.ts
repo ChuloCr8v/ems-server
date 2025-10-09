@@ -24,7 +24,6 @@ export const STATIC_EARNING_COMPONENTS = [
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 20,
     },
-
     {
         title: 'Entertainment',
         type: SalaryType.EARNING,
