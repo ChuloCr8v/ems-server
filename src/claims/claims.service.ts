@@ -39,7 +39,11 @@ export class ClaimsService {
         dateOfExpense: new Date(createClaimDto.dateOfExpense),
         description: createClaimDto.description,
         userId,
-        proofUrls: createClaimDto.proofUrls || [],
+        // proofUrls: createClaimDto.proofUrls || [],
+        proofUrls: {
+          connect: createClaimDto.proofUrls.map((id) => ({ id })),
+        },
+
       },
       include: {
         user: {

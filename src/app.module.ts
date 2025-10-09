@@ -23,7 +23,7 @@ import { EntitlementModule } from './entitlement/entitlement.module';
 import { LeaveModule } from './leave/leave.module';
 import { ApproverModule } from './approver/approver.module';
 import { ClaimsModule } from './claims/claims.module';
-// import { TasksModule } from './tasks/tasks.module';
+import { TasksModule } from './tasks/tasks.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BankModule } from './bank/bank.module';
@@ -47,7 +47,7 @@ import { BankModule } from './bank/bank.module';
     LeaveModule,
     ApproverModule,
     ClaimsModule,
-    // TasksModule,
+    TasksModule,
     PayrollModule,
     ContactsModule,
     BankModule,
