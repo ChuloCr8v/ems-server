@@ -1,14 +1,37 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
-import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus } from '@prisma/client';
+import { ComponentCategory, Payroll, PayrollComponent, SalaryCalculationType, SalaryType, TaxStatus, User } from '@prisma/client';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { bad } from 'src/utils/error.utils';
 import { TaxService } from './tax.service';
+import puppeteer, { Browser } from 'puppeteer';
+import { resolve } from 'path';
+import { ToWords } from 'to-words';
+import { getMonthDateRange } from 'src/utils/getMonthDateRange';
+import { PayslipTemplateService } from './template.service';
+import { format } from 'date-fns';
+import { formatNumberWithCommas } from 'src/utils/numberFormatter';
+// import { ToWords } from 'to-words';
+
+const templates = resolve(__dirname, 'templates');
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class PayrollService {
-    constructor(private readonly prisma: PrismaService, private readonly taxService: TaxService, ) {}
+    private readonly logger = new Logger(PayrollService.name);
+    private readonly payslipUrl = 'file://' + resolve(templates, 'payslip.html');
+    private readonly towords = new ToWords({
+        localeCode: 'en-NG',
+        converterOptions: {
+            currency: true,
+        },
+    });
+    constructor(
+        private readonly prisma: PrismaService, 
+        private readonly taxService: TaxService,
+        private readonly payslipTemplate: PayslipTemplateService
+    ) {}
 
     async createPayroll(data: PayrollDto) {
         try {
@@ -105,8 +128,8 @@ export class PayrollService {
     async createStaticComponents(
         salary: number, existingComponents?: any[]
     ): Promise<{ gross: number, net: number, deductions: number, components: any[] }>{
-        console.log('createStaticComponents called with salary:', salary);
-        console.log('existingComponents:', existingComponents);
+        // console.log('createStaticComponents called with salary:', salary);
+        // console.log('existingComponents:', existingComponents);
         try {
             let gross = 0;
             let deductions = 0;
@@ -467,6 +490,116 @@ export class PayrollService {
         
     }
 
+    async generatePayslips(): Promise<{ success: boolean; message: string }> {
+        try {
+            const { start, end } = getMonthDateRange();
+            //Check for existing payslips for the month
+            const existingPayslip = await this.prisma.payslip.findFirst({
+                where: {
+                    createdAt: {
+                        gte: start,
+                        lte: end,
+                    },
+                },
+            });
+            if (existingPayslip) {
+                throw bad('Payslip have already been generated for this month');
+            }
+
+            //Get all payrolls
+            const payrolls = await this.prisma.payroll.findMany({
+                include: {
+                    user: true,
+                    component: true,
+                },
+            });
+            if(payrolls.length === 0) {
+                throw bad('No payrolls found to generate payslips');
+            }
+            //Generate payslip for each payroll
+            const generatePromises = payrolls.map(payroll =>
+                 this.generatePayslip(payroll, payroll.user, payroll.component)
+            );
+
+            await Promise.all(generatePromises);
+
+            return { success: true, message: `Successfully generated ${payrolls.length} payslips` };
+        } catch (error) {
+            if (error instanceof BadRequestException || 
+                      error instanceof NotFoundException || 
+                      error instanceof ConflictException) {
+                    throw error;
+                }
+                throw new BadRequestException('Failed to generate payslip:' + error.message);
+        }
+    }
+
+    async generatePayslipForUser(userId: string): Promise<{ success: boolean; message: string }> {
+        const payroll = await this.prisma.payroll.findFirst({
+            where: { userId },
+            include: {
+                user: true,
+                component: true,
+            },
+        });
+        if(!payroll) {
+            throw bad("Payroll not found for user");
+        }
+        await this.generatePayslip(payroll, payroll.user, payroll.component);
+        return { success: true, message: `Payslip generated for ${payroll.user.firstName}` };
+    }
+
+    async getPayslips(userId?: string) {
+        try {
+            const where = userId ? { userId }: {};
+
+            return this.prisma.payslip.findMany({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            eId: true,
+                        },
+                    },
+                },
+                orderBy: { createdAt: 'desc'}
+            })
+        } catch (error) {
+            if (error instanceof BadRequestException || 
+                      error instanceof NotFoundException || 
+                      error instanceof ConflictException) {
+                    throw error;
+                }
+                throw new BadRequestException('Failed to get payslip:' + error.message);
+        }
+    }
+
+    async downloadPayslip(payslipId: string, res: any): Promise<void> {
+    const payslip = await this.prisma.payslip.findUnique({
+        where: { id: payslipId },
+        include: { user: true },
+    });
+
+    if (!payslip) throw new NotFoundException('Payslip not found');
+
+    // Convert Uint8Array to Buffer
+    const pdfBuffer = Buffer.from(payslip.data);
+    
+    // Validate the PDF
+    this.validatePDFBuffer(pdfBuffer);
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
+    
+    // Send the PDF buffer
+    res.send(pdfBuffer);
+}
+
 
     //////////////////////////////////////// HELPER FUNCTIONS  /////////////////////////////
 
@@ -654,6 +787,8 @@ export class PayrollService {
                     lastName: true,
                     jobType: true,
                     workEmail: true,
+                    // departments: true,
+                    departments: { select: { id: true}}
                 }, }, 
             },
         });
@@ -669,6 +804,179 @@ export class PayrollService {
         }
         throw new BadRequestException('Failed to find payroll:' + error.message);
         }  
+    }
+
+    private async launchBrowser() {
+    try {
+        // Use the full puppeteer package instead of puppeteer-core
+        const puppeteer = await import('puppeteer');
+        
+        const launchOptions: any = {
+            headless: true, // Use true instead of 'shell' for better compatibility
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--disable-web-security',
+                '--disable-features=VizDisplayCompositor'
+            ],
+            timeout: 30000,
+        };
+
+        // Try to find Chrome executable
+        const possiblePaths = [
+            process.env.CHROME_PATH,
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            'C:/Program Files/Google/Chrome/Application/chrome.exe',
+            'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+        ];
+
+        for (const path of possiblePaths) {
+            if (path) {
+                try {
+                    const fs = require('fs');
+                    if (fs.existsSync(path)) {
+                        launchOptions.executablePath = path;
+                        this.logger.log(`Using Chrome at: ${path}`);
+                        break;
+                    }
+                } catch (error) {
+                    // Continue to next path
+                }
+            }
+        }
+
+        this.logger.log('Launching browser with options:', launchOptions);
+        const browser = await puppeteer.launch(launchOptions);
+        this.logger.log('Browser launched successfully');
+        return browser;
+
+    } catch (error) {
+        this.logger.error('Browser launch failed:', error);
+        
+        // Fallback: try with different options
+        try {
+            const puppeteer = await import('puppeteer');
+            const browser = await puppeteer.launch({
+                headless: true,
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            return browser;
+        } catch (fallbackError) {
+            throw new Error(`All browser launch attempts failed: ${error.message}`);
+        }
+    }
+    }
+
+    private validatePDFBuffer(buffer: any): void {
+        if (!buffer) {
+            throw new Error('PDF buffer is null or undefined');
+        }
+
+        let pdfBuffer: Buffer;
+        
+        // Handle different buffer types
+        if (Buffer.isBuffer(buffer)) {
+            pdfBuffer = buffer;
+        } else if (buffer instanceof Uint8Array) {
+            pdfBuffer = Buffer.from(buffer);
+        } else if (ArrayBuffer.isView(buffer)) {
+            pdfBuffer = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        } else {
+            throw new Error('Unsupported buffer type');
+        }
+
+        if (pdfBuffer.length === 0) {
+            throw new Error('PDF buffer is empty');
+        }
+
+        // Check for PDF signature
+        const header = pdfBuffer.subarray(0, 4).toString('ascii');
+        if (header !== '%PDF') {
+            throw new Error(`Invalid PDF format. Expected '%PDF', got '${header}'`);
+        }
+    }
+
+  private async generatePayslip(payroll: Payroll, user: User, components: PayrollComponent[]): Promise<void> {
+    const browser = await this.launchBrowser();
+    
+    try {
+      const page = await browser.newPage();
+      const html = this.payslipTemplate.generateHTML(payroll, user, components);
+      
+      await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+      
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        preferCSSPageSize: true,
+        timeout: 30000,
+      });
+
+      this.validatePDFBuffer(pdfBuffer);
+
+      await this.savePayslip(Buffer.from(pdfBuffer), payroll, user);
+
+    } finally {
+      await browser.close();
+    }
+  }
+
+ private async savePayslip(pdfBuffer: Buffer, payroll: Payroll, user: User): Promise<void> {
+        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+        
+        // Convert Buffer to Uint8Array for Prisma
+        const pdfData = new Uint8Array(pdfBuffer);
+        
+        await this.prisma.payslip.create({
+            data: {
+                data: pdfData,
+                name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+                amount: payroll.net,
+                userId: payroll.userId,
+                payrollId: payroll.id,
+                month: new Date().getMonth() + 1,
+                year: new Date().getFullYear(),
+            },
+        });
+    }
+
+
+    private prepareSectionsData(components: PayrollComponent[]): any[] {
+        const earnings = components
+        .filter(component => component.type === SalaryType.EARNING)
+        .map(earning => ({ 
+            ename: earning.title, 
+            evalue: earning.monthlyAmount 
+        }));
+
+        const deductions = components
+        .filter(component => component.type === SalaryType.DEDUCTION)
+        .map(deduction => ({ 
+            dname: deduction.title, 
+            dvalue: deduction.monthlyAmount 
+        }));
+
+        const sectionsData: any[] = [];
+        const maxLength = Math.max(earnings.length, deductions.length);
+
+        for (let i = 0; i < maxLength; i++) {
+        const earning = earnings[i];
+        const deduction = deductions[i];
+        sectionsData.push({
+            ename: earning?.ename ?? '-',
+            evalue: earning?.evalue ?? 0,
+            dname: deduction?.dname ?? '-',
+            dvalue: deduction?.dvalue ?? 0,
+        });
+        }
+
+        return sectionsData;
     }
    
 }

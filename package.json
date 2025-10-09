@@ -54,7 +54,9 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "pdfkit": "^0.14.0",
+    "to-words": "^4.0.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.9.0",
