@@ -63,7 +63,6 @@ export class LeaveService {
             // 5. Calculate duration 
             const duration = this.calculateLeaveDuration(startDate, endDate);
 
-            // return
             if (duration > availableEntitlement.value) {
                 throw new BadRequestException(
                     `Insufficient leave balance. You have ${availableEntitlement.value} days remaining.`
@@ -142,7 +141,6 @@ export class LeaveService {
         }
     }
 
-
     async listLeaveRequests(userId: string) {
         try {
             const user = await this.prisma.user.findUnique({
@@ -154,7 +152,9 @@ export class LeaveService {
 
             const leaveRequests = await this.prisma.leaveRequest.findMany({
                 include: {
-                    user: true,
+                    user: {
+                        include: { approver: true }
+                    },
                     type: true,
                     uploads: true,
                     approvals: {
@@ -169,10 +169,9 @@ export class LeaveService {
             if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.LEAVE_MANAGER)) {
                 return leaveRequests;
             }
-
             if (user.approver.length) {
                 return leaveRequests.filter(l =>
-                    l.approvals.some(a => a.approverId === userId)
+                    l.approvals.filter(a => a.approverId === userId)
                 );
             }
 
@@ -290,7 +289,7 @@ export class LeaveService {
                 .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
 
             const pendingLeaveDays = leaveRequests
-                .filter(l => l.status === 'REJECTED')
+                .filter(l => l.status === 'PENDING')
                 .reduce((total, leave) => total + countBusinessDays(new Date(leave.startDate), new Date(leave.endDate)), 0);
 
             return {
@@ -322,9 +321,11 @@ export class LeaveService {
             where: { id: userId },
             include: { departments: true },
         });
+
         if (!employee) throw new NotFoundException("Employee Not Found");
 
         const approvers = await this.approver.getApproversForUser(userId);
+
         if (approvers.length === 0) {
             throw new NotFoundException("No approvers found for this employee");
         }
@@ -368,9 +369,9 @@ export class LeaveService {
             });
 
             // Send notification outside transaction
-            setTimeout(() => {
-                this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
-            }, 0);
+            // setTimeout(() => {
+            //     this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
+            // }, 0);
         }
 
         return firstApproval;
@@ -724,7 +725,7 @@ export class LeaveService {
             });
 
             await this.mail.sendLeaveRequestMail({
-                email: currentApproval.approver.workEmail,
+                email: currentApproval.approver.email,
                 name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
                 leaveType: leaveRequest.type.name,
                 startDate: leaveRequest.startDate,
@@ -756,7 +757,7 @@ export class LeaveService {
 
         const duration = this.calculateLeaveDuration(approval.startDate, approval.endDate);
         await this.mail.sendLeaveApprovalMail({
-            email: approval.user.workEmail,
+            email: approval.user.email,
             name: `${approval.user.firstName} ${approval.user.lastName}`,
             leaveType: approval.type.name,
             startDate: approval.startDate,
@@ -786,7 +787,7 @@ export class LeaveService {
         const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
 
         await this.mail.sendLeaveRejectMail({
-            email: leaveRequest.user.workEmail,
+            email: leaveRequest.user.email,
             name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
             leaveType: leaveRequest.type.name,
             leaveValue: duration,
@@ -797,8 +798,4 @@ export class LeaveService {
 
         return true;
     }
-
-
-
-
 }

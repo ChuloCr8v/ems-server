@@ -23,4 +23,10 @@ export class AuthController {
     return this.authService.authUser(user);
   }
 
+
+  @Get('token/:id')
+  async generateProspectAccessToken(@Param("id") id: string) {
+    return this.authService.generateProspectAccessToken(id);
+  }
+
 }

@@ -40,12 +40,10 @@ export class DepartmentService {
                     data: {
                         name: input.name,
                         createdBy: { connect: { id: input.createdBy } },
-                        // ...(input.departmentHead && { departmentHead: { connect: { id: input.departmentHead } } }),
                     },
                 });
 
                 if (deptHead) {
-                    // Remove any previous DEPT_MANAGER assignment for this department & user
                     await prisma.approver.deleteMany({
                         where: {
                             userId: deptHead.id,
@@ -54,7 +52,6 @@ export class DepartmentService {
                         },
                     });
 
-                    // Assign DEPT_MANAGER for this department
                     await prisma.approver.create({
                         data: {
                             userId: deptHead.id,
@@ -64,23 +61,19 @@ export class DepartmentService {
                         },
                     });
 
-                    await this.prisma.user.update({
-                        where: {
-                            id: deptHead.id,
-                        },
+                    await prisma.user.update({   // ✅ use txn client, not this.prisma
+                        where: { id: deptHead.id },
                         data: {
                             departments: {
-                                connect: [
-                                    { id: department.id },
-                                ],
+                                connect: [{ id: newDept.id }],
                             },
                         },
                     });
-
                 }
 
                 return newDept;
             });
+
 
             return department;
         } catch (error: any) {
@@ -205,7 +198,6 @@ export class DepartmentService {
         try {
             return await this.prisma.department.findMany({
                 include: {
-                    departmentHead: true,
                     createdBy: true,
                     approver: {
                         include: {

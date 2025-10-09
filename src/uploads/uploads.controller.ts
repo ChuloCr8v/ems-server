@@ -8,6 +8,7 @@ import {
     ParseFilePipe,
     Post,
     Query,
+    Req,
     Res,
     UploadedFile,
     UseInterceptors,
@@ -15,15 +16,13 @@ import {
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadsService } from './uploads.service';
-import { AuthUser } from 'src/auth/decorators/auth.decorator';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { memoryStorage } from 'multer';
 
 @Controller('uploads')
 export class UploadsController {
     constructor(private readonly uploads: UploadsService) { }
-
-    // @Auth()
 
     @Post(':id')
     @UseInterceptors(
@@ -43,6 +42,7 @@ export class UploadsController {
         file: Express.Multer.File,
         @Query('order') order?: string,
     ) {
+
         return await this.uploads.uploadFileToS3(
             id,
             file,
@@ -50,6 +50,8 @@ export class UploadsController {
             user,
         );
     }
+
+
 
     // @Auth()
     @Get(':id')

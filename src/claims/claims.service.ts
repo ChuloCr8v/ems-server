@@ -1,34 +1,40 @@
 // src/claims/claims.service.ts
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ClaimStatus, Role } from '@prisma/client';
+import { Claim, ClaimStatus, Prisma, Role } from '@prisma/client';
 import { ClaimResponseDto, CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { UploadsService } from '../uploads/uploads.service'; 
+import { UploadsService } from '../uploads/uploads.service';
+import { mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class ClaimsService {
   constructor(
-            private prisma: PrismaService,
-            private uploads: UploadsService,
-  ) {}
-
-
-   private async generateSignedUrl(fileId: string) {
-    // return signed URL from uploads service
-    return this.uploads.getSignedUrl(fileId);
-  }
+    private prisma: PrismaService,
+  ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
+
+    const claimId = "CLM" + Date.now().toString().slice(-4);
+
     const claim = await this.prisma.claim.create({
       data: {
-          title: createClaimDto.title,
-          claimType: createClaimDto.claimType,
-          amount: Number(createClaimDto.amount),
-          dateOfExpense: new Date(createClaimDto.dateOfExpense),
-          description: createClaimDto.description,
-          userId,
-           proofUrls: createClaimDto.proofUrls || [], // ✅ store string[] directly
-        
+        claimId,
+        title: createClaimDto.title,
+        claimType: createClaimDto.claimType,
+        amount: Number(createClaimDto.amount),
+        dateOfExpense: new Date(createClaimDto.dateOfExpense),
+        description: createClaimDto.description,
+        user: {
+          connect: {
+            id: userId
+          }
+        },
+        proofUrls: createClaimDto.proofUrls
+          ? {
+            connect: createClaimDto.proofUrls.map((id) => ({ id })),
+          }
+          : undefined,
+
       },
       include: {
         user: {
@@ -42,116 +48,104 @@ export class ClaimsService {
       },
     });
 
-    return this.mapToResponseDto(claim);
+    return claim
   }
+
 
   async findAll(
-  userId: string,
-  userRole: Role,
-  filters: { status?: ClaimStatus }
-): Promise<ClaimResponseDto[]> {
-  const where: any = {};
+    userId: string,
+    userRole: Role,
+    filters: { status?: ClaimStatus }
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { approver: true },
+    });
 
-  // If filtering by status
-  if (filters.status) {
-    where.status = filters.status;
-  }
+    const approverDepartmentIds =
+      user?.approver?.map((d) => d.departmentId) ?? [];
 
-  // Normal users should only see their own claims
-  if (userRole !== Role.ADMIN) {
-    where.userId = userId;
-  }
+    const baseWhere: Prisma.ClaimWhereInput = {
+      ...(filters.status && { status: filters.status }),
+    };
 
-  const claims = await this.prisma.claim.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
+    const claims = await this.prisma.claim.findMany({
+      where: baseWhere,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            departments: true,
+          },
         },
+        proofUrls: true,
       },
-    },
-  });
+      orderBy: { createdAt: "desc" },
+    });
 
-  // Map to DTO
-  return claims.map((claim) => ({
-    id: claim.id,
-    title: claim.title,
-    claimType: claim.claimType,
-    amount: claim.amount,
-    dateOfExpense: claim.dateOfExpense,
-    status: claim.status,
-    userId: claim.userId,         
-    createdAt: claim.createdAt,   
-    updatedAt: claim.updatedAt, 
-    employee: claim.user
-      ? {
-          id: claim.user.id,
-          firstName: claim.user.firstName,
-          lastName: claim.user.lastName,
-          email: claim.user.email,
-        }
-      : null,
-  }));
-}
+    type ClaimWithUserAndProof = typeof claims[number];
 
-  async findOne(id: string): Promise<ClaimResponseDto> {
-  const claim = await this.prisma.claim.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      },
-    },
-  });
+    let res: ClaimWithUserAndProof[] = [];
 
-  if (!claim) {
-    throw new NotFoundException('Claim not found');
+    if (userRole.includes(Role.ADMIN)) {
+      res = claims;
+    } else if (approverDepartmentIds.length) {
+      res = claims.filter((claim) =>
+        claim.user.departments.some((dept) =>
+          approverDepartmentIds.includes(dept.id)
+        )
+      );
+    } else {
+      res = claims.filter((claim) => claim.userId === userId);
+    }
+
+    return res;
   }
 
-  return {
-    id: claim.id,
-    title: claim.title,
-    claimType: claim.claimType,
-    amount: claim.amount,
-    dateOfExpense: claim.dateOfExpense,
-    status: claim.status,
-    userId: claim.userId,
-    createdAt: claim.createdAt,
-    updatedAt: claim.updatedAt,
-    user: claim.user
-      ? {
-          id: claim.user.id,
-          firstName: claim.user.firstName,
-          lastName: claim.user.lastName,
-          email: claim.user.email,
-        }
-      : null,
-  };
-}
+  async findOne(id: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        proofUrls: true,
+      },
+    });
 
+    if (!claim) {
+      throw new NotFoundException('Claim not found');
+    }
+
+    return claim
+  }
 
   async updateClaim(id: string, userRole: Role, updateClaimDto: UpdateClaimDto) {
     const claim = await this.findOne(id);
 
+    if (!claim) mustHave(claim, "Claim not found", 404)
+
     if (userRole === Role.USER && updateClaimDto.status) {
       throw new ForbiddenException('Only managers can update claim status');
     }
-    const { files, ...updateData } = updateClaimDto as any;
 
     const updatedClaim = await this.prisma.claim.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...updateClaimDto,
+        proofUrls: {
+          set: updateClaimDto.proofUrls?.map((id) => ({ id })) || [],
+        },
+      },
       include: {
-        
         user: {
           select: {
             id: true,
@@ -163,7 +157,7 @@ export class ClaimsService {
       },
     });
 
-    return this.mapToResponseDto(updatedClaim);
+    return updatedClaim
   }
 
   async removeClaim(id: string, userId: string, userRole: Role) {
@@ -197,7 +191,7 @@ export class ClaimsService {
     });
   }
 
-    async approveClaim(id: string) {
+  async approveClaim(id: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
     if (!claim) throw new NotFoundException("Claim not found");
 
@@ -207,7 +201,7 @@ export class ClaimsService {
     });
   }
 
-    async rejectClaim(id: string) {
+  async rejectClaim(id: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
     if (!claim) throw new NotFoundException("Claim not found");
 
@@ -217,23 +211,23 @@ export class ClaimsService {
     });
   }
 
-  async mapToResponseDto(claim: any): Promise<ClaimResponseDto> {
-    return {
-      id: claim.id,
-      title: claim.title,
-      claimType: claim.claimType,
-      amount: claim.amount,
-      dateOfExpense: claim.dateOfExpense,
-      description: claim.description,
-      status: claim.status,
-      proofUrls: await Promise.all(
-      (claim.proofUrls || []).map(url => this.uploads.getSignedUrl(url)),
-      ),
-      userId: claim.userId,
-      createdAt: claim.createdAt,
-      updatedAt: claim.updatedAt,
-    };
-  }
+  // async mapToResponseDto(claim: any): Promise<ClaimResponseDto> {
+  //   return {
+  //     id: claim.id,
+  //     title: claim.title,
+  //     claimType: claim.claimType,
+  //     amount: claim.amount,
+  //     dateOfExpense: claim.dateOfExpense,
+  //     description: claim.description,
+  //     status: claim.status,
+  //     proofUrls: await Promise.all(
+  //     (claim.proofUrls || []).map(url => this.uploads.getSignedUrl(url)),
+  //     ),
+  //     userId: claim.userId,
+  //     createdAt: claim.createdAt,
+  //     updatedAt: claim.updatedAt,
+  //   };
+  // }
 
-  
+
 }
