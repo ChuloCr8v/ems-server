@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Claim Approved</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; color: #333;">
+    <h2>Your Claim Has Been Approved 🎉</h2>
+    <p>Hi {{name}},</p>
+    <p>
+      Great news! Your claim has been <strong>approved</strong>.
+    </p>
+
+    <table cellpadding="6" cellspacing="0" border="1" style="border-collapse: collapse;">
+      {{!-- <tr>
+        <td><strong>Claim ID</strong></td>
+        <td>{{claimId}}</td>
+      </tr> --}}
+      <tr>
+        <td><strong>Type</strong></td>
+        <td>{{claimType}}</td>
+      </tr>
+      <tr>
+        <td><strong>Amount</strong></td>
+        <td>{{amount}}</td>
+      </tr>
+      <tr>
+        <td><strong>Date of Expense</strong></td>
+        <td>{{dateOfExpense}}</td>
+      </tr>
+    </table>
+
+    <p>The approved amount will be processed shortly.</p>
+    <p>Best regards,<br />EMS</p>
+  </body>
+</html>

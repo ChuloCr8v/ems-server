@@ -74,8 +74,10 @@ model User {
   departmentCreator Department? @relation("departmentCreator")
   claims            Claim[]
 
-  assignedTasks UserTask[]
-  createdTasks  Task[]     @relation("CreatedTasks")
+  // assignedTasks         UserTask[]
+  createdTasks          Task[]         @relation("CreatedTasks")
+  approvedTasks         Task[]         @relation("ApprovedTasks")
+  userTasks             UserTask[]
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -190,18 +192,20 @@ model Upload {
   requestId     String?           @db.Uuid
   request       LeaveRequest?     @relation(fields: [requestId], references: [id])
 
-  claim   Claim?  @relation(fields: [claimId], references: [id])
-  claimId String?
+  claim         Claim?  @relation(fields: [claimId], references: [id])
+  claimId       String?
+  task          Task?             @relation(fields: [taskId], references: [id])
+  taskId        String?           @db.Uuid
 
-  guarantorId String?           @db.Uuid
-  guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
+  guarantorId   String?           @db.Uuid
+  guarantor     GuarantorContact? @relation(fields: [guarantorId], references: [id])
 
   //cloudinary keys
-  publicId  String? @unique
-  secureUrl String? @unique
+  publicId      String? @unique
+  secureUrl     String? @unique
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Contacts {
@@ -572,6 +576,7 @@ model Claim {
   notes         String?
   status        ClaimStatus @default(PENDING)
   proofUrls     Upload[]
+  // proofUrls     String[]    @default([])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   userId        String      @db.Uuid
@@ -581,54 +586,60 @@ model Claim {
 }
 
 model Task {
-  id          String      @id @default(uuid())
+  id          String   @id @default(uuid()) @db.Uuid
   title       String
   description String?
   startDate   DateTime?
   dueDate     DateTime?
   category    String?
-  priority    Priority?
-  status      TaskStatus?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
+  priority    String?
+  status      TaskStatus @default(PENDING_APPROVAL)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
   // Relations
+  createdBy   User     @relation("CreatedTasks", fields: [createdById], references: [id])
+  approvedBy  User?    @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdById String   @db.Uuid
+  
+  approvedById String? @db.Uuid
+  
   assignees   UserTask[]
-  files       TaskFile[]
-  createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
-  createdById String     @db.Uuid
+  uploads     Upload[]
+  
+  // Approval tracking
+  approvalStatus ApprovalStatus @default(PENDING)
+  approvalRequestedAt DateTime?
+  approvedAt     DateTime?
+  rejectionReason String?
+}
 
-  @@map("tasks")
+enum TaskStatus {
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model UserTask {
-  id         String   @id @default(cuid())
-  taskId     String
-  userId     String   @db.Uuid
-  assignedAt DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([taskId, userId])
-  @@map("user_tasks")
+  id          String   @id @default(uuid()) @db.Uuid
+  assignedAt  DateTime @default(now())
+  
+  user        User @relation(fields: [userId], references: [id])
+  userId      String  @db.Uuid
+  
+  task        Task @relation(fields: [taskId], references: [id])
+  taskId      String  @db.Uuid
+  
+  @@unique([userId, taskId])
 }
-
-model TaskFile {
-  id           String   @id @default(cuid())
-  filename     String
-  originalName String
-  path         String
-  mimetype     String
-  size         Int
-  taskId       String
-  uploadedAt   DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@map("task_files")
-}
-
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -770,13 +781,6 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
-}
-
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
 }
 
 enum Gender {

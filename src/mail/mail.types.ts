@@ -12,6 +12,9 @@ export const MAIL_SUBJECT = {
     LEAVE_DECLINE: 'Leave Request Denied',
     
     INITIATE_OFFBOARDING: 'Offboarding Initiated',
+    ADD_CLAIM: 'New Claim Added',
+    CLAIM_APPROVED: 'Claim Approved',
+    CLAIM_REJECTED: 'Claim Rejected',
 }
 
 export class ProspectInviteDto {
