@@ -12,6 +12,7 @@ export class PayrollService {
     constructor(private readonly prisma: PrismaService, private readonly taxService: TaxService,) { }
 
     async calculatePayRoll(data: PayrollDto) {
+        console.log(data.components)
         try {
             const { salary } = data;
 
@@ -21,11 +22,13 @@ export class PayrollService {
             const reliefAmount = CRAmount * 0.2 + 200000;
             const taxableAmount = CRAmount - reliefAmount;
 
+            //TODO: Remove later
             const existingComponents = await this.prisma.payrollComponent.findMany({
                 where: {
                     userId: data.userId
                 },
                 select: {
+                    id: true,
                     title: true,
                     amount: true,
                     type: true,
@@ -38,7 +41,16 @@ export class PayrollService {
                 }
             })
 
-            const { gross, deductions, components } = this.calculatePayrollComponents(salary, [...data.components, ...existingComponents]);
+            //make sure that the existing components dont merge with same update component
+
+            // const mergedComponents = [
+            //     ...data.components,
+            //     ...existingComponents.filter(
+            //         e => !data.components.some(d => d.id === e.id)
+            //     ),
+            // ];
+
+            const { gross, deductions, components } = this.calculatePayrollComponents(salary, data.components);
 
             const earningComponents = components.filter(c => c.type === "EARNING")
             const deductionComponents = components.filter(c => c.type === "DEDUCTION")
@@ -106,7 +118,7 @@ export class PayrollService {
 
             }
 
-            console.log("calcultation response", response)
+            // console.log("calcultation response", response)
 
 
             return response
@@ -275,56 +287,79 @@ export class PayrollService {
     // }
 
 
-    private calculatePayrollComponents(salary: number, existingComponents: AddComponentDto[]): { gross: number; net: number; deductions: number; components: CalculateComponentDto[] } {
-        if (!existingComponents) return
+    private calculatePayrollComponents(
+        salary: number,
+        existingComponents: AddComponentDto[]
+    ): {
+        gross: number;
+        net: number;
+        deductions: number;
+        components: CalculateComponentDto[];
+    } {
+        if (!existingComponents) return;
 
         let gross = 0;
         let deductions = 0;
-        const components = [];
+        const components: CalculateComponentDto[] = [];
 
-        //calculate static earning/deduction components
+        // calculate static earning/deduction components
         const staticEarningComponents = this.calculateComponentAmounts(
             salary,
-            STATIC_EARNING_COMPONENTS,
+            STATIC_EARNING_COMPONENTS
         );
 
         const staticDeductionComponents = this.calculateComponentAmounts(
             salary,
-            STATIC_DEDUCTION_COMPONENTS,
+            STATIC_DEDUCTION_COMPONENTS
         );
 
-        //calculate custom earning/deduction components
+        // filter custom earning/deduction components
+        const customEarning = existingComponents?.filter(
+            (e) =>
+                e.category === ComponentCategory.CUSTOM_EARNING &&
+                e.type === SalaryType.EARNING
+        ) ?? [];
 
-        //Define custom earning/deduction components
-        const customEarning = existingComponents.length
-            ? existingComponents.filter(e => e.category === ComponentCategory.CUSTOM_EARNING && e.type === SalaryType.EARNING) : []
+        const customDeduction = existingComponents?.filter(
+            (e) =>
+                e.category === ComponentCategory.CUSTOM_DEDUCTION &&
+                e.type === SalaryType.DEDUCTION
+        ) ?? [];
 
-        const customDeduction = existingComponents.length
-            ? existingComponents.filter(e => e.category === ComponentCategory.CUSTOM_DEDUCTION && e.type === SalaryType.DEDUCTION) : []
-
+        // calculate custom earning/deduction components
         const customEarningComponents = this.calculateComponentAmounts(
             salary,
-            customEarning,
+            customEarning
         );
 
         const customDeductionComponents = this.calculateComponentAmounts(
             salary,
-            customDeduction,
+            customDeduction
         );
 
-        // Add earnings
-
-        const allEarningComponents = [...customEarningComponents, ...staticEarningComponents]
+        // merge and process earnings
+        const allEarningComponents = [
+            ...customEarningComponents,
+            ...staticEarningComponents,
+        ].map((component) => ({
+            ...component,
+            id: crypto.randomUUID(), // ✅ add unique id
+        }));
 
         for (const component of allEarningComponents) {
             components.push(component);
             gross += component.annualAmount;
         }
 
-        // Add deductions, skipping excluded titles
-        const allDeductionComponents = [...customDeductionComponents, ...staticDeductionComponents]
-
-        const excludedTitles = ['Pension Contribution', 'NHF Contribution', 'PAYE Tax'];
+        // merge and process deductions
+        const excludedTitles = ["Pension Contribution", "NHF Contribution", "PAYE Tax"];
+        const allDeductionComponents = [
+            ...customDeductionComponents,
+            ...staticDeductionComponents,
+        ].map((component) => ({
+            ...component,
+            id: crypto.randomUUID(), // ✅ add unique id
+        }));
 
         for (const component of allDeductionComponents) {
             if (!excludedTitles.includes(component.title)) {
@@ -336,9 +371,8 @@ export class PayrollService {
         const net = gross - deductions;
 
         return { gross, deductions, net, components };
-
-
     }
+
 
 
     async createCustomComponent(payrollId: string, data: AddComponentDto) {
@@ -508,12 +542,9 @@ export class PayrollService {
 
     async updatePayroll(payrollId: string, update: UpdatePayrollDto) {
         try {
-            // 1️⃣ Fetch existing payroll
             const payroll = await this.findPayroll(payrollId);
             if (!payroll) throw new NotFoundException("Payroll not found");
 
-            console.log(update, "update")
-            // 2️⃣ Recalculate payroll values (reusing your existing logic)
             const {
                 earningComponents,
                 deductionComponents,
@@ -527,16 +558,11 @@ export class PayrollService {
 
             const allComponents = [...earningComponents, ...deductionComponents];
 
-            console.log(allComponents, "all components")
-
-            // 3️⃣ Use a transaction to ensure data integrity
             const updatedPayroll = await this.prisma.$transaction(async (tx) => {
-                // 🧹 Delete old payroll components first
                 await tx.payrollComponent.deleteMany({
                     where: { payrollId },
                 });
 
-                // ♻️ Recreate new payroll components
                 const newPayroll = await tx.payroll.update({
                     where: { id: payrollId },
                     data: {
@@ -569,23 +595,6 @@ export class PayrollService {
                     },
                 });
 
-                // 🧩 Handle any custom components separately (if needed)
-                const customComponents = allComponents.filter(
-                    (a) =>
-                        a.category === ComponentCategory.CUSTOM_DEDUCTION ||
-                        a.category === ComponentCategory.CUSTOM_EARNING,
-                );
-
-                for (const customComponent of customComponents) {
-                    await tx.payrollComponent.create({
-                        data: {
-                            ...customComponent,
-                            payroll: { connect: { id: newPayroll.id } },
-                            user: { connect: { id: payroll.userId } },
-                        },
-                    });
-                }
-
                 return newPayroll;
             });
 
@@ -604,7 +613,6 @@ export class PayrollService {
             );
         }
     }
-
 
 
     //////////////////////////////////////// HELPER FUNCTIONS  /////////////////////////////
