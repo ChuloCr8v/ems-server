@@ -530,6 +530,7 @@ model Payroll {
   userId        String             @unique @db.Uuid
   user          User               @relation(fields: [userId], references: [id])
   component     PayrollComponent[]
+  payslip       Payslip[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 }
@@ -558,11 +559,19 @@ model PayrollComponent {
 model Payslip {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  amount    String
+  amount    Float
+  month     Int
+  year      Int
   data      Bytes
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
+  payrollId String   @db.Uuid
+  payroll   Payroll  @relation(fields: [payrollId], references: [id])
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([payrollId])
+  @@index([month, year])
 }
 
 ///////////////////////////////////////////  ///////////////////////////////////////////
