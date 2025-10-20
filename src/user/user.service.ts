@@ -585,9 +585,6 @@ export class UserService {
             input: AddEmployeeDto;
         }[] = [];
 
-
-        console.log(data)
-
         for (const e of data) {
             try {
                 if (!e.firstName || !e.lastName) throw new Error("First name and last name are required");
@@ -613,12 +610,12 @@ export class UserService {
                     if (found) throw new Error(`Employee ID ${e.eId} already belongs to ${found.firstName} ${found.lastName}`);
                 }
 
-                const departments = await this.prisma.department.findMany({
-                    where: { name: { in: e.department } },
-                });
-                if (departments.length !== e.department.length) {
-                    throw new Error(`Some departments not found: expected ${e.department.length}, found ${departments.length}`);
-                }
+                // const departments = await this.prisma.department.findMany({
+                //     where: { name: { in: e.department } },
+                // });
+                // if (departments.length !== e.department.length) {
+                //     throw new Error(`Some departments not found: expected ${e.department.length}, found ${departments.length}`);
+                // }
 
                 const employeeData = {
                     firstName: e.firstName,
@@ -631,7 +628,7 @@ export class UserService {
                     role: e.role,
                     userRole: e.userRole,
                     eId: e.eId,
-                    departments: { connect: departments.map((d) => ({ id: d.id })) },
+                    departments: { connect: e.department.map((d) => ({ id: d })) },
                     ...(e.level ? { level: { connect: { id: e.level } } } : {}),
                     jobType: JobType.FULL_TIME,
                     duration: e.jobType === "CONTRACT" ? e.duration?.toString() : null,

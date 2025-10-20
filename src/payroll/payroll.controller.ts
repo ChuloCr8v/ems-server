@@ -11,9 +11,19 @@ export class PayrollController {
     return await this.payroll.createPayroll(data);
   }
 
+  @Get('payslips')
+  async listPayslips() {
+    return this.payroll.listPayslips();
+  }
+
   @Put("calculate")
-  async calculatePayroll(@Body() data: PayrollDto) {
-    return await this.payroll.calculatePayRoll(data);
+  calculatePayroll(@Body() data: PayrollDto) {
+    return this.payroll.calculatePayRoll(data);
+  }
+
+  @Get("deductions")
+  listDeductions() {
+    return this.payroll.listDeductions();
   }
 
   @Get()
@@ -27,6 +37,7 @@ export class PayrollController {
     const payroll = await this.payroll.findOnePayroll(payrollId);
     return res.status(200).json(payroll);
   }
+
 
   @Patch(':payrollId')
   async updatePayroll(@Param('payrollId') payrollId: string, @Body() update: UpdatePayrollDto, @Res() res: Response) {
@@ -46,43 +57,45 @@ export class PayrollController {
     return res.status(200).json({ message: `Custom Component Has Been Removed`, component });
   }
 
+
   @Post('generate')
   async generatePayslip() {
     return this.payroll.generatePayslips();
   }
 
-  @Post('generate/:userId')
-  async generatePayslipForUser(@Param('userId') userId: string) {
-    return this.payroll.generatePayslipForUser(userId);
-  }
+  // @Post('generate/:userId')
+  // async generatePayslipForUser(@Param('userId') userId: string) {
+  //   return this.payroll.generatePayslipForUser(userId);
+  // }
 
   @Get('download/:payslipId')
   async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
-    const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res);
-    // const sanitizedFilename = pdfBuffer.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    // res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}.pdf"`);
-    // res.setHeader('Content-Type', 'application/pdf');
-    // res.setHeader('Content-Encoding', 'identity');
+    const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res)
     return res.send(pdfBuffer);
   }
 
-//   @Get('test-simple/:userId')
-// async testSimplePayslip(@Param('userId') userId: string, @Res() res: Response) {
-//     try {
-//         const PDFDocument = await import('pdfkit');
-//         const doc = new PDFDocument();
-        
-//         res.setHeader('Content-Type', 'application/pdf');
-//         res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
-        
-//         doc.pipe(res);
-//         doc.fontSize(25).text('TEST PAYSLIP', 100, 100);
-//         doc.fontSize(12).text('This is a test PDF generated directly without Puppeteer', 100, 150);
-//         doc.end();
-        
-//     } catch (error) {
-//         // this.logger.error('Simple PDF test failed:', error);
-//         throw error;
-//     }
-// }
+  @Get('deductions/download/:id')
+  async downloadDeductionsExcel(@Param('id') id: string, @Res() res: Response): Promise<void> {
+    return this.payroll.downloadDeductionsExcel(id, res);
+  }
+
+  //   @Get('test-simple/:userId')
+  // async testSimplePayslip(@Param('userId') userId: string, @Res() res: Response) {
+  //     try {
+  //         const PDFDocument = await import('pdfkit');
+  //         const doc = new PDFDocument();
+
+  //         res.setHeader('Content-Type', 'application/pdf');
+  //         res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
+
+  //         doc.pipe(res);
+  //         doc.fontSize(25).text('TEST PAYSLIP', 100, 100);
+  //         doc.fontSize(12).text('This is a test PDF generated directly without Puppeteer', 100, 150);
+  //         doc.end();
+
+  //     } catch (error) {
+  //         // this.logger.error('Simple PDF test failed:', error);
+  //         throw error;
+  //     }
+  // }
 }
