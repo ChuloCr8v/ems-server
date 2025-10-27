@@ -475,7 +475,7 @@ model Approver {
 
 model Approval {
   id             String         @id @default(uuid()) @db.Uuid
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
   leaveRequestId String         @db.Uuid
   phase          Int
   approver       User           @relation(fields: [approverId], references: [id], onDelete: Cascade)

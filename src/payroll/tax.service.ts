@@ -3,6 +3,19 @@ import { TAX_BANDS_2025, TAX_CONFIG } from "src/constants/tax.constants";
 
 @Injectable()
 export class TaxService {
+    // calculateTaxableIncome(gross: number, pension: number, nhf: number): number {
+    //     //Calculate consolidated relief allowance (CRA)
+    //     const cra = Math.max(
+    //         TAX_CONFIG.CRA_MINIMUM,
+    //         TAX_CONFIG.CRA_PERCENTAGE * gross + TAX_CONFIG.CRA_ADDITIONAL * gross
+    //     );
+
+    //     console.log(cra, "cra", " pension:", pension, gross, "grosss", nhf, "nfh")
+
+    //     //Calculate taxable income: Gross - CRA - Pension - NHF
+    //     return Math.max(0, gross - cra - pension - nhf);
+    // }
+
     calculateTaxableIncome(gross: number, pension: number, nhf: number): number {
         //Calculate consolidated relief allowance (CRA)
         const cra = Math.max(
@@ -14,10 +27,11 @@ export class TaxService {
 
 
         //Calculate taxable income: Gross - CRA - Pension - NHF
-        return Math.max(0, gross - cra - pension - nhf);
+        return Math.max(0, craAmount - reliefAmount);
     }
 
     calculateProgressiveTax(taxableIncome: number): number {
+        console.log(taxableIncome, "taxable")
         let remainingIncome = taxableIncome;
         let totalTax = 0;
 
@@ -32,7 +46,8 @@ export class TaxService {
     }
 
     calculatePension(basic: number, housing: number, transport: number): number {
-        return (basic + housing + transport) * TAX_CONFIG.PENSION_RATE;
+        const res = (basic + housing + transport) * TAX_CONFIG.PENSION_RATE;
+        return res
     }
 
     calculateNHF(salary: number): number {
@@ -56,8 +71,10 @@ export class TaxService {
         cra: number;
         pension: number;
         nhf: number;
+
         laa: number;
     } {
+
         //Calculate pension (8% of basic + housing + transport)
         const pension = this.calculatePension(basic, housing, transport);
 
@@ -93,5 +110,6 @@ export class TaxService {
             nhf,
             laa,
         };
-    }
+    };
+}
 }

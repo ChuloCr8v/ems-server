@@ -364,7 +364,6 @@ export class UserService {
             console.log(error)
             bad(error)
         }
-
     }
 
     //////////////////////////////// HELPER METHODS ////////////////////////////////
@@ -375,8 +374,6 @@ export class UserService {
         tx: Prisma.TransactionClient,
     ) {
         const { eId, email, workPhone } = data;
-
-        console.log(data)
 
         if (eId) {
             const existingEId = await tx.user.findFirst({
@@ -485,7 +482,11 @@ export class UserService {
                 include: {
                     assignments: {
                         include: {
-                            asset: true
+                            asset: {
+                                include: {
+                                    assetImages: true
+                                }
+                            }
                         }
                     },
                     level: true,
