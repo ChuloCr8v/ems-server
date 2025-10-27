@@ -12,12 +12,12 @@ import {
 } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { ClaimStatus, Role } from '@prisma/client';
+import { ClaimStatus, ClaimType, Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guards';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { AuthUser } from 'src/auth/decorators/auth.decorator';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Controller('claims')
 @UseGuards(AuthGuard, RolesGuard)
@@ -32,6 +32,16 @@ export class ClaimsController {
     return this.claimsService.addClaim(req.sub, data);
   }
 
+
+  @Auth(["ADMIN"])
+  @Post("type")
+  async createClaimType(
+    @Body() dto: { claimType: string, description?: string }
+  ) {
+    return this.claimsService.addClaimType(dto.claimType, dto.description);
+  }
+
+
   @Get()
   async findAll(
     @AuthUser() req: IAuthUser,
@@ -40,6 +50,21 @@ export class ClaimsController {
     const userId = req.sub;
     const userRole = req.role as Role;
     return this.claimsService.findAll(userId, userRole, { status });
+  }
+
+
+  @Get("types")
+  async findAllTypes(
+  ) {
+    return this.claimsService.findAllClaimTypes();
+  }
+
+
+  @Get("type/:id")
+  async findOneType(
+    @Param('id') id: string
+  ) {
+    return this.claimsService.findOneClaimType(id);
   }
 
   // Get single claim by ID
@@ -56,6 +81,15 @@ export class ClaimsController {
   ) {
     const userRole = req.role as Role;
     return this.claimsService.updateClaim(id, userRole, updateClaimDto);
+  }
+
+
+  @Patch('update/type/:id')
+  async updateClaimType(
+    @Param('id') id: string,
+    @Body() updateClaimTypeDto: { id: string, title: string, description: string },
+  ) {
+    return this.claimsService.updateClaimType(id, updateClaimTypeDto);
   }
 
   // Delete claim

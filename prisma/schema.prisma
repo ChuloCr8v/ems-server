@@ -589,16 +589,14 @@ model Deductions {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // @@index([userId])
-  // @@index([month, year])
+  @@index([id, month])
 }
 
 ///////////////////////////////////////////  ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
-  claimType     ClaimType
-  claimId       String?     @unique()
+  claimId       String      @unique
   amount        Float
   dateOfExpense DateTime
   description   String?
@@ -610,7 +608,21 @@ model Claim {
   userId        String      @db.Uuid
   user          User        @relation(fields: [userId], references: [id])
 
-  @@map("claims")
+  claimsId  String
+  claimType ClaimType @relation(fields: [claimsId], references: [id], onDelete: Cascade)
+
+  @@index([id])
+}
+
+model ClaimType {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
+  claim Claim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Task {
@@ -789,13 +801,6 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-enum ClaimType {
-  TRAVEL
-  MATERIAL
-  LOGISTIC
-  REPAIR
 }
 
 enum Priority {

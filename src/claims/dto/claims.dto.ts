@@ -7,8 +7,8 @@ export class CreateClaimDto {
   @IsString()
   title: string;
 
-  @IsEnum(ClaimType)
-  claimType: ClaimType;
+  @IsString()
+  claimType: string;
 
   @Type(() => Number)
   @IsNumber()

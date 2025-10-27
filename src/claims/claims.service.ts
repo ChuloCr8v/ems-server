@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Claim, ClaimStatus, Prisma, Role } from '@prisma/client';
 import { ClaimResponseDto, CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
 import { UploadsService } from '../uploads/uploads.service';
-import { mustHave } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class ClaimsService {
@@ -20,7 +20,7 @@ export class ClaimsService {
       data: {
         claimId,
         title: createClaimDto.title,
-        claimType: createClaimDto.claimType,
+        claimType: { connect: { id: createClaimDto.claimType } },
         amount: Number(createClaimDto.amount),
         dateOfExpense: new Date(createClaimDto.dateOfExpense),
         description: createClaimDto.description,
@@ -49,6 +49,32 @@ export class ClaimsService {
     });
 
     return claim
+  }
+
+  async addClaimType(claimType: string, description?: string) {
+    try {
+      const existing = await this.prisma.claimType.findFirst({
+        where: {
+          title: claimType
+        }
+      })
+
+      console.log(existing)
+      if (existing) bad("Claim type already exists")
+
+      const newClaimType = await this.prisma.claimType.create({
+        data: {
+          title: claimType,
+          description: description ?? undefined
+        },
+      });
+
+      return newClaimType;
+    } catch (error) {
+      console.log(error)
+      bad(error.message)
+    }
+
   }
 
 
@@ -82,6 +108,7 @@ export class ClaimsService {
           },
         },
         proofUrls: true,
+        claimType: true
       },
       orderBy: { createdAt: "desc" },
     });
@@ -105,6 +132,28 @@ export class ClaimsService {
     return res;
   }
 
+  async findAllClaimTypes() {
+    try {
+      return await this.prisma.claimType.findMany({
+        orderBy: {
+          createdAt: "desc"
+        }
+      })
+    } catch (error) {
+      bad(error.message)
+    }
+  }
+
+
+  async findOneClaimType(id: string) {
+    try {
+      return await this.prisma.claimType.findUnique({ where: { id } })
+    } catch (error) {
+      bad(error.message)
+    }
+  }
+
+
   async findOne(id: string) {
     const claim = await this.prisma.claim.findUnique({
       where: { id },
@@ -118,6 +167,7 @@ export class ClaimsService {
           },
         },
         proofUrls: true,
+        claimType: true
       },
     });
 
@@ -141,6 +191,7 @@ export class ClaimsService {
       where: { id },
       data: {
         ...updateClaimDto,
+        claimType: { connect: { id: updateClaimDto.claimType } },
         proofUrls: {
           set: updateClaimDto.proofUrls?.map((id) => ({ id })) || [],
         },
@@ -158,6 +209,25 @@ export class ClaimsService {
     });
 
     return updatedClaim
+  }
+
+  async updateClaimType(id: string, updateClaimTypeDto: { title: string, description: string }) {
+    console.log(id, updateClaimTypeDto)
+    const claim = await this.prisma.claimType.findUnique({ where: { id } });
+
+    if (!claim) mustHave(claim, "Claim Type not found", 404)
+
+    const updatedClaimType = await this.prisma.claimType.update({
+      where: { id },
+      data: {
+        title: updateClaimTypeDto.title,
+        description: updateClaimTypeDto.description
+
+      },
+
+    });
+
+    return updatedClaimType
   }
 
   async removeClaim(id: string, userId: string, userRole: Role) {
