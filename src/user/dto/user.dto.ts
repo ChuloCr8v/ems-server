@@ -1,4 +1,4 @@
-import { JobType, MaritalStatus, Role } from '@prisma/client';
+import { JobType, MaritalStatus, Role, Status } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import { IsArray, IsDate, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
@@ -102,6 +102,7 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
+  status: Status;
 }
 export class ApproveUserDto {
   @IsString()

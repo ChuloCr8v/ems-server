@@ -89,7 +89,6 @@ model User {
 
   payslip      Payslip[]
   payComponent PayrollComponent[]
-  // Deductions   Deductions[]
 
   @@index([email])
   @@index([eId])

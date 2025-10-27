@@ -1,33 +1,37 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Res } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
 
 @Controller('payroll')
 export class PayrollController {
-  constructor(private readonly payroll: PayrollService) {}
+  constructor(private readonly payroll: PayrollService) { }
   @Post()
-  async createPayroll(@Body() data: PayrollDto, @Res() res: Response) {
-    const payroll = await this.payroll.createPayroll(data);
-    return res.status(200).json({ message: `A Payroll Has Been Created For ${payroll.user.firstName}`, payroll});
+  async createPayroll(@Body() data: PayrollDto) {
+    return await this.payroll.createPayroll(data);
   }
 
-  @Get() 
+  @Put("calculate")
+  async calculatePayroll(@Body() data: PayrollDto) {
+    return await this.payroll.calculatePayRoll(data);
+  }
+
+  @Get()
   async findAllPayrolls(@Res() res: Response) {
     const payrolls = await this.payroll.findAllPayroll();
-    return res.status(200).json({ message: `All Payrolls`, payrolls });
+    return res.status(200).json(payrolls.data);
   }
 
   @Get(':payrollId')
   async findOnePayroll(@Param('payrollId') payrollId: string, @Res() res: Response) {
     const payroll = await this.payroll.findOnePayroll(payrollId);
-    return res.status(200).json({ message: `Payroll Details`, payroll });
+    return res.status(200).json(payroll);
   }
 
   @Patch(':payrollId')
   async updatePayroll(@Param('payrollId') payrollId: string, @Body() update: UpdatePayrollDto, @Res() res: Response) {
     const payroll = await this.payroll.updatePayroll(payrollId, update);
-    return res.status(200).json({ message: `Payroll Has Been Updated`, payroll});
+    return res.status(200).json({ message: `Payroll Has Been Updated`, payroll });
   }
 
   @Post(':payrollId/custom-component')
@@ -38,7 +42,7 @@ export class PayrollController {
 
   @Delete(':componentId')
   async removeCustomComponent(@Param('componentId') componentId: string, @Res() res: Response) {
-    const component =  await this.payroll.removeCustomComponent(componentId);
-    return res.status(200).json({ message: `Custom Component Has Been Removed`, component});
+    const component = await this.payroll.removeCustomComponent(componentId);
+    return res.status(200).json({ message: `Custom Component Has Been Removed`, component });
   }
 }
