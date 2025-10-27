@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { ClaimStatus, Role } from '@prisma/client';
+import { ClaimStatus, ClaimType, Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guards';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
