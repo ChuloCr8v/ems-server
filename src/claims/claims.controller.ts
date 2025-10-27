@@ -32,15 +32,13 @@ export class ClaimsController {
     return this.claimsService.addClaim(req.sub, data);
   }
 
-
   @Auth(["ADMIN"])
   @Post("type")
   async createClaimType(
-    @Body() dto: { claimType: string, description?: string }
+    @Body() dto: { title: string, description?: string }
   ) {
-    return this.claimsService.addClaimType(dto.claimType, dto.description);
+    return this.claimsService.addClaimType(dto.title, dto.description);
   }
-
 
   @Get()
   async findAll(

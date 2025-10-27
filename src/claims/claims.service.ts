@@ -51,11 +51,14 @@ export class ClaimsService {
     return claim
   }
 
-  async addClaimType(claimType: string, description?: string) {
+  async addClaimType(title: string, description?: string) {
+
+    if (!title) bad("Claim type is required")
+    console.log(title)
     try {
       const existing = await this.prisma.claimType.findFirst({
         where: {
-          title: claimType
+          title
         }
       })
 
@@ -64,7 +67,7 @@ export class ClaimsService {
 
       const newClaimType = await this.prisma.claimType.create({
         data: {
-          title: claimType,
+          title,
           description: description ?? undefined
         },
       });

@@ -12,7 +12,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { generateUploadKey } from 'src/utils/uploadkey-generator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Injectable()
 export class UploadsService {

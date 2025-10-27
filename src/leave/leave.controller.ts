@@ -13,7 +13,7 @@ export class LeaveController {
   @Post(":userId")
   async createLeaveRequest(
     @Param('userId') userId: string,
-    @Body() data: CreateLeaveRequestDto,
+    @Body() data: CreateLeaveRequestDto, 
     @Res() res: Response,
   ) {
     const request = await this.leave.createLeaveRequest(userId, data);
