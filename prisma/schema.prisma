@@ -85,8 +85,11 @@ model User {
   approver   Approver[]
   approvals  Approval[]
   responses  Response[]
-  payslip    Payslip[]
   bank       Bank?
+
+  payslip      Payslip[]
+  payComponent PayrollComponent[]
+  // Deductions   Deductions[]
 
   @@index([email])
   @@index([eId])
@@ -528,6 +531,7 @@ model Payroll {
   userId        String             @unique @db.Uuid
   user          User               @relation(fields: [userId], references: [id])
   component     PayrollComponent[]
+  payslip       Payslip[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 }
@@ -546,26 +550,53 @@ model PayrollComponent {
   isActive      Boolean               @default(true)
   payrollId     String                @db.Uuid
   payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  userId        String?               @db.Uuid
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payslip {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  amount    String
+  amount    Float
+  month     Int
+  year      Int
   data      Bytes
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
+  payrollId String   @db.Uuid
+  payroll   Payroll  @relation(fields: [payrollId], references: [id])
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([payrollId])
+  @@index([month, year])
+}
+
+model Deductions {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  // amount    Float
+  tax       Int
+  pension   Int
+  month     String
+  // year      Int
+  data      Bytes
+  // userId    String   @db.Uuid
+  // user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([id, month])
 }
 
 ///////////////////////////////////////////  ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
-  claimType     ClaimType
-  claimId       String?     @unique()
+  claimId       String      @unique
   amount        Float
   dateOfExpense DateTime
   description   String?
@@ -577,7 +608,21 @@ model Claim {
   userId        String      @db.Uuid
   user          User        @relation(fields: [userId], references: [id])
 
-  @@map("claims")
+  claimsId  String
+  claimType ClaimType @relation(fields: [claimsId], references: [id], onDelete: Cascade)
+
+  @@index([id])
+}
+
+model ClaimType {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
+  claim Claim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Task {
@@ -756,13 +801,6 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-enum ClaimType {
-  TRAVEL
-  MATERIAL
-  LOGISTIC
-  REPAIR
 }
 
 enum Priority {

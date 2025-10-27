@@ -18,9 +18,13 @@ export class TaxService {
 
     calculateTaxableIncome(gross: number, pension: number, nhf: number): number {
         //Calculate consolidated relief allowance (CRA)
+        const cra = Math.max(
+            TAX_CONFIG.CRA_MINIMUM,
+            TAX_CONFIG.CRA_PERCENTAGE * gross + TAX_CONFIG.CRA_ADDITIONAL * gross
+        );
 
-        const craAmount = gross - pension
-        const reliefAmount = craAmount * TAX_CONFIG.CRA_ADDITIONAL + TAX_CONFIG.CRA_MINIMUM
+        console.log(cra)
+
 
         //Calculate taxable income: Gross - CRA - Pension - NHF
         return Math.max(0, craAmount - reliefAmount);
@@ -98,7 +102,6 @@ export class TaxService {
             TAX_CONFIG.CRA_PERCENTAGE * gross + TAX_CONFIG.CRA_ADDITIONAL * gross
         );
 
-
         return {
             taxableIncome,
             tax,
@@ -107,5 +110,6 @@ export class TaxService {
             nhf,
             laa,
         };
-    }
+    };
+}
 }
