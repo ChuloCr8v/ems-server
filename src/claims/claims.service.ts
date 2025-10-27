@@ -1,9 +1,8 @@
 // src/claims/claims.service.ts
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Claim, ClaimStatus, Prisma, Role } from '@prisma/client';
-import { ClaimResponseDto, CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { UploadsService } from '../uploads/uploads.service';
+import { ClaimStatus, Prisma, Role } from '@prisma/client';
+import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()

@@ -561,7 +561,7 @@ export class UserService {
         const [existingEmails, existingWorkPhones, existingPhones, existingEids] =
             await Promise.all([
                 this.prisma.user.findMany({
-                    where: { email: { in: emails }, },
+                    where: { email: { in: emails } },
                     select: { email: true, firstName: true, lastName: true },
                 }),
                 this.prisma.user.findMany({
@@ -585,17 +585,18 @@ export class UserService {
             input: AddEmployeeDto;
         }[] = [];
 
-
-        console.log(data)
+        const departmentKey = isBulk ? "name" : "id";
 
         for (const e of data) {
             try {
+                // Basic validation
                 if (!e.firstName || !e.lastName) throw new Error("First name and last name are required");
                 if (!e.gender) throw new Error("Gender is required");
                 if (!e.department?.length) throw new Error("Department is required");
                 if (e.jobType === "CONTRACT" && !e.duration)
                     throw new Error("Duration is required for contract employees");
 
+                // Duplicate checks
                 if (e.email) {
                     const found = existingEmails.find((u) => u.email.toLowerCase() === e.email.toLowerCase());
                     if (found) throw new Error(`Email ${e.email} already belongs to ${found.firstName} ${found.lastName}`);
@@ -613,13 +614,15 @@ export class UserService {
                     if (found) throw new Error(`Employee ID ${e.eId} already belongs to ${found.firstName} ${found.lastName}`);
                 }
 
+                // Department validation
                 const departments = await this.prisma.department.findMany({
-                    where: { name: { in: e.department } },
+                    where: { [departmentKey]: { in: e.department } },
                 });
                 if (departments.length !== e.department.length) {
                     throw new Error(`Some departments not found: expected ${e.department.length}, found ${departments.length}`);
                 }
 
+                // Prepare employee data
                 const employeeData = {
                     firstName: e.firstName,
                     lastName: e.lastName,
@@ -633,26 +636,35 @@ export class UserService {
                     eId: e.eId,
                     departments: { connect: departments.map((d) => ({ id: d.id })) },
                     ...(e.level ? { level: { connect: { id: e.level } } } : {}),
-                    jobType: JobType.FULL_TIME,
+                    jobType: e.jobType ?? JobType.FULL_TIME,
                     duration: e.jobType === "CONTRACT" ? e.duration?.toString() : null,
                     status: Status.ACTIVE,
                 };
 
                 const created = await this.prisma.user.create({ data: employeeData });
-
                 results.push({ success: true, data: created, input: e });
             } catch (err: any) {
+                if (!isBulk) {
+                    bad(err.message || "Failed to add employee");
+                }
+
+                // Otherwise record the failure
                 results.push({ success: false, error: err.message || "Unknown error", input: e });
             }
         }
 
+        const created = results.filter(r => r.success).map(r => r.data);
+        const failed = results.filter(r => !r.success).map(r => ({ error: r.error, input: r.input }));
+
         return {
             success: true,
-            created: results.filter(r => r.success).map(r => r.data),
-            failed: results.filter(r => !r.success).map(r => ({ error: r.error, input: r.input })),
-            message: `Processed ${data.length} employees: ${results.filter(r => r.success).length} created, ${results.filter(r => !r.success).length} failed.`,
+            hasErrors: failed.length > 0,
+            created,
+            failed,
+            message: `Processed ${data.length} employees: ${created.length} created, ${failed.length} failed.`,
         };
     }
+
 
     async deleteUser(ids: string[]) {
         try {
