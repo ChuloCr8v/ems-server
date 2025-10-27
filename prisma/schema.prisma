@@ -74,10 +74,8 @@ model User {
   departmentCreator Department? @relation("departmentCreator")
   claims            Claim[]
 
-  // assignedTasks         UserTask[]
-  createdTasks          Task[]         @relation("CreatedTasks")
-  approvedTasks         Task[]         @relation("ApprovedTasks")
-  userTasks             UserTask[]
+  assignedTasks UserTask[]
+  createdTasks  Task[]     @relation("CreatedTasks")
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -87,8 +85,11 @@ model User {
   approver   Approver[]
   approvals  Approval[]
   responses  Response[]
-  payslip    Payslip[]
   bank       Bank?
+
+  payslip      Payslip[]
+  payComponent PayrollComponent[]
+  // Deductions   Deductions[]
 
   @@index([email])
   @@index([eId])
@@ -192,20 +193,18 @@ model Upload {
   requestId     String?           @db.Uuid
   request       LeaveRequest?     @relation(fields: [requestId], references: [id])
 
-  claim         Claim?  @relation(fields: [claimId], references: [id])
-  claimId       String?
-  task          Task?             @relation(fields: [taskId], references: [id])
-  taskId        String?           @db.Uuid
+  claim   Claim?  @relation(fields: [claimId], references: [id])
+  claimId String?
 
-  guarantorId   String?           @db.Uuid
-  guarantor     GuarantorContact? @relation(fields: [guarantorId], references: [id])
+  guarantorId String?           @db.Uuid
+  guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
 
   //cloudinary keys
-  publicId      String? @unique
-  secureUrl     String? @unique
+  publicId  String? @unique
+  secureUrl String? @unique
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Contacts {
@@ -532,6 +531,7 @@ model Payroll {
   userId        String             @unique @db.Uuid
   user          User               @relation(fields: [userId], references: [id])
   component     PayrollComponent[]
+  payslip       Payslip[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 }
@@ -549,97 +549,131 @@ model PayrollComponent {
   startDate     DateTime?
   isActive      Boolean               @default(true)
   payrollId     String                @db.Uuid
-  payroll       Payroll               @relation(fields: [payrollId], references: [id])
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
+  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  userId        String?               @db.Uuid
+  user          User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Payslip {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  amount    String
+  amount    Float
+  month     Int
+  year      Int
   data      Bytes
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
+  payrollId String   @db.Uuid
+  payroll   Payroll  @relation(fields: [payrollId], references: [id])
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([payrollId])
+  @@index([month, year])
+}
+
+model Deductions {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  // amount    Float
+  tax       Int
+  pension   Int
+  month     String
+  // year      Int
+  data      Bytes
+  // userId    String   @db.Uuid
+  // user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([id, month])
 }
 
 ///////////////////////////////////////////  ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
-  claimType     ClaimType
-  claimId       String?     @unique()
+  claimId       String      @unique
   amount        Float
   dateOfExpense DateTime
   description   String?
   notes         String?
   status        ClaimStatus @default(PENDING)
   proofUrls     Upload[]
-  // proofUrls     String[]    @default([])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   userId        String      @db.Uuid
   user          User        @relation(fields: [userId], references: [id])
 
-  @@map("claims")
+  claimsId  String
+  claimType ClaimType @relation(fields: [claimsId], references: [id], onDelete: Cascade)
+
+  @@index([id])
+}
+
+model ClaimType {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+
+  claim Claim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Task {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String      @id @default(uuid())
   title       String
   description String?
   startDate   DateTime?
   dueDate     DateTime?
   category    String?
-  priority    String?
-  status      TaskStatus @default(PENDING_APPROVAL)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  priority    Priority?
+  status      TaskStatus?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
   // Relations
-  createdBy   User     @relation("CreatedTasks", fields: [createdById], references: [id])
-  approvedBy  User?    @relation("ApprovedTasks", fields: [approvedById], references: [id])
-  createdById String   @db.Uuid
-  
-  approvedById String? @db.Uuid
-  
   assignees   UserTask[]
-  uploads     Upload[]
-  
-  // Approval tracking
-  approvalStatus ApprovalStatus @default(PENDING)
-  approvalRequestedAt DateTime?
-  approvedAt     DateTime?
-  rejectionReason String?
-}
+  files       TaskFile[]
+  createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdById String     @db.Uuid
 
-enum TaskStatus {
-  PENDING_APPROVAL
-  APPROVED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum AStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  @@map("tasks")
 }
 
 model UserTask {
-  id          String   @id @default(uuid()) @db.Uuid
-  assignedAt  DateTime @default(now())
-  
-  user        User @relation(fields: [userId], references: [id])
-  userId      String  @db.Uuid
-  
-  task        Task @relation(fields: [taskId], references: [id])
-  taskId      String  @db.Uuid
-  
-  @@unique([userId, taskId])
+  id         String   @id @default(cuid())
+  taskId     String
+  userId     String   @db.Uuid
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@map("user_tasks")
 }
+
+model TaskFile {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  path         String
+  mimetype     String
+  size         Int
+  taskId       String
+  uploadedAt   DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@map("task_files")
+}
+
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -769,18 +803,18 @@ enum ClaimStatus {
   REJECTED
 }
 
-enum ClaimType {
-  TRAVEL
-  MATERIAL
-  LOGISTIC
-  REPAIR
-}
-
 enum Priority {
   LOW
   MEDIUM
   HIGH
   URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum Gender {
