@@ -516,33 +516,33 @@ export class UserService {
         }
     }
 
-    async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
-        if (!uploads?.length) {
-            this.logger.debug('No files to upload');
-            return;
-        }
-        return await this.prisma.$transaction(async (tx) => {
-            //First delete the uploads that are being replaced
-            const filenames = uploads.map(u => u.originalname);
-            await tx.upload.deleteMany({
-                where: {
-                    userId,
-                    name: { in: filenames }
-                }
-            });
+    // async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
+    //     if (!uploads?.length) {
+    //         this.logger.debug('No files to upload');
+    //         return;
+    //     }
+    //     return await this.prisma.$transaction(async (tx) => {
+    //         //First delete the uploads that are being replaced
+    //         const filenames = uploads.map(u => u.originalname);
+    //         await tx.upload.deleteMany({
+    //             where: {
+    //                 userId,
+    //                 name: { in: filenames }
+    //             }
+    //         });
 
-            //Add all the new uploads
-            await tx.upload.createMany({
-                data: uploads.map(upload => ({
-                    name: upload.originalname,
-                    size: upload.size,
-                    type: upload.mimetype,
-                    bytes: upload.buffer,
-                    userId
-                }))
-            });
-        });
-    }
+    //         //Add all the new uploads
+    //         await tx.upload.createMany({
+    //             data: uploads.map(upload => ({
+    //                 name: upload.originalname,
+    //                 size: upload.size,
+    //                 type: upload.mimetype,
+    //                 bytes: upload.buffer,
+    //                 userId
+    //             }))
+    //         });
+    //     });
+    // }
 
     async findByEmail(email: string) {
         return this.prisma.user.findUnique({
