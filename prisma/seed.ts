@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient, JobType, Role, Status } from '@prisma/client';
+import { PrismaClient, JobType, Role, Status, MaritalStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -7,9 +7,9 @@ async function main() {
   // Bona (ADMIN)
   await prisma.user.create({
     data: {
-      firstName: "Modesta",
-      lastName: "Wewo",
-      email: "bonaventure@zoracom.com",
+      firstName: "Benedict",
+      lastName: "Nwosu",
+      email: "benedict@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
@@ -21,7 +21,7 @@ async function main() {
       duration: "6 months",
       jobType: JobType.FULL_TIME,
       startDate: new Date("2025-07-25T15:30:00.000Z"),
-      eId: "EMP41219",
+      eId: "EMP419",
       // departmentId: "ffffd76d-3852-44a5-af8c-09f556fd0b02",
       contacts: {
         create: {
@@ -43,6 +43,27 @@ async function main() {
       },
     },
   });
+
+  const users = [
+    {
+      firstName: "Benedict",
+      lastName: "Nwosu",
+      email: "benedict@zoracom.com",
+      phone: "08011112221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+    // {
+    //   firstName: "Amaka",
+    //   lastName: "Eze",
+    //   email: "amaka.eze@zoracom.com",
+    //   phone: "08011112222",
+    //   gender: "Female",
+    //   maritalStatus: MaritalStatus.SINGLE,
+    //   role: "UI/UX Designer",
+    // },
+  ]
 
   // 10 More Users
   // const users = [
