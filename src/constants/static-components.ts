@@ -30,7 +30,6 @@ export const STATIC_EARNING_COMPONENTS = [
         monthlyAmount: 0,
         annualAmount: 0
     },
-
     {
         title: 'Entertainment',
         type: SalaryType.EARNING,
