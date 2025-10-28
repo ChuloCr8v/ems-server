@@ -7,6 +7,6 @@ import { TaxService } from './tax.service';
 @Module({
   imports: [PrismaModule],
   controllers: [PayrollController],
-  providers: [PayrollService, TaxService],
+  providers: [PayrollService, TaxService,],
 })
-export class PayrollModule {}
+export class PayrollModule { }

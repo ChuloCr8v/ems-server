@@ -6,12 +6,12 @@ import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payrol
 import { CalculateComponentDto } from './dto/payroll.dto';
 import { bad } from 'src/utils/error.utils';
 import { TaxService } from './tax.service';
-
-
+import * as ExcelJS from 'exceljs';
 import { Logger } from '@nestjs/common';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { Response } from 'express';
 import { PayslipTemplateService } from './template.service';
+import { getMonthDateRange } from 'src/utils/getMonthDateRange';
 
 @Injectable()
 export class PayrollService {

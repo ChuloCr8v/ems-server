@@ -43,6 +43,7 @@
     "class-validator": "^0.14.2",
     "cloudinary": "^1.41.3",
     "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
     "handlebars": "^4.7.8",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
@@ -54,6 +55,7 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
+    "to-words": "^4.8.0",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5"
   },
@@ -76,6 +78,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "aws-sdk": "^2.1692.0",
     "eslint": "^8.0.0",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
