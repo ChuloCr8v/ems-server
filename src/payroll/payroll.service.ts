@@ -627,7 +627,7 @@ export class PayrollService {
         // === 5. Generate Excel file
         const excelBuffer = await this.generateDeductionsExcel({
             deductions: structuredData,
-            month,
+            month: monthInWords,
             year,
         });
 
@@ -1118,144 +1118,144 @@ export class PayrollService {
         }
     }
 
-    private async generateIndividualPayslip(browser: any, payroll: Payroll, user: any): Promise<void> {
-        const components = await this.prisma.payrollComponent.findMany({
-            where: {
-                payrollId: payroll.id,
-                userId: user.id,
-            },
-        });
+    // private async generateIndividualPayslip(browser: any, payroll: Payroll, user: any): Promise<void> {
+    //     const components = await this.prisma.payrollComponent.findMany({
+    //         where: {
+    //             payrollId: payroll.id,
+    //             userId: user.id,
+    //         },
+    //     });
 
-        const page = await browser.newPage();
-        const html = this.payslipTemplate.generateHTML(payroll, user, components);
+    //     const page = await browser.newPage();
+    //     const html = this.payslipTemplate.generateHTML(payroll, user, components);
 
-        await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
+    //     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
 
-        const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            preferCSSPageSize: true,
-            timeout: 30000,
-        });
+    //     const pdfBuffer = await page.pdf({
+    //         format: 'A4',
+    //         printBackground: true,
+    //         preferCSSPageSize: true,
+    //         timeout: 30000,
+    //     });
 
-        this.validatePDFBuffer(pdfBuffer);
-        await this.savePayslip(Buffer.from(pdfBuffer), payroll, user);
+    //     this.validatePDFBuffer(pdfBuffer);
+    //     await this.savePayslip(Buffer.from(pdfBuffer), payroll, user);
 
-        await page.close();
-    }
+    //     await page.close();
+    // }
 
-    private async generateDeductionSummary(payroll: Payroll): Promise<void> {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
-        const monthInWords = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    // private async generateDeductionSummary(payroll: Payroll): Promise<void> {
+    //     const now = new Date();
+    //     const month = now.getMonth() + 1;
+    //     const year = now.getFullYear();
+    //     const monthInWords = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-        const monthStart = startOfMonth(now);
-        const monthEnd = endOfMonth(now);
+    //     const monthStart = startOfMonth(now);
+    //     const monthEnd = endOfMonth(now);
 
-        // === 1. Get deductions (tax + pension)
-        const comps = await this.prisma.payrollComponent.findMany({
-            where: {
-                payrollId: payroll.id,
-                category: { in: ['STATIC_DEDUCTION'] },
-                createdAt: { gte: monthStart, lte: monthEnd },
-            },
-            include: { user: true },
-        });
+    //     // === 1. Get deductions (tax + pension)
+    //     const comps = await this.prisma.payrollComponent.findMany({
+    //         where: {
+    //             payrollId: payroll.id,
+    //             category: { in: ['STATIC_DEDUCTION'] },
+    //             createdAt: { gte: monthStart, lte: monthEnd },
+    //         },
+    //         include: { user: true },
+    //     });
 
-        // === 2. Get earnings (for employer pension calc)
-        const earningComponents = await this.prisma.payrollComponent.findMany({
-            where: {
-                payrollId: payroll.id,
-                category: { in: ['STATIC_EARNING'] },
-                createdAt: { gte: monthStart, lte: monthEnd },
-            },
-            include: { user: true },
-        });
+    //     // === 2. Get earnings (for employer pension calc)
+    //     const earningComponents = await this.prisma.payrollComponent.findMany({
+    //         where: {
+    //             payrollId: payroll.id,
+    //             category: { in: ['STATIC_EARNING'] },
+    //             createdAt: { gte: monthStart, lte: monthEnd },
+    //         },
+    //         include: { user: true },
+    //     });
 
-        // === 3. Aggregate totals across company
-        const tax = comps
-            .filter(x => x.title === 'PAYE Tax')
-            .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
+    //     // === 3. Aggregate totals across company
+    //     const tax = comps
+    //         .filter(x => x.title === 'PAYE Tax')
+    //         .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
 
-        const pension = comps
-            .filter(x => x.title === 'Pension Contribution')
-            .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
+    //     const pension = comps
+    //         .filter(x => x.title === 'Pension Contribution')
+    //         .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
 
-        // === 4. Group data per employee
-        const employeeMap = new Map<string, any>();
+    //     // === 4. Group data per employee
+    //     const employeeMap = new Map<string, any>();
 
-        // First, calculate employer pension for each user based on their earnings
-        for (const earning of earningComponents) {
-            const id = earning.user.eId;
+    //     // First, calculate employer pension for each user based on their earnings
+    //     for (const earning of earningComponents) {
+    //         const id = earning.user.eId;
 
-            if (!employeeMap.has(id)) {
-                employeeMap.set(id, {
-                    employeeId: id,
-                    employeeName: `${earning.user.firstName} ${earning.user.lastName}`,
-                    // monthInWords,
-                    tax: 0,
-                    employeePension: 0,
-                    employerPension: 0,
-                    totalPension: 0,
-                });
-            }
+    //         if (!employeeMap.has(id)) {
+    //             employeeMap.set(id, {
+    //                 employeeId: id,
+    //                 employeeName: `${earning.user.firstName} ${earning.user.lastName}`,
+    //                 // monthInWords,
+    //                 tax: 0,
+    //                 employeePension: 0,
+    //                 employerPension: 0,
+    //                 totalPension: 0,
+    //             });
+    //         }
 
 
-            const emp = employeeMap.get(id);
+    //         const emp = employeeMap.get(id);
 
-            // Normalize title matching
-            const title = earning.title.toLowerCase();
-            console.log(title)
-            if (['basic', 'housing', 'transport'].includes(title)) {
-                emp.employerPension += 0.6 * (earning.monthlyAmount || 0);
-            }
-        }
+    //         // Normalize title matching
+    //         const title = earning.title.toLowerCase();
+    //         console.log(title)
+    //         if (['basic', 'housing', 'transport'].includes(title)) {
+    //             emp.employerPension += 0.6 * (earning.monthlyAmount || 0);
+    //         }
+    //     }
 
-        // Then, add deductions (employee pension + tax)
-        for (const c of comps) {
-            const id = c.user.eId;
+    //     // Then, add deductions (employee pension + tax)
+    //     for (const c of comps) {
+    //         const id = c.user.eId;
 
-            if (!employeeMap.has(id)) {
-                employeeMap.set(id, {
-                    employeeId: id,
-                    employeeName: `${c.user.firstName} ${c.user.lastName}`,
-                    // monthInWords,
-                    tax: 0,
-                    employeePension: pension,
-                    employerPension: 0,
-                    totalPension: 0,
-                });
-            }
+    //         if (!employeeMap.has(id)) {
+    //             employeeMap.set(id, {
+    //                 employeeId: id,
+    //                 employeeName: `${c.user.firstName} ${c.user.lastName}`,
+    //                 // monthInWords,
+    //                 tax: 0,
+    //                 employeePension: pension,
+    //                 employerPension: 0,
+    //                 totalPension: 0,
+    //             });
+    //         }
 
-            const emp = employeeMap.get(id);
+    //         const emp = employeeMap.get(id);
 
-            if (c.title === 'PAYE Tax') emp.tax = c.monthlyAmount || 0;
-            if (c.title === 'Pension Contribution') emp.employeePension = c.monthlyAmount || 0;
+    //         if (c.title === 'PAYE Tax') emp.tax = c.monthlyAmount || 0;
+    //         if (c.title === 'Pension Contribution') emp.employeePension = c.monthlyAmount || 0;
 
-            // Compute total pension per employee
-            emp.totalPension = (emp.employeePension || 0) + (emp.employerPension || 0);
-        }
+    //         // Compute total pension per employee
+    //         emp.totalPension = (emp.employeePension || 0) + (emp.employerPension || 0);
+    //     }
 
-        const structuredData = Array.from(employeeMap.values());
+    //     const structuredData = Array.from(employeeMap.values());
 
-        // === 5. Generate Excel and save
-        const excelBuffer = await this.generateDeductionsExcel({
-            deductions: structuredData,
-            month,
-            year,
-        });
+    //     // === 5. Generate Excel and save
+    //     const excelBuffer = await this.generateDeductionsExcel({
+    //         deductions: structuredData,
+    //         month,
+    //         year,
+    //     });
 
-        await this.prisma.deductions.create({
-            data: {
-                name: `Deductions-${monthInWords}`,
-                tax,
-                pension,
-                month: monthInWords,
-                data: excelBuffer,
-            },
-        });
-    }
+    //     await this.prisma.deductions.create({
+    //         data: {
+    //             name: `Deductions-${monthInWords}`,
+    //             tax,
+    //             pension,
+    //             month: monthInWords,
+    //             data: excelBuffer,
+    //         },
+    //     });
+    // }
 
 
 
@@ -1288,13 +1288,12 @@ export class PayrollService {
         year,
     }: {
         deductions: any[];
-        month: number;
+        month: string;
         year: number;
     }): Promise<Buffer> {
         try {
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet(`Deductions ${month}-${year}`);
-
 
             // Header row - FIXED: Match the data columns exactly
             sheet.addRow([
@@ -1313,14 +1312,13 @@ export class PayrollService {
             headerRow.font = { bold: true };
             headerRow.alignment = { horizontal: "center" };
 
-            console.log("deductions", deductions)
 
             deductions.forEach((d, index) => {
                 sheet.addRow([
                     index + 1,
                     d.employeeId,
                     d.employeeName,
-                    d.monthInWords,
+                    month,
                     d.tax || 0,
                     d.employerPension || 0,
                     d.employeePension || 0,
