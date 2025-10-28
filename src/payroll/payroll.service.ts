@@ -11,6 +11,7 @@ import { TaxService } from './tax.service';
 import { Logger } from '@nestjs/common';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { Response } from 'express';
+import { PayslipTemplateService } from './template.service';
 
 @Injectable()
 export class PayrollService {
