@@ -74,9 +74,6 @@ model User {
   departmentCreator Department? @relation("departmentCreator")
   claims            Claim[]
 
-  assignedTasks UserTask[]
-  createdTasks  Task[]     @relation("CreatedTasks")
-
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
 
@@ -89,6 +86,12 @@ model User {
 
   payslip      Payslip[]
   payComponent PayrollComponent[]
+
+  //Tasks
+
+  createdTasks  Task[]     @relation("CreatedTasks")
+  approvedTasks Task[]     @relation("ApprovedTasks")
+  userTasks     UserTask[]
 
   @@index([email])
   @@index([eId])
@@ -107,7 +110,8 @@ model Department {
   status   DepartmentStatus? @default(ACTIVE)
   approver Approver[]
 
-  prospects Prospect[]
+  prospects    Prospect[]
+  taskCategory TaskCategory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -197,6 +201,9 @@ model Upload {
 
   guarantorId String?           @db.Uuid
   guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
+
+  task   Task?   @relation(fields: [taskId], references: [id])
+  taskId String? @db.Uuid
 
   //cloudinary keys
   publicId  String? @unique
@@ -624,53 +631,72 @@ model ClaimType {
   updatedAt DateTime @updatedAt
 }
 
+model TaskCategory {
+  id         String       @id @default(uuid()) @db.Uuid
+  title      String       @unique
+  taskId     String       @db.Uuid
+  task       Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  department Department[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Task {
-  id          String      @id @default(uuid())
+  id          String         @id @default(uuid()) @db.Uuid
+  taskId      String?        @unique
   title       String
   description String?
   startDate   DateTime?
   dueDate     DateTime?
-  category    String?
-  priority    Priority?
-  status      TaskStatus?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  category    TaskCategory[]
+  priority    String?
+  status      TaskStatus     @default(PENDING_APPROVAL)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   // Relations
-  assignees   UserTask[]
-  files       TaskFile[]
-  createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
-  createdById String     @db.Uuid
+  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
+  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdById String @db.Uuid
 
-  @@map("tasks")
+  approvedById String? @db.Uuid
+
+  assignees UserTask[]
+  uploads   Upload[]
+
+  // Approval tracking
+  approvalStatus      ApprovalStatus @default(PENDING)
+  approvalRequestedAt DateTime?
+  approvedAt          DateTime?
+  rejectionReason     String?
+}
+
+enum TaskStatus {
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model UserTask {
-  id         String   @id @default(cuid())
-  taskId     String
-  userId     String   @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   assignedAt DateTime @default(now())
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.Uuid
 
-  @@unique([taskId, userId])
-  @@map("user_tasks")
-}
+  task   Task   @relation(fields: [taskId], references: [id])
+  taskId String @db.Uuid
 
-model TaskFile {
-  id           String   @id @default(cuid())
-  filename     String
-  originalName String
-  path         String
-  mimetype     String
-  size         Int
-  taskId       String
-  uploadedAt   DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@map("task_files")
+  @@unique([userId, taskId])
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -807,13 +833,6 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
-}
-
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
 }
 
 enum Gender {
