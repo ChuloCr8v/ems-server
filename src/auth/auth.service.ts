@@ -135,6 +135,7 @@ export class AuthService {
       };
 
     } catch (error) {
+ console.log(error)
       bad(error)
     }
   }

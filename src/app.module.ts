@@ -25,6 +25,7 @@ import { ClaimsModule } from './claims/claims.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BankModule } from './bank/bank.module';
+import { TasksModule } from './tasks/tasks.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { BankModule } from './bank/bank.module';
     PayrollModule,
     ContactsModule,
     BankModule,
+    TasksModule
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],
