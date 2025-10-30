@@ -70,12 +70,11 @@ export class TasksService {
 
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
-      const { assignees, ...taskData } = createTaskDto;
+      const { uploads, assignees, ...taskData } = createTaskDto;
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
       console.log(createTaskDto)
-      const { uploads } = createTaskDto
 
       // Validate assignees exist if provided
       if (assignees && assignees.length > 0) {
