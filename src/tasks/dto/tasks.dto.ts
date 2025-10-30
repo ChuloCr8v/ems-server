@@ -20,7 +20,7 @@ import {
   Max
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApprovalStatus, TaskCategory, TaskStatus } from '@prisma/client';
+import { ApprovalStatus, TaskStatus } from '@prisma/client';
 
 export enum TaskPriority {
   LOW = 'LOW',
@@ -28,7 +28,6 @@ export enum TaskPriority {
   HIGH = 'HIGH',
   URGENT = 'URGENT'
 }
-
 
 export class CreateTaskDto {
   @IsString()

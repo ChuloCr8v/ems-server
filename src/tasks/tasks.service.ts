@@ -6,16 +6,6 @@ import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, Updat
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 
 
-// Define Prisma types for better type safety
-type TaskWithRelations = Prisma.TaskGetPayload<{
-  include: {
-    createdBy: { select: { id: true; firstName: true; lastName: true; email: true; role: true } };
-    approvedBy: { select: { id: true; firstName: true; lastName: true; email: true } };
-    assignees: { include: { user: { select: { id: true; firstName: true; lastName: true; email: true } } } };
-    uploads: true;
-  };
-}>;
-
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService) { }
@@ -32,7 +22,7 @@ export class TasksService {
     return role === 'MANAGER' || role === 'ADMIN';
   }
 
-  private mapToTaskResponseDto(task: TaskWithRelations): TaskResponseDto {
+  private mapToTaskResponseDto(task): TaskResponseDto {
     return {
       id: task.id,
       taskId: task.taskId,
@@ -50,8 +40,8 @@ export class TasksService {
       approvedAt: task.approvedAt,
       rejectionReason: task.rejectionReason,
       createdBy: {
-        id: task.createdBy.id,
-        name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
+        id: task.createdById,
+        name: `${task.createdBy} ${task.createdBy.lastName}`,
         email: task.createdBy.email,
         role: task.createdBy.role,
       },
@@ -78,84 +68,6 @@ export class TasksService {
     };
   }
 
-  // async createTask(createTaskDto: CreateTaskDto, createdById: string, files?: Express.Multer.File[]) {
-  //   const { assignees, ...taskData } = createTaskDto;
-  //   const userRole = await this.getUserRole(createdById);
-  //   const isManager = this.isManager(userRole);
-
-  //      // Validate assignees exist if provided
-  //   if (assignees && assignees.length > 0) {
-  //     const existingUsers = await this.prisma.user.findMany({
-  //       where: { id: { in: assignees } },
-  //       select: { id: true },
-  //     });
-
-  //     if (existingUsers.length !== assignees.length) {
-  //       throw new BadRequestException('One or more assignees not found');
-  //     }
-  //   }
-
-  //     // Convert date strings to Date objects with proper time
-  //   const startDate = taskData.startDate ? new Date(taskData.startDate + 'T00:00:00.000Z') : null;
-  //   const dueDate = taskData.dueDate ? new Date(taskData.dueDate + 'T23:59:59.999Z') : null;
-
-
-  //   // Determine approval status based on user role
-  //   const approvalStatus = isManager ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING;
-  //   const status = isManager ? TaskStatus.IN_PROGRESS : TaskStatus.PENDING_APPROVAL;
-
-  //   // Managers can assign directly, employees cannot
-  //   const assigneesData = isManager && assignees && assignees.length > 0 ? {
-  //     create: assignees.map(userId => ({ userId })),
-  //   } : undefined;
-
-  //   const task = await this.prisma.task.create({
-  //     data: {
-  //       ...taskData,
-  //       status,
-  //       startDate,
-  //       dueDate,
-  //       approvalStatus,
-  //       createdById,
-  //       // If manager creates and assigns, they auto-approve
-  //       ...(isManager && assignees && assignees.length > 0 && {
-  //         approvedById: createdById,
-  //         approvedAt: new Date(),
-  //         approvalRequestedAt: new Date(),
-  //       }),
-  //       // Only set approval requested date for employees
-  //       ...(!isManager && {
-  //         approvalRequestedAt: new Date(),
-  //       }),
-  //       assignees: assigneesData,
-  //     },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   // Handle file uploads
-  //   if (files && files.length > 0) {
-  //     await this.prisma.upload.createMany({
-  //       data: files.map(file => ({
-  //         name: file.originalname,
-  //         size: file.size,
-  //         type: file.mimetype,
-  //         key: file.filename,
-  //         uri: file.path,
-  //         taskId: task.id,
-  //       })),
-  //     });
-  //   }
-
-  //   // Reload with all relations
-  //   const taskWithRelations = await this.prisma.task.findUnique({
-  //     where: { id: task.id },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   return this.mapToTaskResponseDto(taskWithRelations!);
-  // }
-
-  // src/tasks/tasks.service.ts
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
       const { assignees, ...taskData } = createTaskDto;
@@ -223,7 +135,7 @@ export class TasksService {
             connect: uploads.map((id) => ({ id })),
           },
         },
-        include: this.getTaskInclude(),
+        // include: this.getTaskInclude(),
       });
 
 
@@ -282,7 +194,7 @@ export class TasksService {
         status: TaskStatus.PENDING_APPROVAL,
         approvalRequestedAt: new Date(),
       },
-      include: this.getTaskInclude(),
+      // include: this.getTaskInclude(),
     });
 
     return this.mapToTaskResponseDto(updatedTask);
@@ -308,25 +220,25 @@ export class TasksService {
     }
 
     // Update task with approval and assignees
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        approvalStatus: ApprovalStatus.APPROVED,
-        status: TaskStatus.IN_PROGRESS,
-        approvedById,
-        approvedAt: new Date(),
-        // Clear any existing assignees and set new ones
-        ...(assignees && assignees.length > 0 && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map(userId => ({ userId })),
-          },
-        }),
-      },
-      include: this.getTaskInclude(),
-    });
+    // const updatedTask = await this.prisma.task.update({
+    //   where: { id: taskId },
+    //   data: {
+    //     approvalStatus: ApprovalStatus.APPROVED,
+    //     status: TaskStatus.IN_PROGRESS,
+    //     approvedById,
+    //     approvedAt: new Date(),
+    //     // Clear any existing assignees and set new ones
+    //     ...(assignees && assignees.length > 0 && {
+    //       assignees: {
+    //         deleteMany: {},
+    //         create: assignees.map(userId => ({ userId })),
+    //       },
+    //     }),
+    //   },
+    //   // include: this.getTaskInclude(),
+    // });
 
-    return this.mapToTaskResponseDto(updatedTask);
+    // return this.mapToTaskResponseDto(updatedTask);
   }
 
   async rejectTask(taskId: string, rejectedById: string, rejectionReason: string) {
@@ -357,7 +269,7 @@ export class TasksService {
         approvedById: rejectedById,
         approvedAt: new Date(),
       },
-      include: this.getTaskInclude(),
+      // include: this.getTaskInclude(),
     });
 
     return this.mapToTaskResponseDto(updatedTask);
@@ -502,21 +414,31 @@ export class TasksService {
   //   return this.mapToTaskResponseDto(task);
   // }
 
+
   async getAllTasks() {
     const tasks = await this.prisma.task.findMany({
-      include: this.getTaskInclude(),
+      include: {
+        uploads: true,
+        createdBy: true,
+        approvedBy: true,
+        assignees: {
+          include: {
+            user: true
+          }
+        }
+      },
       orderBy: {
         createdAt: 'desc'
       },
     });
 
-    return tasks.map(task => this.mapToTaskResponseDto(task));
+    return tasks
   }
 
   async getOneTask(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
-      include: this.getTaskInclude(),
+      // include: this.getTaskInclude(),
     });
 
     if (!task) {
@@ -532,27 +454,29 @@ export class TasksService {
     // Check if task exists
     await this.getOneTask(id);
 
-    const task = await this.prisma.task.update({
-      where: { id },
-      data: {
-        ...taskData,
-        ...(assignees !== undefined && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map(userId => ({ userId })),
-          },
-        }),
-        ...(category !== undefined && {
-          category: {
-            deleteMany: {},
-            connect: category.map(id => ({ id })),
-          },
-        }),
-      },
-      include: this.getTaskInclude(),
-    });
+    // const task = await this.prisma.task.update({
+    //   where: { id },
+    //   data: {
+    //     ...taskData,
+    //     ...(assignees !== undefined && {
+    //       assignees: {
+    //         deleteMany: {},
+    //         create: assignees.map(userId => ({ userId })),
+    //       },
+    //     }),
+    //     ...(category !== undefined && {
+    //       category: {
+    //         deleteMany: {},
+    //         connect: category.map(id => ({ id })),
+    //       },
+    //     }),
+    //   },
+    //   include: this.getTaskInclude(),
+    // });
 
-    return this.mapToTaskResponseDto(task);
+    // return this.mapToTaskResponseDto(task);
+
+    return
   }
 
   async deleteTask(id: string, userId: string, userRole: string) {

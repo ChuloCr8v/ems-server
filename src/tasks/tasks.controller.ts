@@ -38,28 +38,6 @@ export class TasksController {
     return this.tasksService.createTask(createTaskDto, createdById);
   }
 
-  // @Get()
-  // async getAllTasks(
-  //   @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-  //   @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
-  //   @Query('status') status?: string,
-  //   @Query('approvalStatus') approvalStatus?: string,
-  //   @Query('priority') priority?: string,
-  //   @Query('category') category?: string,
-  //   @Query('search') search?: string,
-  // ) {
-
-  //   const filters = {
-  //     ...(status && { status: status as TaskStatus }),
-  //     ...(approvalStatus && { approvalStatus: approvalStatus as any }), // Replace 'any' with ApprovalStatus if imported
-  //     ...(priority && { priority: priority as TaskPriority }),
-  //     ...(category && { category: category as TaskCategory }),
-  //     ...(search && { search }),
-  //   };
-
-  //   return this.tasksService.getAllTasks(page, limit, undefined, undefined, filters);
-  // }
-
   @Get()
   getAllTasks() {
     return this.tasksService.getAllTasks();

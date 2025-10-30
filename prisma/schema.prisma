@@ -8,90 +8,76 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/////////////////////////////////  ONBOARDING ////////////////////////////////
-
 model Notification {
-  id          String   @id @default(uuid())
-  recipientId String   @db.Uuid
-  actorId     String?  @db.Uuid
-  prospectId  String?  @db.Uuid
+  id          String    @id @default(uuid())
+  recipientId String    @db.Uuid
+  actorId     String?   @db.Uuid
+  prospectId  String?   @db.Uuid
   type        String
   message     String
-  read        Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  recipient User      @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
-  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
-  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+  read        Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  actor       User?     @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect    Prospect? @relation(fields: [prospectId], references: [id])
+  recipient   User      @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id            String       @id @default(uuid()) @db.Uuid
-  eId           String?      @unique
-  personalEmail String?      @unique
-  email         String?      @unique
-  firstName     String
-  lastName      String
-  phone         String?
-  workPhone     String?
-  role          String?
-  gender        String
-  duration      String?
-  jobType       JobType?
-  departments   Department[] // many-to-many
+  id                    String             @id @default(uuid()) @db.Uuid
+  eId                   String?            @unique
+  personalEmail         String?            @unique
+  email                 String?            @unique
+  firstName             String
+  lastName              String
+  phone                 String?
+  workPhone             String?
+  role                  String?
+  gender                String
+  duration              String?
+  jobType               JobType?
+  country               String?
+  state                 String?
+  address               String?
+  startDate             DateTime?
+  status                Status             @default(PENDING)
+  userRole              Role[]
+  maritalStatus         MaritalStatus?
+  levelId               String?            @db.Uuid
+  prospectId            String?            @unique @db.Uuid
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  dateOfBirth           DateTime?
+  approvals             Approval[]
+  approver              Approver[]
+  assignments           Assignment[]
+  bank                  Bank?
+  claims                Claim[]
+  comment               Comment[]
+  contacts              Contacts?
+  departmentCreator     Department?        @relation("departmentCreator")
+  faultReporter         Fault[]            @relation("reportedBy")
+  faultResolver         Fault[]            @relation("resolvedBy")
+  invite                Invite[]
+  requestDoa            LeaveRequest[]     @relation("deedOfAssignement")
+  requests              LeaveRequest[]     @relation("user")
+  notificationActor     Notification[]     @relation("NotificationActor")
+  notificationRecipient Notification[]     @relation("NotificationRecipient")
+  offboarding           Offboarding?
+  payroll               Payroll?
+  payComponent          PayrollComponent[]
+  payslip               Payslip[]
+  responses             Response[]
 
-  country       String?
-  state         String?
-  address       String?
-  startDate     DateTime?
-  dateOfBirth   DateTime?
-  status        Status         @default(PENDING)
-  userRole      Role[]
-  maritalStatus MaritalStatus?
-  contacts      Contacts?
-  offboarding   Offboarding?
-  payroll       Payroll?
+  userDocuments     Upload[]     @relation("UserDocuments")
+  level             Level?       @relation(fields: [levelId], references: [id])
+  prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  UserTask          UserTask[]
+  departments       Department[] @relation("DepartmentToUser")
+  prospectDocuments Upload[]     @relation("ProspectDocuments")
 
-  levelId String? @db.Uuid
-  level   Level?  @relation(fields: [levelId], references: [id])
-
-  prospectId String?   @unique @db.Uuid
-  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-
-  prospectDocuments Upload[] @relation("ProspectDocuments")
-  userDocuments     Upload[] @relation("UserDocuments")
-
-  invite      Invite[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  comment     Comment[]
-  assignments Assignment[]
-
-  faultReporter Fault[] @relation("reportedBy")
-  faultResolver Fault[] @relation("resolvedBy")
-
-  departmentCreator Department? @relation("departmentCreator")
-  claims            Claim[]
-
-  notificationRecipient Notification[] @relation("NotificationRecipient")
-  notificationActor     Notification[] @relation("NotificationActor")
-
-  requestDoa LeaveRequest[] @relation("deedOfAssignement")
-  requests   LeaveRequest[] @relation("user")
-  approver   Approver[]
-  approvals  Approval[]
-  responses  Response[]
-  bank       Bank?
-
-  payslip      Payslip[]
-  payComponent PayrollComponent[]
-
-  //Tasks
-
-  createdTasks  Task[]     @relation("CreatedTasks")
-  approvedTasks Task[]     @relation("ApprovedTasks")
-  userTasks     UserTask[]
+  createdTasks  Task[] @relation("CreatedTasks")
+  approvedTasks Task[] @relation("ApprovedTasks")
 
   @@index([email])
   @@index([eId])
@@ -100,142 +86,124 @@ model User {
 }
 
 model Department {
-  id   String @id @default(uuid()) @db.Uuid
-  name String @unique
-  user User[]
-
-  createdBy   User?   @relation("departmentCreator", fields: [createdById], references: [id])
-  createdById String? @unique @db.Uuid
-
-  status   DepartmentStatus? @default(ACTIVE)
-  approver Approver[]
-
-  prospects    Prospect[]
-  taskCategory TaskCategory[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String            @unique
+  createdById  String?           @unique @db.Uuid
+  status       DepartmentStatus? @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @default(now()) @updatedAt
+  approver     Approver[]
+  createdBy    User?             @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects    Prospect[]        @relation("DepartmentToProspect")
+  TaskCategory TaskCategory[]    @relation("DepartmentToTaskCategory")
+  user         User[]            @relation("DepartmentToUser")
 }
 
 model Prospect {
-  id          String       @id @default(uuid()) @db.Uuid
-  email       String       @unique
-  firstName   String       @default("")
-  lastName    String       @default("")
-  phone       String
-  gender      String
-  role        String
-  duration    String?
-  startDate   DateTime
-  departments Department[]
-
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique
+  firstName    String         @default("")
+  lastName     String         @default("")
+  phone        String
+  gender       String
+  role         String
+  duration     String?
+  startDate    DateTime
   jobType      JobType
-  user         User?
-  invite       Invite[]
-  upload       Upload[]
-  notification Notification[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  invite       Invite[]
+  notification Notification[]
+  upload       Upload[]
+  user         User?
+  departments  Department[]   @relation("DepartmentToProspect")
 }
 
 model Invite {
-  id         String    @id @default(uuid()) @db.Uuid
-  email      String
-  token      String    @unique
-  status     Status    @default(PENDING)
-  createdAt  DateTime  @default(now())
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  declinedAt DateTime?
-  sentById   String?   @db.Uuid
-  sentBy     User?     @relation(fields: [sentById], references: [id])
-  prospectId String    @db.Uuid
-  prospect   Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-
-  comment        Comment[]
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String
+  token          String    @unique
+  status         Status    @default(PENDING)
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  declinedAt     DateTime?
+  sentById       String?   @db.Uuid
+  prospectId     String    @db.Uuid
   declineReasons String[]
+  comment        Comment[]
+  prospect       Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  sentBy         User?     @relation(fields: [sentById], references: [id])
 }
 
 model Level {
   id           String             @id @default(uuid()) @db.Uuid
   name         String
   rank         Int
-  users        User[]
-  entitlements LevelEntitlement[]
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+  entitlements LevelEntitlement[]
+  users        User[]
 }
 
 model Upload {
-  id    String  @id @default(uuid()) @db.Uuid
-  name  String
-  size  Int
-  type  String
-  bytes Bytes?
-  key   String?
-  order Int?
-  uri   String?
-
-  prospectId String?   @db.Uuid
-  prospect   Prospect? @relation(fields: [prospectId], references: [id], onDelete: Cascade)
-
-  userId            String? @db.Uuid
-  userDocuments     User?   @relation("UserDocuments", fields: [userId], references: [id])
-  prospectDocuments User[]  @relation("ProspectDocuments")
-
-  offboardingId String?           @db.Uuid
-  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  commentId     String?           @db.Uuid
-  comment       Comment?          @relation(fields: [commentId], references: [id])
-  handoverId    String?           @db.Uuid
-  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
-  paymentId     String?           @db.Uuid
-  payment       Payment?          @relation(fields: [paymentId], references: [id])
-  assetId       String?           @db.Uuid
-  asset         Asset?            @relation("AssetImages", fields: [assetId], references: [id])
-  requestId     String?           @db.Uuid
-  request       LeaveRequest?     @relation(fields: [requestId], references: [id])
-
-  claim   Claim?  @relation(fields: [claimId], references: [id])
-  claimId String?
-
-  guarantorId String?           @db.Uuid
-  guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
-
-  task   Task?   @relation(fields: [taskId], references: [id])
-  taskId String? @db.Uuid
-
-  //cloudinary keys
-  publicId  String? @unique
-  secureUrl String? @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String
+  size              Int
+  type              String
+  bytes             Bytes?
+  key               String?
+  order             Int?
+  uri               String?
+  prospectId        String?           @db.Uuid
+  userId            String?           @db.Uuid
+  offboardingId     String?           @db.Uuid
+  commentId         String?           @db.Uuid
+  handoverId        String?           @db.Uuid
+  paymentId         String?           @db.Uuid
+  assetId           String?           @db.Uuid
+  requestId         String?           @db.Uuid
+  publicId          String?           @unique
+  secureUrl         String?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  guarantorId       String?           @db.Uuid
+  claimId           String?
+  taskId            String?           @db.Uuid
+  asset             Asset?            @relation("AssetImages", fields: [assetId], references: [id])
+  claim             Claim?            @relation(fields: [claimId], references: [id])
+  comment           Comment?          @relation(fields: [commentId], references: [id])
+  guarantor         GuarantorContact? @relation(fields: [guarantorId], references: [id])
+  handover          HandoverDocument? @relation(fields: [handoverId], references: [id])
+  offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
+  payment           Payment?          @relation(fields: [paymentId], references: [id])
+  prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  request           LeaveRequest?     @relation(fields: [requestId], references: [id])
+  Task              Task?             @relation(fields: [taskId], references: [id])
+  userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
+  prospectDocuments User[]            @relation("ProspectDocuments")
 }
 
 model Contacts {
   id        String             @id @default(uuid()) @db.Uuid
-  guarantor GuarantorContact[]
-  emergency EmergencyContact[]
-  nextOfKin NextOfKin[]
   userId    String             @unique @db.Uuid
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @default(now()) @updatedAt
   user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  emergency EmergencyContact[]
+  guarantor GuarantorContact[]
+  nextOfKin NextOfKin[]
 }
 
 model Bank {
-  id            String @id @default(uuid()) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   bankName      String
   accountName   String
   accountNumber String
-
-  userId String? @unique @db.Uuid
-  user   User?   @relation(references: [id], fields: [userId])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId        String?  @unique @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User?    @relation(fields: [userId], references: [id])
 }
 
 model NextOfKin {
@@ -243,11 +211,11 @@ model NextOfKin {
   firstName String
   lastName  String
   phone     String
-  address   String?
-  contacts  Contacts? @relation(fields: [contactId], references: [id])
   contactId String?   @db.Uuid
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  address   String?
+  contacts  Contacts? @relation(fields: [contactId], references: [id])
 }
 
 model EmergencyContact {
@@ -255,12 +223,12 @@ model EmergencyContact {
   firstName    String
   lastName     String
   phone        String
-  relationship String?
-  address      String?
-  contacts     Contacts? @relation(fields: [contactId], references: [id])
   contactId    String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  address      String?
+  relationship String?
+  contacts     Contacts? @relation(fields: [contactId], references: [id])
 }
 
 model GuarantorContact {
@@ -268,34 +236,34 @@ model GuarantorContact {
   firstName    String
   lastName     String
   phone        String
-  address      String?
-  relationship String?
-  document     Upload[]
-  contacts     Contacts? @relation(fields: [contactId], references: [id])
   contactId    String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  address      String?
+  relationship String?
+  contacts     Contacts? @relation(fields: [contactId], references: [id])
+  document     Upload[]
 }
 
 model Comment {
   id            String            @id @default(uuid()) @db.Uuid
   comment       String
   userId        String?           @db.Uuid
-  user          User?             @relation(fields: [userId], references: [id])
   inviteId      String?           @db.Uuid
-  invite        Invite?           @relation(fields: [inviteId], references: [id])
   offboardingId String?           @db.Uuid
-  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
   paymentId     String?           @db.Uuid
-  payment       Payment?          @relation(fields: [paymentId], references: [id])
   handoverId    String?           @db.Uuid
-  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
-  uploads       Upload[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
+  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
+  invite        Invite?           @relation(fields: [inviteId], references: [id])
+  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  payment       Payment?          @relation(fields: [paymentId], references: [id])
+  user          User?             @relation(fields: [userId], references: [id])
+  uploads       Upload[]
 }
 
-//////////////////////////////// ASSETS ///////////////////////
+/// ///////////////////////////// ASSETS ///////////////////////
 model Asset {
   id           String         @id @default(uuid()) @db.Uuid
   assetId      String         @unique
@@ -305,7 +273,6 @@ model Asset {
   purchaseDate DateTime?
   vendor       String?
   cost         Float?
-  assetImages  Upload[]       @relation("AssetImages")
   description  String?
   isReturned   Boolean?       @default(false)
   status       AssetStatus?   @default(AVAILABLE)
@@ -313,13 +280,12 @@ model Asset {
   updatedAt    DateTime       @updatedAt
   assignments  Assignment[]
   faults       Fault[]
+  assetImages  Upload[]       @relation("AssetImages")
 }
 
 model Assignment {
   id            String            @id @default(uuid())
-  asset         Asset             @relation(fields: [assetId], references: [id])
   assetId       String            @db.Uuid
-  user          User              @relation(fields: [userId], references: [id])
   userId        String            @db.Uuid
   assignedAt    DateTime
   retrievedAt   DateTime?
@@ -331,17 +297,16 @@ model Assignment {
   verifiedAt    DateTime?
   returnedAt    DateTime?
   offboardingId String?           @db.Uuid
+  asset         Asset             @relation(fields: [assetId], references: [id])
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
+  user          User              @relation(fields: [userId], references: [id])
 }
 
 model Fault {
   id           String      @id @default(uuid()) @db.Uuid
   assetId      String      @db.Uuid
-  asset        Asset       @relation(fields: [assetId], references: [id])
   reportedById String?     @db.Uuid
-  reportedBy   User?       @relation("reportedBy", fields: [reportedById], references: [id])
   resolvedById String?     @db.Uuid
-  resolvedBy   User?       @relation("resolvedBy", fields: [resolvedById], references: [id])
   images       String[]
   reason       String?
   notes        String?
@@ -349,14 +314,15 @@ model Fault {
   resolvedAt   DateTime?   @default(now())
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @default(now()) @updatedAt
+  asset        Asset       @relation(fields: [assetId], references: [id])
+  reportedBy   User?       @relation("reportedBy", fields: [reportedById], references: [id])
+  resolvedBy   User?       @relation("resolvedBy", fields: [resolvedById], references: [id])
 
   @@index([reportedById])
   @@index([resolvedById])
   @@index([assetId])
   @@index([status])
 }
-
-///////////////////////////   OFFBOARDING ///////////////////////
 
 model Offboarding {
   id           String                 @id @default(uuid()) @db.Uuid
@@ -366,22 +332,21 @@ model Offboarding {
   noticePeriod Boolean                @default(false)
   status       Status                 @default(PENDING)
   userId       String                 @unique @db.Uuid
-  user         User                   @relation(fields: [userId], references: [id])
-  uploads      Upload[]
-  checklist    OffboardingChecklist[]
-  handover     HandoverDocument[]
-  comment      Comment[]
-  payments     Payment[]
-  assignments  Assignment[]
   createdAt    DateTime               @default(now())
   updatedAt    DateTime               @updatedAt
+  assignments  Assignment[]
+  comment      Comment[]
+  handover     HandoverDocument[]
+  user         User                   @relation(fields: [userId], references: [id])
+  checklist    OffboardingChecklist[]
+  payments     Payment[]
+  uploads      Upload[]
 }
 
 model OffboardingChecklist {
   id            String      @id @default(uuid()) @db.Uuid
   task          String
   status        Status      @default(PENDING)
-  // proof   Upload[]
   offboardingId String      @db.Uuid
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
 }
@@ -389,49 +354,47 @@ model OffboardingChecklist {
 model HandoverDocument {
   id            String       @id @default(uuid()) @db.Uuid
   offboardingId String?      @db.Uuid
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  upload        Upload[]
-  comments      Comment[]
   isApproved    Boolean      @default(false)
   approvedAt    DateTime?
   notes         String?
   createdAt     DateTime     @default(now())
+  comments      Comment[]
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  upload        Upload[]
 }
 
 model Payment {
   id            String       @id @default(uuid()) @db.Uuid
   offboardingId String?      @db.Uuid
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
   approved      Boolean      @default(false)
   approvedBy    String?      @db.Uuid
   approvedAt    DateTime?
   notes         String?
-  uploads       Upload[]
-  comment       Comment[]
   createdAt     DateTime     @default(now())
+  comment       Comment[]
+  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
+  uploads       Upload[]
 }
-
-///////////////////////////////// LEAVE ///////////////////////////////////////////////////
 
 model Entitlement {
   id        String             @id @default(uuid()) @db.Uuid
   name      String             @unique
   unit      EntitlementUnit
-  levels    LevelEntitlement[]
-  request   LeaveRequest[]
   createdAt DateTime           @default(now())
   updatedAt DateTime           @updatedAt
+  request   LeaveRequest[]
+  levels    LevelEntitlement[]
 }
 
 model LevelEntitlement {
   id            String      @id @default(uuid()) @db.Uuid
-  level         Level       @relation(fields: [levelId], references: [id])
   levelId       String      @db.Uuid
-  entitlement   Entitlement @relation(fields: [entitlementId], references: [id])
   entitlementId String      @db.Uuid
-  value         Int? // The value of the entitlement for this level
+  value         Int?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  entitlement   Entitlement @relation(fields: [entitlementId], references: [id])
+  level         Level       @relation(fields: [levelId], references: [id])
 
   @@unique([levelId, entitlementId])
 }
@@ -439,9 +402,7 @@ model LevelEntitlement {
 model LeaveRequest {
   id                String         @id @default(uuid()) @db.Uuid
   userId            String         @db.Uuid
-  user              User           @relation("user", fields: [userId], references: [id])
   doaId             String         @db.Uuid
-  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
   startDate         DateTime
   endDate           DateTime
   duration          Int
@@ -449,62 +410,52 @@ model LeaveRequest {
   reason            String
   status            LeaveStatus    @default(PENDING)
   typeId            String         @db.Uuid
-  type              Entitlement    @relation(fields: [typeId], references: [id])
-  cancelRequest     CancelRequest?
-  response          Response[]
-  uploads           Upload[]
-  approvals         Approval[]
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
+  approvals         Approval[]
+  cancelRequest     CancelRequest?
+  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
+  type              Entitlement    @relation(fields: [typeId], references: [id])
+  user              User           @relation("user", fields: [userId], references: [id])
+  response          Response[]
+  uploads           Upload[]
 }
 
 model CancelRequest {
   id        String       @id @default(uuid()) @db.Uuid
   requestId String       @unique @db.Uuid
-  request   LeaveRequest @relation(fields: [requestId], references: [id])
   reason    String
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
+  request   LeaveRequest @relation(fields: [requestId], references: [id])
 }
 
 model Approver {
   id           String      @id @default(uuid()) @db.Uuid
   userId       String      @db.Uuid
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
   role         Role
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  department   Department? @relation(fields: [departmentId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Approval {
   id             String         @id @default(uuid()) @db.Uuid
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
   leaveRequestId String         @db.Uuid
   phase          Int
-  approver       User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
   approverId     String         @db.Uuid
   status         ApprovalStatus @default(PENDING)
   note           String?
   actionDate     DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  approver       User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
 
   @@unique([leaveRequestId, phase])
-}
-
-enum ApproverRole {
-  DEPARTMENT_HEAD
-  HR
-  CISO
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
 }
 
 model Response {
@@ -512,14 +463,12 @@ model Response {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   type      ResponseType
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String        @db.Uuid
-  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   requestId String?       @db.Uuid
   note      String
+  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
-///////////////////////////////////// PAYROLL ////////////////////////////////////////////////////
 
 model Payroll {
   id            String             @id @default(uuid()) @db.Uuid
@@ -535,16 +484,16 @@ model Payroll {
   laa           Float?
   taxStatus     TaxStatus          @default(PENDING)
   userId        String             @unique @db.Uuid
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   user          User               @relation(fields: [userId], references: [id])
   component     PayrollComponent[]
   payslip       Payslip[]
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
 }
 
 model PayrollComponent {
   id            String                @id @default(uuid()) @db.Uuid
-  amount        Float //PERCENTAGE or FIXED
+  amount        Float
   type          SalaryType
   title         String
   calculations  SalaryCalculationType
@@ -555,26 +504,25 @@ model PayrollComponent {
   startDate     DateTime?
   isActive      Boolean               @default(true)
   payrollId     String                @db.Uuid
-  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
   userId        String?               @db.Uuid
+  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   user          User?                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Payslip {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  amount    Float
-  month     Int
-  year      Int
   data      Bytes
   userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
-  payrollId String   @db.Uuid
-  payroll   Payroll  @relation(fields: [payrollId], references: [id])
   createdAt DateTime @default(now())
+  month     Int
+  payrollId String   @db.Uuid
+  year      Int
+  amount    Float
+  payroll   Payroll  @relation(fields: [payrollId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([payrollId])
@@ -584,76 +532,58 @@ model Payslip {
 model Deductions {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  // amount    Float
-  tax       Int
-  pension   Int
-  month     String
-  // year      Int
   data      Bytes
-  // userId    String   @db.Uuid
-  // user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  month     String
+  pension   Int
+  tax       Int
 
   @@index([id, month])
 }
 
-///////////////////////////////////////////  ///////////////////////////////////////////
+/// ////////////////////////////////////////  ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
-  claimId       String      @unique
   amount        Float
   dateOfExpense DateTime
   description   String?
   notes         String?
   status        ClaimStatus @default(PENDING)
-  proofUrls     Upload[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   userId        String      @db.Uuid
+  claimId       String      @unique
+  claimsId      String
+  claimType     ClaimType   @relation(fields: [claimsId], references: [id], onDelete: Cascade)
   user          User        @relation(fields: [userId], references: [id])
-
-  claimsId  String
-  claimType ClaimType @relation(fields: [claimsId], references: [id], onDelete: Cascade)
+  proofUrls     Upload[]
 
   @@index([id])
 }
 
 model ClaimType {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   title       String
   description String?
-
-  claim Claim[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model TaskCategory {
-  id         String       @id @default(uuid()) @db.Uuid
-  title      String       @unique
-  taskId     String       @db.Uuid
-  task       Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  department Department[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  claim       Claim[]
 }
 
 model Task {
-  id          String         @id @default(uuid()) @db.Uuid
-  taskId      String?        @unique
+  id          String     @id @default(uuid()) @db.Uuid
+  taskId      String?    @unique
   title       String
   description String?
   startDate   DateTime?
   dueDate     DateTime?
-  category    TaskCategory[]
+  category    String?
   priority    String?
-  status      TaskStatus     @default(PENDING_APPROVAL)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  status      TaskStatus @default(PENDING_APPROVAL)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relations
   createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
@@ -670,6 +600,41 @@ model Task {
   approvalRequestedAt DateTime?
   approvedAt          DateTime?
   rejectionReason     String?
+
+  TaskCategory TaskCategory[]
+}
+
+model TaskCategory {
+  id         String       @id @db.Uuid
+  title      String       @unique
+  taskId     String       @db.Uuid
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  Task       Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  Department Department[] @relation("DepartmentToTaskCategory")
+}
+
+model UserTask {
+  id         String   @id @db.Uuid
+  assignedAt DateTime @default(now())
+  userId     String   @db.Uuid
+  taskId     String   @db.Uuid
+  Task       Task     @relation(fields: [taskId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, taskId])
+}
+
+enum ApproverRole {
+  DEPARTMENT_HEAD
+  HR
+  CISO
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum TaskStatus {
@@ -685,21 +650,6 @@ enum AStatus {
   APPROVED
   REJECTED
 }
-
-model UserTask {
-  id         String   @id @default(uuid()) @db.Uuid
-  assignedAt DateTime @default(now())
-
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @db.Uuid
-
-  task   Task   @relation(fields: [taskId], references: [id])
-  taskId String @db.Uuid
-
-  @@unique([userId, taskId])
-}
-
-///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
   PENDING
@@ -763,17 +713,16 @@ enum Role {
 }
 
 enum AssetCategory {
-  HARDWARE // Laptops, desktops, monitors, printers, scanners, etc.
-  ACCESSORY // ID cards, bags, keys, stamps, clip pads
-  LOGISTICS // Transport, delivery-related items (still available if needed)
-  OFFICE_FURNITURE // Desks, chairs, etc.
-  SOFTWARE // Licensed software, apps
-  SAFETY_EQUIPMENT // Safety jackets, raincoats, toolboxes, splicers
-
-  TELECOM // SIM cards, hotspots, routers
-  MEDICAL_EQUIPMENT // BP Monitor, health-related devices
-  AUDIO_VISUAL // Cameras, webcams, lights, mics, gimbals, speakers
-  PAYMENT_DEVICE // POS machines, financial devices
+  HARDWARE
+  ACCESSORY
+  LOGISTICS
+  OFFICE_FURNITURE
+  SOFTWARE
+  SAFETY_EQUIPMENT
+  TELECOM
+  MEDICAL_EQUIPMENT
+  AUDIO_VISUAL
+  PAYMENT_DEVICE
   GENERAL
 }
 
