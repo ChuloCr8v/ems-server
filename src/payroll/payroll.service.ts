@@ -1290,7 +1290,7 @@ export class PayrollService {
         deductions: any[];
         month: string;
         year: number;
-    }): Promise<Buffer> {
+    }): Promise<Uint8Array> {
         try {
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet(`Deductions ${month}-${year}`);
