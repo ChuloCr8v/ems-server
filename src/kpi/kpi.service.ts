@@ -9,10 +9,10 @@ export class KpiService {
     constructor(private readonly prisma: PrismaService, private readonly userService: UserService) {}
 
     // Admin Methods - Global KPIs
-    async createCategory(userId: string, data: CreateKpiDto) {
+    async createCategory(user: any, data: CreateKpiDto) {
         // normalize user: if caller passed id string, fetch from db
 
-        const user = await this.userService.getMe(userId);
+        // const user = await this.userService.getMe(userId);
         let dbUser = user;
         if (typeof user === 'string') {
             dbUser = await this.prisma.user.findUnique({ where: { id: user }, include: { approver: true } });

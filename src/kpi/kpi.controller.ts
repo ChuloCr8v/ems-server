@@ -13,9 +13,9 @@ export class KpiController {
 
   @Auth([Role.ADMIN, Role.DEPT_MANAGER])
   @Post('categories')
-  async createCategory(@KpiUser() userId: string, @Body() data: CreateKpiDto, @Res() res: Response) {
-    // const userId = user.sub || user.id;
-    const category = await this.kpi.createCategory(userId, data);
+  async createCategory(@Req() req: Request & { user?: any }, @Body() data: CreateKpiDto, @Res() res: Response) {
+    const user = req.user;
+    const category = await this.kpi.createCategory(user, data);
     return res.status(200).json({ message: `A New Category Has Been Created`, category });
   }
 
