@@ -13,3 +13,4 @@ export class DepartmentDto {
     @IsNotEmpty()
     createdBy: string
 }
+

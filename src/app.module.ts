@@ -29,6 +29,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { CategoryController } from './category/category.controller';
 import { CategoryModule } from './category/category.module';
 import { CategoryService } from './category/category.service';
+import { AppraisalModule } from './appraisal/appraisal.module';
+import { KpiModule } from './kpi/kpi.module';
 
 @Module({
   imports: [
@@ -52,7 +54,9 @@ import { CategoryService } from './category/category.service';
     ContactsModule,
     BankModule,
     TasksModule,
-    CategoryModule
+    CategoryModule,
+    AppraisalModule,
+    KpiModule,
   ],
   controllers: [AppController, UploadsController, NotificationController, CategoryController],
   providers: [AppService, UploadsService, NotificationService, CategoryService],
