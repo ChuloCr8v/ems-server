@@ -4,6 +4,7 @@ import { PayrollController } from './payroll.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { TaxService } from './tax.service';
 import { PayslipTemplateService } from './template.service';
+import { PayslipTemplateService } from './template.service';
 
 @Module({
   imports: [PrismaModule],

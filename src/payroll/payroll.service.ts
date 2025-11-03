@@ -911,7 +911,7 @@ export class PayrollService {
         try {
             const payroll = await this.findPayroll(payrollId);
             //Update or create tax component
-            const taxComponentTitles = ['Pension Contribution', 'NHF Contribution', 'PAYE Tax'];
+            // const taxComponentTitles = ['Pension Contribution', 'NHF Contribution', 'PAYE Tax'];
             const taxComponents = [
                 { title: 'Pension Contribution', amount: taxResults.pension },
                 { title: 'NHF Contribution', amount: taxResults.nhf },
@@ -1004,6 +1004,8 @@ export class PayrollService {
                             lastName: true,
                             jobType: true,
                             email: true,
+                            // departments: true,
+                            departments: { select: { id: true } }
                         },
                     },
                 },

@@ -80,6 +80,8 @@ model User {
   approvedTasks Task[] @relation("ApprovedTasks")
 
   taskCategory Category[]
+  appraisals   Appraisal[] @relation("Appraised")
+  appraisers   Appraisal[] @relation("Appraiser")
 
   @@index([email])
   @@index([eId])
@@ -582,6 +584,9 @@ model ClaimType {
   claim       Claim[]
 }
 
+/////////////////////////////////////////// PERFORMANCE ////////////////////////////////////////
+
+/////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
 model Task {
   id          String     @id @default(uuid()) @db.Uuid
   taskId      String?    @unique
@@ -693,6 +698,22 @@ enum SalaryType {
   DEDUCTION
 }
 
+enum AppraisalStatus {
+  GENERATED // Initial state when quarterly appraisal is generated
+  PENDING // Department KPIs added, waiting for admin review
+  HR_REVIEW // In review with the HR team
+  REVIEWED // Admin has reviewed and approved department KPIs
+  DRAFT // Employee is working on their appraisal
+  SUBMITTED // Employee has submitted for manager review
+  APPRAISED // Manager has reviewed and approved
+  COMPLETED // Final state after HR review
+}
+
+enum KpiCategoryType {
+  STATIC
+  DYNAMIC
+}
+
 enum ComponentCategory {
   CUSTOM_EARNING
   CUSTOM_DEDUCTION
@@ -721,6 +742,20 @@ enum MaritalStatus {
   MARRIED
 }
 
+enum TaskStatus {
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum Role {
   SUPERADMIN
   ADMIN
@@ -731,6 +766,18 @@ enum Role {
   ASSET_MANAGER
   LEAVE_MANAGER
   TEAM_LEAD
+}
+
+enum ApproverRole {
+  DEPARTMENT_HEAD
+  HR
+  CISO
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AssetCategory {
