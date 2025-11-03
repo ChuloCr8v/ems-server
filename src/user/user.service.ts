@@ -23,7 +23,11 @@ export class UserService {
                     id: sub
                 },
                 include: {
-                    approver: true
+                    approver: {
+                        include: {
+                            department: true
+                        }
+                    }
                 }
             })
 

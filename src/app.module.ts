@@ -26,6 +26,9 @@ import { PayrollModule } from './payroll/payroll.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BankModule } from './bank/bank.module';
 import { TasksModule } from './tasks/tasks.module';
+import { CategoryController } from './category/category.controller';
+import { CategoryModule } from './category/category.module';
+import { CategoryService } from './category/category.service';
 
 @Module({
   imports: [
@@ -48,9 +51,10 @@ import { TasksModule } from './tasks/tasks.module';
     PayrollModule,
     ContactsModule,
     BankModule,
-    TasksModule
+    TasksModule,
+    CategoryModule
   ],
-  controllers: [AppController, UploadsController, NotificationController],
-  providers: [AppService, UploadsService, NotificationService],
+  controllers: [AppController, UploadsController, NotificationController, CategoryController],
+  providers: [AppService, UploadsService, NotificationService, CategoryService],
 })
 export class AppModule { }

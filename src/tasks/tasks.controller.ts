@@ -7,13 +7,14 @@ import {
   Delete,
   Body,
   Param,
-  UseInterceptors,
-  UploadedFiles,
+  Req,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
 import { TasksService } from './tasks.service';
 import { ApprovalRequestDto, CreateTaskDto, UpdateTaskDto } from './dto/tasks.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth } from 'src/auth/decorators/auth.decorator';
+import { CreateCategoryDto } from 'src/category/category.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -27,6 +28,26 @@ export class TasksController {
       throw new Error('No users found in database. Please run the seed script.');
     }
     return user;
+  }
+
+
+  @Auth()
+  @Get("category")
+
+  listTaskCategories(
+    @Req() req: ReqPayload
+  ) {
+    return this.tasksService.listTaskCategories(req.user.id);
+  }
+
+  @Auth(["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"])
+  @Post("category")
+  async createTaskCategory(
+    @Body() dto: CreateCategoryDto,
+    @Req() req: ReqPayload
+
+  ) {
+    return this.tasksService.createTaskCategory(req.user.id, dto);
   }
 
   @Post()
@@ -52,17 +73,6 @@ export class TasksController {
   updateTask(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
     return this.tasksService.updateTask(id, updateTaskDto);
   }
-
-  // @Put(':id')
-  // async updateTask(
-  //   @Param('id') id: string,
-  //   @Body() updateTaskDto: UpdateTaskDto,
-  // ) {
-  //   // In a real app, you'd get this from the auth token
-  //   const userId = 'user-id-from-token'; // Replace with actual user ID from auth
-  //   const userRole = 'user-role-from-token'; // Replace with actual user role from auth
-  //   return this.tasksService.updateTask(id, updateTaskDto, userId, userRole);
-  // }
 
   @Delete(':id')
   async deleteTask(@Param('id') id: string) {
@@ -93,6 +103,27 @@ export class TasksController {
     return this.tasksService.approveTask(id, approvedById, body.assignees);
   }
 
+
+  //Task Comments
+
+  @Auth()
+  @Post(':id/comment')
+  async commentOnTask(
+    @Param('id') id: string,
+    @Req() req: ReqPayload,
+    @Body() dto: { comment: string, uploads?: string[] },
+  ) {
+    const userId = req.user.id
+    return this.tasksService.commentOnTask(id, userId, dto);
+  }
+
+  @Auth()
+  @Get(':id/comment')
+  async listTaskComments(
+    @Param('id') id: string,) {
+    return this.tasksService.listTaskComments(id);
+  }
+
   @Post(':id/reject')
   async rejectTask(
     @Param('id') id: string,
@@ -102,4 +133,7 @@ export class TasksController {
     const rejectedById = 'user-id-from-token'; // Replace with actual user ID from auth
     return this.tasksService.rejectTask(id, rejectedById, body.rejectionReason);
   }
+
+
+
 }

@@ -1,3 +1,4 @@
+import { User } from '@prisma/client';
 import { IsString } from 'class-validator';
 
 export class AzureAuthDto {
@@ -12,3 +13,8 @@ export type AuthPayload = {
 }
 
 export type IAuthUser = AuthPayload;
+
+export type ReqPayload =
+  {
+    user: User, userRole: string[]
+  }

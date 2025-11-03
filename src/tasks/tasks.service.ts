@@ -1,9 +1,11 @@
 // tasks.service.ts
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApprovalStatus, Prisma, TaskStatus } from '@prisma/client';
+import { ApprovalStatus, CategoryType, Prisma, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
 import { IdGenerator } from 'src/utils/IdGenerator.util';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { CreateCategoryDto } from 'src/category/category.dto';
 
 
 @Injectable()
@@ -70,7 +72,7 @@ export class TasksService {
 
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
-      const { uploads, assignees, ...taskData } = createTaskDto;
+      const { uploads, assignees, category, ...taskData } = createTaskDto;
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
@@ -92,7 +94,6 @@ export class TasksService {
       const createData: any = {
         title: taskData.title,
         description: taskData.description,
-        category: taskData.category,
         priority: taskData.priority,
         status: isManager ? 'IN_PROGRESS' : 'PENDING_APPROVAL',
         approvalStatus: isManager ? 'APPROVED' : 'PENDING',
@@ -130,13 +131,23 @@ export class TasksService {
         data: {
           ...createData,
           taskId: IdGenerator("TSK"),
-          uploads: {
-            connect: uploads.map((id) => ({ id })),
-          },
+          ...(uploads && uploads.length > 0
+            ? {
+              uploads: {
+                connect: uploads.map((id) => ({ id })),
+              },
+            }
+            : {}),
+          ...(category && category.length > 0
+            ? {
+              category: {
+                connect: category.map((id) => ({ id })),
+              },
+            }
+            : {}),
         },
         // include: this.getTaskInclude(),
       });
-
 
       return task;
     } catch (error) {
@@ -147,6 +158,9 @@ export class TasksService {
       throw new InternalServerErrorException('Error creating task');
     }
   }
+
+
+
 
   // Helper method to validate ISO date strings
   private isValidISODate(dateString: string): boolean {
@@ -238,6 +252,54 @@ export class TasksService {
     // });
 
     // return this.mapToTaskResponseDto(updatedTask);
+  }
+
+
+  //Comments
+
+  async commentOnTask(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+    try {
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        }
+      })
+
+      if (!user) mustHave(user, "user not found", 404)
+
+      const comment = await this.prisma.comment.create({
+        data: {
+          comment: dto.comment,
+          ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+          task: { connect: { id } },
+          user: { connect: { id: userId } }
+        }
+      })
+      return {
+        message: "Comment added successfully",
+        data: comment
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async listTaskComments(id: string) {
+    try {
+      const task = await this.getOneTask(id)
+      if (!task) mustHave(task, "task not found", 404)
+
+      return task.comments
+    } catch (error) {
+      bad(error)
+    }
   }
 
   async rejectTask(taskId: string, rejectedById: string, rejectionReason: string) {
@@ -416,16 +478,7 @@ export class TasksService {
 
   async getAllTasks() {
     const tasks = await this.prisma.task.findMany({
-      include: {
-        uploads: true,
-        createdBy: true,
-        approvedBy: true,
-        assignees: {
-          include: {
-            user: true
-          }
-        }
-      },
+      include: this.getTaskInclude(),
       orderBy: {
         createdAt: 'desc'
       },
@@ -434,48 +487,175 @@ export class TasksService {
     return tasks
   }
 
+
+  async createTaskCategory(userId: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto
+
+    try {
+      const createdBy = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        },
+      })
+
+      if (!createdBy) mustHave(createdBy, "User not found", 404)
+
+      const categoryExists = await this.prisma.category.findUnique({
+        where: {
+          title
+        }
+      })
+
+      if (categoryExists) bad(`${title} already created`)
+      if (department) {
+        const deptExists = await this.prisma.department.findMany({ where: { id: { in: department } } })
+
+        if (deptExists.length < department.length) bad("One or more departments not found")
+      }
+
+      const res = await this.prisma.category.create({
+        data: {
+          categoryId: IdGenerator("CAT"),
+          title,
+          type: CategoryType.Task,
+          description: description || undefined,
+          color: color || "gray",
+          departments: { connect: department.map((id) => ({ id })) },
+          createdBy: { connect: { id: userId } },
+        },
+      })
+
+      return {
+        message: title + " " + "created successfully",
+        data: res
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async listTaskCategories(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+
+      if (!user) bad("User not found");
+
+      const departmentIds = user.departments.map((d) => d.id);
+
+      const categories = await this.prisma.category.findMany({
+        where: {
+          type: CategoryType.Task,
+          departments: {
+            some: {
+              id: { in: departmentIds }
+            }
+          },
+        },
+        orderBy: { title: "asc" },
+        include: {
+          tasks: {
+            include: this.getTaskInclude(),
+          },
+        },
+      });
+
+      return categories;
+    } catch (error) {
+      bad(error);
+    }
+  }
+
   async getOneTask(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
-      // include: this.getTaskInclude(),
+      include: this.getTaskInclude(),
     });
 
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    return this.mapToTaskResponseDto(task);
+    return task
   }
 
-  async updateTask(id: string, updateTaskDto: UpdateTaskDto) {
-    const { assignees, category, ...taskData } = updateTaskDto;
+  async updateTask(id: string, taskData: UpdateTaskDto) {
+    const { assignees, category, uploads, ...rest } = taskData;
 
-    // Check if task exists
     await this.getOneTask(id);
 
-    // const task = await this.prisma.task.update({
-    //   where: { id },
-    //   data: {
-    //     ...taskData,
-    //     ...(assignees !== undefined && {
-    //       assignees: {
-    //         deleteMany: {},
-    //         create: assignees.map(userId => ({ userId })),
-    //       },
-    //     }),
-    //     ...(category !== undefined && {
-    //       category: {
-    //         deleteMany: {},
-    //         connect: category.map(id => ({ id })),
-    //       },
-    //     }),
-    //   },
-    //   include: this.getTaskInclude(),
-    // });
+    const task = await this.prisma.$transaction(async (tx) => {
 
-    // return this.mapToTaskResponseDto(task);
+      // --- handle Uploads ---
+      if (uploads !== undefined && uploads.length > 0) {
+        await tx.task.update({
+          where: { id },
+          data: {
+            uploads: {
+              set: [], // optional: clears old uploads if needed
+              connect: uploads.map((u: string) => ({ id: u })),
+            },
+          },
+        });
+      }
 
-    return
+
+      // --- Sync Assignees ---
+      if (assignees !== undefined) {
+        const existingAssignees = await tx.userTask.findMany({
+          where: { taskId: id },
+          select: { userId: true },
+        });
+        const existingIds = existingAssignees.map((a) => a.userId);
+
+        const newIds = assignees.filter((id: string) => !existingIds.includes(id));
+        const removedIds = existingIds.filter((id) => !assignees.includes(id));
+
+        // Add new ones
+        if (newIds.length > 0) {
+          await tx.userTask.createMany({
+            data: newIds.map((userId: string) => ({
+              taskId: id,
+              userId,
+            })),
+          });
+        }
+
+        // Remove unselected ones
+        if (removedIds.length > 0) {
+          await tx.userTask.deleteMany({
+            where: { taskId: id, userId: { in: removedIds } },
+          });
+        }
+      }
+
+      // --- Handle Categories ---
+      if (category !== undefined && category.length > 0) {
+        await tx.task.update({
+          where: { id },
+          data: {
+            category: {
+              connect: category.map(id => ({ id }))
+            }
+          },
+        });
+
+
+      }
+
+      // --- Update Task Base Data ---
+      const updatedTask = await tx.task.update({
+        where: { id },
+        data: rest,
+        include: this.getTaskInclude(),
+      });
+
+      return updatedTask;
+    });
+
+    return task;
   }
 
   async deleteTask(id: string, userId: string, userRole: string) {
@@ -494,7 +674,7 @@ export class TasksService {
     return { message: 'Task deleted successfully' };
   }
 
-  private getTaskInclude() {
+  getTaskInclude() {
     return {
       createdBy: {
         select: {
@@ -525,6 +705,13 @@ export class TasksService {
           },
         },
       },
+      comments: {
+        include: {
+          uploads: true,
+          user: true
+        }
+      },
+      category: true,
       uploads: true,
     };
   }
