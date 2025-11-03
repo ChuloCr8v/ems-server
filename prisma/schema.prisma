@@ -75,9 +75,9 @@ model User {
   claims            Claim[]
 
   // assignedTasks         UserTask[]
-  createdTasks  Task[]     @relation("CreatedTasks")
-  approvedTasks Task[]     @relation("ApprovedTasks")
-  userTasks     UserTask[]
+  createdTasks          Task[]         @relation("CreatedTasks")
+  approvedTasks         Task[]         @relation("ApprovedTasks")
+  userTasks             UserTask[]
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -195,20 +195,20 @@ model Upload {
   requestId     String?           @db.Uuid
   request       LeaveRequest?     @relation(fields: [requestId], references: [id])
 
-  claim   Claim?  @relation(fields: [claimId], references: [id])
-  claimId String?
-  task    Task?   @relation(fields: [taskId], references: [id])
-  taskId  String? @db.Uuid
+  claim         Claim?  @relation(fields: [claimId], references: [id])
+  claimId       String?
+  task          Task?             @relation(fields: [taskId], references: [id])
+  taskId        String?           @db.Uuid
 
-  guarantorId String?           @db.Uuid
-  guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
+  guarantorId   String?           @db.Uuid
+  guarantor     GuarantorContact? @relation(fields: [guarantorId], references: [id])
 
   //cloudinary keys
-  publicId  String? @unique
-  secureUrl String? @unique
+  publicId      String? @unique
+  secureUrl     String? @unique
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Contacts {
@@ -589,7 +589,7 @@ model Claim {
 
 /////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
 model Task {
-  id          String     @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   title       String
   description String?
   startDate   DateTime?
@@ -597,38 +597,39 @@ model Task {
   category    String?
   priority    String?
   status      TaskStatus @default(PENDING_APPROVAL)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
   // Relations
-  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
-  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
-  createdById String @db.Uuid
-
+  createdBy   User     @relation("CreatedTasks", fields: [createdById], references: [id])
+  approvedBy  User?    @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdById String   @db.Uuid
+  
   approvedById String? @db.Uuid
-
-  assignees UserTask[]
-  uploads   Upload[]
-
+  
+  assignees   UserTask[]
+  uploads     Upload[]
+  
   // Approval tracking
-  approvalStatus      ApprovalStatus @default(PENDING)
+  approvalStatus ApprovalStatus @default(PENDING)
   approvalRequestedAt DateTime?
-  approvedAt          DateTime?
-  rejectionReason     String?
+  approvedAt     DateTime?
+  rejectionReason String?
 }
 
 model UserTask {
-  id         String   @id @default(uuid()) @db.Uuid
-  assignedAt DateTime @default(now())
-
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @db.Uuid
-
-  task   Task   @relation(fields: [taskId], references: [id])
-  taskId String @db.Uuid
-
+  id          String   @id @default(uuid()) @db.Uuid
+  assignedAt  DateTime @default(now())
+  
+  user        User @relation(fields: [userId], references: [id])
+  userId      String  @db.Uuid
+  
+  task        Task @relation(fields: [taskId], references: [id])
+  taskId      String  @db.Uuid
+  
   @@unique([userId, taskId])
 }
+
 
 //////////////////////////////////////////  APPRAISAL  ///////////////////////////////////////////
 
@@ -743,7 +744,6 @@ model RatingSummary {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }
-
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum Status {
@@ -770,7 +770,8 @@ enum SalaryType {
 
 enum AppraisalStatus {
   GENERATED      // Initial state when quarterly appraisal is generated
-  PENDING_REVIEW // Department KPIs added, waiting for admin review
+  PENDING        // Department KPIs added, waiting for admin review
+  HR_REVIEW      // In review with the HR team
   REVIEWED      // Admin has reviewed and approved department KPIs
   DRAFT         // Employee is working on their appraisal
   SUBMITTED     // Employee has submitted for manager review
