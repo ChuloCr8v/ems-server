@@ -1,6 +1,5 @@
 // prisma/seed.ts
 import { PrismaClient, JobType, Role, Status, MaritalStatus } from '@prisma/client';
-import { PrismaClient, JobType, Role, Status, MaritalStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

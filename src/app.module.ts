@@ -54,7 +54,7 @@ import { KpiModule } from './kpi/kpi.module';
     ContactsModule,
     BankModule,
     TasksModule,
-    CategoryModule
+    CategoryModule,
     AppraisalModule,
     KpiModule,
   ],
