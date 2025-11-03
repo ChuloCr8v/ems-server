@@ -116,6 +116,10 @@ export class UpdateTaskDto {
   @MaxLength(500, { message: 'Rejection reason cannot exceed 500 characters' })
   rejectionReason?: string;
 
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
+
   // Custom validation: rejectionReason is required when status is CANCELLED
   @ValidateIf(o => o.status === TaskStatus.CANCELLED)
   @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
