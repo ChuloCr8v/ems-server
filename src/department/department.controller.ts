@@ -45,8 +45,8 @@ export class DepartmentController {
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Put('add-team/:deptId')
-  async addTeamMembers(@Param('deptId') deptId: string, @Body() userIds: string[], @Res() res: Response) {
-    const department = await this.departmentService.addTeamMembers(deptId, userIds);
+  async addTeamMembers(@Param('deptId') deptId: string, @Body() body: { userIds: string[] }, @Res() res: Response) {
+    const department = await this.departmentService.addTeamMembers(deptId, body.userIds);
     return res.status(200).json({ message: `Teamn members has been successfully added`, department });
   }
 

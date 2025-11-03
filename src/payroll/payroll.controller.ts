@@ -41,4 +41,24 @@ export class PayrollController {
     const component =  await this.payroll.removeCustomComponent(componentId);
     return res.status(200).json({ message: `Custom Component Has Been Removed`, component});
   }
+
+  @Post('generate')
+  async generatePayslip() {
+    return this.payroll.generatePayslips();
+  }
+
+  @Post('generate/:userId')
+  async generatePayslipForUser(@Param('userId') userId: string) {
+    return this.payroll.generatePayslipForUser(userId);
+  }
+
+  @Get('download/:payslipId')
+  async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
+    const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res);
+    // const sanitizedFilename = pdfBuffer.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    // res.setHeader('Content-Disposition', `attachment; filename="${sanitizedFilename}.pdf"`);
+    // res.setHeader('Content-Type', 'application/pdf');
+    // res.setHeader('Content-Encoding', 'identity');
+    return res.send(pdfBuffer);
+  }
 }

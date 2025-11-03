@@ -161,7 +161,7 @@ export class InviteService {
             },
             data: {
               upload: {
-                connect: { id: uploadData.id }
+                connect: { id: uploadData.publicId}
               }
             }
           })
