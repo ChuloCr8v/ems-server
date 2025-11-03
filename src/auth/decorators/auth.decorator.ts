@@ -49,3 +49,13 @@ export const AuthUser = createParamDecorator(
     }
   },
 );
+
+export const KpiUser = createParamDecorator(
+  (data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    const user = request.user;
+    
+    // Return just the user ID instead of the entire token payload
+    return user?.sub || user?.id;
+  },
+);
