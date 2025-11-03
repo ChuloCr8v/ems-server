@@ -27,6 +27,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BankModule } from './bank/bank.module';
+import { AppraisalModule } from './appraisal/appraisal.module';
+import { KpiModule } from './kpi/kpi.module';
 
 @Module({
   imports: [
@@ -51,6 +53,8 @@ import { BankModule } from './bank/bank.module';
     PayrollModule,
     ContactsModule,
     BankModule,
+    AppraisalModule,
+    KpiModule,
   ],
   controllers: [AppController, UploadsController, NotificationController],
   providers: [AppService, UploadsService, NotificationService],

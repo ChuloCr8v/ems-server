@@ -12,7 +12,7 @@ export class LeaveController {
 
   @Post(":userId")
   async createLeaveRequest(
-    @Param('userId') userId: string, 
+    @Param('userId') userId: string,
     @Body() data: CreateLeaveRequestDto, 
     @Res() res: Response,
   ) {

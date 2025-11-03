@@ -1,9 +1,43 @@
-// src/performance/dto/create-task.dto.ts
-import { IsOptional, IsString, IsDate, IsEnum, IsArray } from 'class-validator';
+// create-task.dto.ts
+import { 
+  IsString, 
+  IsOptional, 
+  IsDate, 
+  IsArray, 
+  IsEnum, 
+  IsBoolean,
+  MinLength, 
+  MaxLength,
+  ArrayMinSize,
+  ValidateIf,
+  IsNotEmpty,
+  IsObject,
+  ValidateNested,
+  IsUUID,
+  IsNumber,
+  IsInt,
+  Min,
+  Max
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { Priority, TaskStatus } from '@prisma/client';
-import { PartialType } from '@nestjs/mapped-types';
+import { ApprovalStatus, TaskStatus } from '@prisma/client';
 
+export enum TaskPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  URGENT = 'URGENT'
+}
+
+export enum TaskCategory {
+  DEVELOPMENT = 'DEVELOPMENT',
+  DESIGN = 'DESIGN',
+  MARKETING = 'MARKETING',
+  SALES = 'SALES',
+  SUPPORT = 'SUPPORT',
+  OPERATIONS = 'OPERATIONS',
+  OTHER = 'OTHER'
+}
 
 export class CreateTaskDto {
   @IsString()
@@ -11,75 +45,305 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
   description?: string;
 
   @IsOptional()
-  @Type(() => Date)
   @IsDate()
+  @Type(() => Date)
   startDate?: Date;
 
   @IsOptional()
-  @Type(() => Date)
   @IsDate()
+  @Type(() => Date)
   dueDate?: Date;
 
   @IsOptional()
-  @IsEnum(Priority)
-  priority?: Priority;
+  @IsEnum(TaskCategory, { message: 'Invalid category' })
+  category?: TaskCategory;
+
+  @IsOptional()
+  @IsEnum(TaskPriority, { message: 'Invalid priority' })
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
+  @ArrayMinSize(0)
+  assignees?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  requiresApproval?: boolean;
+}
+
+export class UpdateTaskDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
+  description?: string;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  startDate?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dueDate?: Date;
+
+  @IsOptional()
+  @IsEnum(TaskCategory, { message: 'Invalid category' })
+  category?: TaskCategory;
+
+  @IsOptional()
+  @IsEnum(TaskPriority, { message: 'Invalid priority' })
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsEnum(TaskStatus, { message: 'Invalid status' })
+  status?: TaskStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
+  @ArrayMinSize(0)
+  assignees?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Rejection reason cannot exceed 500 characters' })
+  rejectionReason?: string;
+
+  // Custom validation: rejectionReason is required when status is CANCELLED
+  @ValidateIf(o => o.status === TaskStatus.CANCELLED)
+  @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
+  requireRejectionReason?: string;
+}
+
+class CreatedByDto {
+  @IsUUID()
+  id: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  email: string;
+
+  @IsString()
+  role: string;
+}
+
+class ApprovedByDto {
+  @IsUUID()
+  id: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  email: string;
+}
+
+class AssigneeDto {
+  @IsUUID()
+  id: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  email: string;
+
+  @IsDate()
+  @Type(() => Date)
+  assignedAt: Date;
+}
+
+class FileDto {
+  @IsUUID()
+  id: string;
+
+  @IsString()
+  filename: string;
+
+  @IsString()
+  originalName: string;
+
+  @IsString()
+  mimetype: string;
+
+  @IsNumber()
+  size: number;
+
+  @IsDate()
+  @Type(() => Date)
+  uploadedAt: Date;
+
+  @IsOptional()
+  @IsString()
+  uri?: string;
+}
+
+export class TaskResponseDto {
+  @IsUUID()
+  id: string;
+
+  @IsString()
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  startDate?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dueDate?: Date;
+
+  @IsOptional()
+  @IsEnum(TaskCategory)
+  category?: TaskCategory;
+
+  @IsOptional()
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
+
+  @IsEnum(TaskStatus)
+  status: TaskStatus;
+
+  @IsEnum(ApprovalStatus)
+  approvalStatus: ApprovalStatus;
+
+  @IsDate()
+  @Type(() => Date)
+  createdAt: Date;
+
+  @IsDate()
+  @Type(() => Date)
+  updatedAt: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  approvalRequestedAt?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  approvedAt?: Date;
+
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
+
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CreatedByDto)
+  createdBy: CreatedByDto;
+
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => ApprovedByDto)
+  approvedBy?: ApprovedByDto;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AssigneeDto)
+  assignees: AssigneeDto[];
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FileDto)
+  files: FileDto[];
+}
+
+export class ApprovalRequestDto {
+  @IsUUID('4', { message: 'Task ID must be a valid UUID' })
+  taskId: string;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'At least one assignee is required for approval request' })
+  @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
+  @IsNotEmpty({ each: true, message: 'Assignee IDs cannot be empty' })
+  assignees: string[];
+}
+
+export class TaskQueryDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1, { message: 'Page must be at least 1' })
+  @Type(() => Number)
+  page?: number = 1;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1, { message: 'Limit must be at least 1' })
+  @Max(100, { message: 'Limit cannot exceed 100' })
+  @Type(() => Number)
+  limit?: number = 10;
 
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;
 
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsEnum(ApprovalStatus)
+  approvalStatus?: ApprovalStatus;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  assignees?: string[];
+  @IsEnum(TaskPriority)
+  priority?: TaskPriority;
+
+  @IsOptional()
+  @IsEnum(TaskCategory)
+  category?: TaskCategory;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: 'Search term must not be empty' })
+  search?: string;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  startDateFrom?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  startDateTo?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dueDateFrom?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dueDateTo?: Date;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string = 'createdAt';
+
+  @IsOptional()
+  @IsString()
+  @Type(() => String)
+  sortOrder?: 'asc' | 'desc' = 'desc';
 }
 
-// src/performance/dto/update-task.dto.ts
-
-
-export class UpdateTaskDto extends PartialType(CreateTaskDto) {}
-
-// src/performance/dto/task-response.dto.ts
-
-export class TaskFileResponseDto {
-  id: string;
-  filename: string;
-  originalName: string;
-  mimetype: string;
-  size: number;
-  uploadedAt: Date;
-}
-
-export class AssigneeResponseDto {
-  id: string;
-  name: string;
-  email: string;
-  assignedAt: Date;
-}
-
-export class TaskResponseDto {
-  id: string;
-  title: string;
-  description?: string;
-  startDate?: Date;
-  dueDate?: Date;
-  category?: string;
-  priority?: Priority;
-  status?: TaskStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  assignees: AssigneeResponseDto[];
-  files: TaskFileResponseDto[];
-}

@@ -74,8 +74,10 @@ model User {
   departmentCreator Department? @relation("departmentCreator")
   claims            Claim[]
 
-  assignedTasks UserTask[]
+  // assignedTasks         UserTask[]
   createdTasks  Task[]     @relation("CreatedTasks")
+  approvedTasks Task[]     @relation("ApprovedTasks")
+  userTasks     UserTask[]
 
   notificationRecipient Notification[] @relation("NotificationRecipient")
   notificationActor     Notification[] @relation("NotificationActor")
@@ -87,6 +89,8 @@ model User {
   responses  Response[]
   payslip    Payslip[]
   bank       Bank?
+  appraisals Appraisal[]    @relation("Appraised")
+  appraisers Appraisal[]    @relation("Appraiser")
 
   @@index([email])
   @@index([eId])
@@ -105,7 +109,8 @@ model Department {
   status   DepartmentStatus? @default(ACTIVE)
   approver Approver[]
 
-  prospects Prospect[]
+  prospects     Prospect[]
+  kpiCategories KpiCategory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -192,6 +197,8 @@ model Upload {
 
   claim   Claim?  @relation(fields: [claimId], references: [id])
   claimId String?
+  task    Task?   @relation(fields: [taskId], references: [id])
+  taskId  String? @db.Uuid
 
   guarantorId String?           @db.Uuid
   guarantor   GuarantorContact? @relation(fields: [guarantorId], references: [id])
@@ -486,18 +493,6 @@ model Approval {
   @@unique([leaveRequestId, phase])
 }
 
-enum ApproverRole {
-  DEPARTMENT_HEAD
-  HR
-  CISO
-}
-
-enum ApprovalStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
 model Response {
   id        String        @id @default(uuid()) @db.Uuid
   createdAt DateTime      @default(now())
@@ -528,6 +523,7 @@ model Payroll {
   userId        String             @unique @db.Uuid
   user          User               @relation(fields: [userId], references: [id])
   component     PayrollComponent[]
+  payslip       Payslip[]
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 }
@@ -553,14 +549,22 @@ model PayrollComponent {
 model Payslip {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  amount    String
+  amount    Float
+  month     Int
+  year      Int
   data      Bytes
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
+  payrollId String   @db.Uuid
+  payroll   Payroll  @relation(fields: [payrollId], references: [id])
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([payrollId])
+  @@index([month, year])
 }
 
-///////////////////////////////////////////  ///////////////////////////////////////////
+/////////////////////////////////////////// CLAIMS  ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
@@ -572,6 +576,7 @@ model Claim {
   notes         String?
   status        ClaimStatus @default(PENDING)
   proofUrls     Upload[]
+  // proofUrls     String[]    @default([])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   userId        String      @db.Uuid
@@ -580,53 +585,163 @@ model Claim {
   @@map("claims")
 }
 
+/////////////////////////////////////////// PERFORMANCE ////////////////////////////////////////
+
+/////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
 model Task {
-  id          String      @id @default(uuid())
+  id          String     @id @default(uuid()) @db.Uuid
   title       String
   description String?
   startDate   DateTime?
   dueDate     DateTime?
   category    String?
-  priority    Priority?
-  status      TaskStatus?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  priority    String?
+  status      TaskStatus @default(PENDING_APPROVAL)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relations
-  assignees   UserTask[]
-  files       TaskFile[]
-  createdBy   User       @relation("CreatedTasks", fields: [createdById], references: [id])
-  createdById String     @db.Uuid
+  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
+  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdById String @db.Uuid
 
-  @@map("tasks")
+  approvedById String? @db.Uuid
+
+  assignees UserTask[]
+  uploads   Upload[]
+
+  // Approval tracking
+  approvalStatus      ApprovalStatus @default(PENDING)
+  approvalRequestedAt DateTime?
+  approvedAt          DateTime?
+  rejectionReason     String?
 }
 
 model UserTask {
-  id         String   @id @default(cuid())
-  taskId     String
-  userId     String   @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
   assignedAt DateTime @default(now())
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @db.Uuid
 
-  @@unique([taskId, userId])
-  @@map("user_tasks")
+  task   Task   @relation(fields: [taskId], references: [id])
+  taskId String @db.Uuid
+
+  @@unique([userId, taskId])
 }
 
-model TaskFile {
-  id           String   @id @default(cuid())
-  filename     String
-  originalName String
-  path         String
-  mimetype     String
-  size         Int
-  taskId       String
-  uploadedAt   DateTime @default(now())
+//////////////////////////////////////////  APPRAISAL  ///////////////////////////////////////////
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+model Appraisal {
+  id                  String               @id @default(uuid()) @db.Uuid
+  quarter             String
+  year                Int
+  managerComment      String?
+  period              String //e.g Quater 3 2025
+  kpi                 Kpi[]
+  goalsAndAchievement GoalsAndAchievement?
+  feedback            Feedback?
+  summary             RatingSummary?
+  submittedAt         DateTime?
+  appraisedAt         DateTime?
+  hrReviewedAt        DateTime?
+  autoGenerated       Boolean              @default(true)
+  status              AppraisalStatus      @default(GENERATED)
+  appraiserId         String               @db.Uuid
+  appraiser           User                 @relation("Appraiser", fields: [appraiserId], references: [id])
+  appraisedId         String               @db.Uuid // The employee being appraised
+  appraised           User                 @relation("Appraised", fields: [appraisedId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
-  @@map("task_files")
+  @@unique([quarter, year, appraisedId])
+  @@map("appraisals")
+}
+
+model Kpi {
+  id          String        @id @default(uuid()) @db.Uuid
+  appraisalId String?        @unique @db.Uuid
+  appraisal   Appraisal?     @relation(fields: [appraisalId], references: [id])
+  categories  KpiCategory[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("kpis")
+}
+
+model KpiCategory {
+  id           String          @id @default(uuid()) @db.Uuid
+  name         String //e.g., "TECHNICAL SKILL", "TEAM COLLABORATION"
+  kpiId        String?         @db.Uuid
+  kpi          Kpi?           @relation(fields: [kpiId], references: [id])
+  departmentId String?         @db.Uuid
+  department   Department?     @relation(fields: [departmentId], references: [id])
+  objectives   Objective[]
+  type         KpiCategoryType @default(STATIC)
+  isGlobal     Boolean         @default(true)
+  isApproved   Boolean         @default(false)
+  reviewedBy   String?         @db.Uuid          // Admin who reviewed the KPIs
+  reviewedAt   DateTime?       // When the KPIs were reviewed
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([name, departmentId])
+  @@map("kpi_categories")
+}
+
+model Objective {
+  id         String      @id @default(uuid()) @db.Uuid
+  name       String //e.g., "Knowledge of Resk./Technologies"
+  rating     Float? //Rating (1-5)
+  comment    String?
+  categoryId String      @db.Uuid
+  category   KpiCategory @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@map("objectives")
+}
+
+model GoalsAndAchievement {
+  id           String    @id @default(uuid()) @db.Uuid
+  achievements String[]
+  goals        String[]
+  appraisalId  String    @unique @db.Uuid
+  appraisal    Appraisal @relation(fields: [appraisalId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Feedback {
+  id          String             @id @default(uuid()) @db.Uuid
+  questions   FeedbackQuestion[]
+  appraisalId String             @unique @db.Uuid
+  appraisal   Appraisal          @relation(fields: [appraisalId], references: [id])
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model FeedbackQuestion {
+  id         String   @id @default(uuid()) @db.Uuid
+  question   String
+  response   String?
+  feedbackId String   @db.Uuid
+  feedback   Feedback @relation(fields: [feedbackId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model RatingSummary {
+  id                    String    @id @default(uuid()) @db.Uuid
+  appraisalId           String    @unique @db.Uuid
+  appraisal             Appraisal @relation(fields: [appraisalId], references: [id])
+  technicalPerformance  Float?
+  teamCollaboration     Float?
+  initiativesLeadership Float?
+  departmentalKpi       Float?
+  overallPerformance    Float?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -651,6 +766,21 @@ enum TaxStatus {
 enum SalaryType {
   EARNING
   DEDUCTION
+}
+
+enum AppraisalStatus {
+  GENERATED      // Initial state when quarterly appraisal is generated
+  PENDING_REVIEW // Department KPIs added, waiting for admin review
+  REVIEWED      // Admin has reviewed and approved department KPIs
+  DRAFT         // Employee is working on their appraisal
+  SUBMITTED     // Employee has submitted for manager review
+  APPRAISED     // Manager has reviewed and approved
+  COMPLETED     // Final state after HR review
+}
+
+enum KpiCategoryType {
+  STATIC
+  DYNAMIC
 }
 
 enum ComponentCategory {
@@ -681,6 +811,20 @@ enum MaritalStatus {
   MARRIED
 }
 
+enum TaskStatus {
+  PENDING_APPROVAL
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum Role {
   SUPERADMIN
   ADMIN
@@ -690,6 +834,18 @@ enum Role {
   HR
   ASSET_MANAGER
   LEAVE_MANAGER
+}
+
+enum ApproverRole {
+  DEPARTMENT_HEAD
+  HR
+  CISO
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum AssetCategory {
@@ -770,13 +926,6 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
-}
-
-enum TaskStatus {
-  PENDING
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
 }
 
 enum Gender {
