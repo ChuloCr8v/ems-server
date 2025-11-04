@@ -18,25 +18,6 @@ export class KpiRatingDto {
     comment?: string;
 }
 
-export class KpiCategoryDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
-
-    @IsEnum(KpiCategoryType)
-    type: KpiCategoryType;
-
-    @IsString()
-    @IsOptional()
-    departmentId?: string;
-
-    @IsBoolean()
-    @IsOptional()
-    isGlobal?: boolean = false;
-}
-
-
-
 export class UpdateKpiRatingDto {
     @IsNumber()
     @IsOptional()
@@ -45,44 +26,6 @@ export class UpdateKpiRatingDto {
     @IsString()
     @IsOptional()
     comment?: string;
-}
-
-
-
-export class AddDepartmentKpiObjDto {
-    @IsString()
-    @IsNotEmpty()
-    appraisalId: string;
-
-    @IsString()
-    @IsNotEmpty()
-    objective: string;
-
-    @IsOptional()
-    @IsInt()
-    @Min(1)
-    @Max(5)
-    rating?: number;
-
-    @IsOptional()
-    @IsString()
-    comment?: string;
-}
-
-export class UpdateDepartmentKpiObjDto {
-  @IsString()
-  @IsNotEmpty()
-  objective: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(10)
-  rating?: number;
-
-  @IsOptional()
-  @IsString()
-  comment?: string;
 }
 
 export class GoalsAndAchievementDto {
@@ -100,10 +43,6 @@ export class FeedbackQuestionDto {
   @IsNotEmpty()
   questionId: string;
 
-//   @IsString()
-//   @IsNotEmpty() 
-//   question: string;
-
   @IsOptional() 
   @IsString() 
   response?: string;
@@ -114,43 +53,6 @@ export class FeedbackDto {
   @ValidateNested({ each: true }) 
   @Type(() => FeedbackQuestionDto)
   questions: FeedbackQuestionDto[];
-}
-
-export class AppraisalDto {
-  @IsString() 
-  quarter: string;
-
-  @IsString()
-  @IsOptional()
-  period?: string;
-
-  @IsNumber()
-  year: number;
-}
-
-export class CreateAppraisalDto extends AppraisalDto {
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => KpiRatingDto)
-  kpiRatings?: KpiRatingDto[];
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => GoalsAndAchievementDto)
-  goalsAndAchievements?: GoalsAndAchievementDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => FeedbackDto)
-  feedback?: FeedbackDto;
-
-  @IsOptional()
-  @IsString()
-  managerComment?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  submit?: boolean = false;
 }
 
 export class UpdateAppraisalDto {
@@ -231,7 +133,6 @@ export class ObjectiveRatingDto {
   comment?: string;
 }
 
-// send-to-department.dto.ts
 export class SendToDepartmentDto {
   @IsString()
   @IsNotEmpty()
@@ -245,7 +146,6 @@ export class SendToDepartmentDto {
   year: number;
 }
 
-// fill-appraisal.dto.ts (same as before)
 export class FillAppraisalDto {
   @IsOptional()
   @IsArray()

@@ -41,6 +41,16 @@ export class ApproverService {
     });
   }
 
+   async getDepartmentApprovers() {
+    return this.prisma.user.findMany({
+      where: {
+        userRole: {
+          has: Role.DEPT_MANAGER
+        },
+      },
+    });
+  }
+
   async getApproversForUser(userId: string) {
     // Get user with department info
     const user = await this.prisma.user.findUnique({
