@@ -282,6 +282,7 @@ export class KpiService {
                 });
                 return true;
             } catch (error) {
+                console.log(error)
                 throw new BadRequestException('Failed to delete department category');
             }
         }
