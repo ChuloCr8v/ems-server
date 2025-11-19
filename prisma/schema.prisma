@@ -72,7 +72,7 @@ model User {
   userDocuments     Upload[]     @relation("UserDocuments")
   level             Level?       @relation(fields: [levelId], references: [id])
   prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  UserTask          UserTask[]
+  userTask          UserTask[]
   departments       Department[] @relation("DepartmentToUser")
   prospectDocuments Upload[]     @relation("ProspectDocuments")
 
@@ -82,6 +82,8 @@ model User {
   taskCategory Category[]
   appraisals   Appraisal[] @relation("Appraised")
   appraisers   Appraisal[] @relation("Appraiser")
+
+  reports Report[]
 
   @@index([email])
   @@index([eId])
@@ -315,7 +317,7 @@ model Assignment {
   offboardingId String?           @db.Uuid
   asset         Asset             @relation(fields: [assetId], references: [id])
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  user          User              @relation(fields: [userId], references: [id])
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -410,7 +412,7 @@ model LevelEntitlement {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   entitlement   Entitlement @relation(fields: [entitlementId], references: [id])
-  level         Level       @relation(fields: [levelId], references: [id])
+  level         Level       @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
   @@unique([levelId, entitlementId])
 }
@@ -601,8 +603,6 @@ model Task {
   category    Category[]
   priority    String?
   status      TaskStatus @default(PENDING_APPROVAL)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
 
   // Relations
   createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
@@ -621,6 +621,24 @@ model Task {
   approvalRequestedAt DateTime?
   approvedAt          DateTime?
   rejectionReason     String?
+
+  reports Report[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Report {
+  id    String @id @default(uuid()) @db.Uuid()
+  week  Int
+  title String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @db.Uuid
+  tasks  Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
@@ -684,7 +702,7 @@ model Appraisal {
 model Kpi {
   id          String        @id @default(uuid()) @db.Uuid
   appraisalId String?       @unique @db.Uuid
-  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id])
+  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
   categories  KpiCategory[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -718,7 +736,7 @@ model Objective {
   rating     Float? //Rating (1-5)
   comment    String?
   categoryId String      @db.Uuid
-  category   KpiCategory @relation(fields: [categoryId], references: [id])
+  category   KpiCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
