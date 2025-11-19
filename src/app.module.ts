@@ -31,6 +31,7 @@ import { CategoryModule } from './category/category.module';
 import { CategoryService } from './category/category.service';
 import { AppraisalModule } from './appraisal/appraisal.module';
 import { KpiModule } from './kpi/kpi.module';
+import { ReportModule } from './report/report.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { KpiModule } from './kpi/kpi.module';
     CategoryModule,
     AppraisalModule,
     KpiModule,
+    ReportModule,
   ],
   controllers: [AppController, UploadsController, NotificationController, CategoryController],
   providers: [AppService, UploadsService, NotificationService, CategoryService],

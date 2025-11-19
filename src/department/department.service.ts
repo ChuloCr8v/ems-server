@@ -152,43 +152,125 @@ export class DepartmentService {
 
         try {
             const dept = await this.__findOneDepartment(deptId);
+            mustHave(dept, `Department with id: ${deptId} not found!`);
 
-            if (!dept) {
-                mustHave(dept, `Department with id: ${deptId} not found!`);
-            }
+            // Filter out falsy IDs before mapping
+            const validIds = userIds.filter(Boolean);
 
-            for (const userId of userIds) {
-                if (!userId) continue;
+            // Process all users in parallel
+            const results = await Promise.all(
+                validIds.map(async (userId) => {
+                    try {
+                        const user = await this.prisma.user.findUnique({
+                            where: { id: userId },
+                            include: { departments: true },
+                        });
 
-                const user = await this.prisma.user.findUnique({
-                    where: {
-                        id: userId
-                    },
-                    include: {
-                        departments: true
-                    }
-                });
-
-                if (user.departments.some(d => d.id === deptId)) return
-                const updatedTeam = await this.prisma.user.update({
-                    where: {
-                        id: userId
-                    },
-                    data: {
-                        departments: {
-                            connect: {
-                                id: deptId
-                            }
+                        if (!user) {
+                            return { userId, status: "skipped", reason: "User not found" };
                         }
+
+                        if (user.departments.some((d) => d.id === deptId)) {
+                            return { userId, status: "skipped", reason: "Already in department" };
+                        }
+
+                        const updated = await this.prisma.user.update({
+                            where: { id: userId },
+                            data: {
+                                departments: { connect: { id: deptId } },
+                            },
+                        });
+
+                        return { userId, status: "added", data: updated };
+                    } catch (err: any) {
+                        console.error(`Error updating user ${userId}:`, err);
+                        return { userId, status: "failed", reason: err.message };
                     }
                 })
+            );
 
-                return { message: "Team members added successfully", data: updatedTeam };
+            const added = results.filter((r) => r.status === "added");
+            const skipped = results.filter((r) => r.status === "skipped");
+            const failed = results.filter((r) => r.status === "failed");
 
-            }
-
+            return {
+                message: "Team member update completed",
+                summary: {
+                    added: added.length,
+                    skipped: skipped.length,
+                    failed: failed.length,
+                },
+                data: {
+                    added,
+                    skipped,
+                    failed,
+                },
+            };
         } catch (error: any) {
-            console.error(error);
+            console.error("Bulk addTeamMembers error:", error);
+            bad(error);
+        }
+    }
+
+    async removeTeamMembers(deptId: string, userIds: string[]) {
+        if (!deptId) bad("Dept id must be provided");
+
+        try {
+            const dept = await this.__findOneDepartment(deptId);
+            mustHave(dept, `Department with id: ${deptId} not found!`);
+
+            const validIds = userIds.filter(Boolean);
+
+            const results = await Promise.all(
+                validIds.map(async (userId) => {
+                    try {
+                        const user = await this.prisma.user.findUnique({
+                            where: { id: userId },
+                            include: { departments: true },
+                        });
+
+                        if (!user) {
+                            return { userId, status: "skipped", reason: "User not found" };
+                        }
+
+                        if (!user.departments.some((d) => d.id === deptId)) {
+                            return { userId, status: "skipped", reason: "Not in department" };
+                        }
+
+                        const updated = await this.prisma.user.update({
+                            where: { id: userId },
+                            data: {
+                                departments: { disconnect: { id: deptId } },
+                            },
+                        });
+
+                        return { userId, status: "removed", data: updated };
+                    } catch (err: any) {
+                        console.error(`Error removing user ${userId}:`, err);
+                        return { userId, status: "failed", reason: err.message };
+                    }
+                })
+            );
+
+            const removed = results.filter((r) => r.status === "removed");
+            const skipped = results.filter((r) => r.status === "skipped");
+            const failed = results.filter((r) => r.status === "failed");
+
+            return {
+                message: "Team member removal completed",
+                summary: {
+                    removed: removed.length,
+                    skipped: skipped.length,
+                    failed: failed.length,
+                },
+                data: {
+                    removed,
+                    skipped,
+                    failed,
+                },
+            };
+        } catch (error: any) {
+            console.error("Bulk removeTeamMembers error:", error);
             bad(error);
         }
     }

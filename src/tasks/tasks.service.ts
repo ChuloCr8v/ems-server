@@ -12,16 +12,17 @@ import { CreateCategoryDto } from 'src/category/category.dto';
 export class TasksService {
   constructor(private prisma: PrismaService) { }
 
-  private async getUserRole(userId: string): Promise<string> {
+  private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true }
+      select: { userRole: true }
     });
-    return user?.role || 'EMPLOYEE';
+    return user?.userRole
   }
 
-  private isManager(role: string): boolean {
-    return role === 'MANAGER' || role === 'ADMIN';
+  private isManager(role: string[]): boolean {
+    const managerRoles = ["ADMIN", "DEPT_MANAGER"]
+    return role?.some(r => managerRoles.includes(r))
   }
 
   private mapToTaskResponseDto(task): TaskResponseDto {
@@ -159,9 +160,6 @@ export class TasksService {
     }
   }
 
-
-
-
   // Helper method to validate ISO date strings
   private isValidISODate(dateString: string): boolean {
     if (!dateString) return false;
@@ -254,7 +252,6 @@ export class TasksService {
     // return this.mapToTaskResponseDto(updatedTask);
   }
 
-
   //Comments
 
   async commentOnTask(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
@@ -336,146 +333,6 @@ export class TasksService {
     return this.mapToTaskResponseDto(updatedTask);
   }
 
-  // async getAllTasks(
-  //   page: number = 1,
-  //   limit: number = 50,
-  //   userId?: string,
-  //   userRole?: string,
-  //   filters?: TaskQueryDto
-  // ) {
-  //   const skip = (page - 1) * limit;
-
-  //   // Build where clause based on user role and filters
-  //   let where: any = {};
-
-  //   // Role-based filtering
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     where.OR = [
-  //       { createdById: userId },
-  //       { assignees: { some: { userId } } },
-  //     ];
-  //   }
-
-  //   // Apply filters
-  //   if (filters) {
-  //     if (filters.status) where.status = filters.status;
-  //     if (filters.approvalStatus) where.approvalStatus = filters.approvalStatus;
-  //     if (filters.priority) where.priority = filters.priority;
-  //     if (filters.category) where.category = filters.category;
-
-  //     // Date range filters
-  //     if (filters.startDateFrom || filters.startDateTo) {
-  //       where.startDate = {};
-  //       if (filters.startDateFrom) where.startDate.gte = filters.startDateFrom;
-  //       if (filters.startDateTo) where.startDate.lte = filters.startDateTo;
-  //     }
-
-  //     if (filters.dueDateFrom || filters.dueDateTo) {
-  //       where.dueDate = {};
-  //       if (filters.dueDateFrom) where.dueDate.gte = filters.dueDateFrom;
-  //       if (filters.dueDateTo) where.dueDate.lte = filters.dueDateTo;
-  //     }
-
-  //     // Search filter
-  //     if (filters.search) {
-  //       where.OR = [
-  //         ...(where.OR || []),
-  //         { title: { contains: filters.search, mode: 'insensitive' } },
-  //         { description: { contains: filters.search, mode: 'insensitive' } },
-  //       ];
-  //     }
-  //   }
-
-  //   const [tasks, total] = await Promise.all([
-  //     this.prisma.task.findMany({
-  //       where,
-  //       skip,
-  //       take: limit,
-  //       include: this.getTaskInclude(),
-  //       orderBy: {
-  //         [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
-  //       },
-  //     }),
-  //     this.prisma.task.count({ where }),
-  //   ]);
-
-  //   return {
-  //     tasks: tasks.map(task => this.mapToTaskResponseDto(task)),
-  //     pagination: {
-  //       page,
-  //       limit,
-  //       total,
-  //       pages: Math.ceil(total / limit),
-  //     },
-  //   };
-  // }
-
-
-  // async getOneTask(id: string, userId?: string, userRole?: string) {
-  //   const task = await this.prisma.task.findUnique({
-  //     where: { id },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   if (!task) {
-  //     throw new NotFoundException(`Task with ID ${id} not found`);
-  //   }
-
-  //   // Authorization check
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     const isCreator = task.createdById === userId;
-  //     const isAssignee = task.assignees.some(assignee => assignee.userId === userId);
-
-  //     if (!isCreator && !isAssignee) {
-  //       throw new ForbiddenException('You do not have permission to view this task');
-  //     }
-  //   }
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-  // async updateTask(id: string, updateTaskDto: UpdateTaskDto, userId: string, userRole: string) {
-  //   const { assignees, ...taskData } = updateTaskDto;
-
-  //   const existingTask = await this.getOneTask(id, userId, userRole);
-
-  //   // Authorization: Only creators or managers can update tasks
-  //   const isCreator = existingTask.createdBy.id === userId;
-  //   if (!isCreator && !this.isManager(userRole)) {
-  //     throw new ForbiddenException('You can only update your own tasks');
-  //   }
-
-  //   // Managers can update anything, creators can only update certain fields
-  //   const allowedUpdates = this.isManager(userRole) ?
-  //     { ...taskData } :
-  //     {
-  //       title: taskData.title,
-  //       description: taskData.description,
-  //       startDate: taskData.startDate,
-  //       dueDate: taskData.dueDate,
-  //       category: taskData.category,
-  //       priority: taskData.priority,
-  //     };
-
-  //   const task = await this.prisma.task.update({
-  //     where: { id },
-  //     data: {
-  //       ...allowedUpdates,
-  //       // Only managers can update assignees directly
-  //       ...(this.isManager(userRole) && assignees && {
-  //         assignees: {
-  //           deleteMany: {},
-  //           create: assignees.map(userId => ({ userId })),
-  //         },
-  //       }),
-  //     },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-
   async getAllTasks() {
     const tasks = await this.prisma.task.findMany({
       include: this.getTaskInclude(),
@@ -486,7 +343,6 @@ export class TasksService {
 
     return tasks
   }
-
 
   async createTaskCategory(userId: string, dto: CreateCategoryDto) {
     const { title, department, description, color } = dto
@@ -531,6 +387,68 @@ export class TasksService {
       }
     } catch (error) {
       bad(error)
+    }
+  }
+
+  async updateTaskCategory(id: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto;
+
+    try {
+      const category = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true },
+      });
+
+      if (!category) bad("Category not found");
+
+      if (department && department.length > 0) {
+        const deptExists = await this.prisma.department.findMany({
+          where: { id: { in: department } },
+        });
+
+        if (deptExists.length < department.length) {
+          bad("One or more departments not found");
+        }
+      }
+
+      const res = await this.prisma.category.update({
+        where: { id },
+        data: {
+          title: title || undefined,
+          description: description || undefined,
+          color: color || undefined,
+
+          departments: {
+            set: department
+              ? department.map((id) => ({ id }))
+              : undefined,
+          },
+        },
+      });
+
+      return {
+        message: `${title} updated successfully`,
+        data: res,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async deleteTaskCategory(id: string) {
+
+    try {
+      await this.prisma.category.delete({
+        where: {
+          id
+        }
+      })
+
+      return {
+        message: `category deleted successfully`,
+      };
+    } catch (error) {
+      bad(error);
     }
   }
 
@@ -581,6 +499,23 @@ export class TasksService {
     return task
   }
 
+  async getTaskCategory(id: string) {
+    try {
+      const taskCategory = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true }
+      });
+
+      if (!taskCategory) {
+        bad(`Task with ID ${id} not found`);
+      }
+      return taskCategory
+    } catch (error) {
+      bad(error)
+    }
+
+  }
+
   async updateTask(id: string, taskData: UpdateTaskDto) {
     const { assignees, category, uploads, ...rest } = taskData;
 
@@ -594,7 +529,7 @@ export class TasksService {
           where: { id },
           data: {
             uploads: {
-              set: [], // optional: clears old uploads if needed
+              // set: [], // optional: clears old uploads if needed
               connect: uploads.map((u: string) => ({ id: u })),
             },
           },
@@ -658,8 +593,10 @@ export class TasksService {
     return task;
   }
 
-  async deleteTask(id: string, userId: string, userRole: string) {
+  async deleteTask(id: string, userId: string, userRole: string[]) {
     const task = await this.getOneTask(id);
+
+    console.log(task, userId)
 
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;

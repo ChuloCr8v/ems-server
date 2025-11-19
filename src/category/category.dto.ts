@@ -18,7 +18,7 @@ export class CreateCategoryDto {
     @IsString()
     color?: string;
 
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
     type?: CategoryType;
 
