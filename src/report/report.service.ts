@@ -186,13 +186,9 @@ export class ReportService {
                 return reportReturnFormat(deptReports);
             }
 
+            const userReports = reports.filter(r => r.userId === userId);
+            return reportReturnFormat(userReports);
 
-            if (user.userRole.includes("USER")) {
-                const userReports = reports.filter(r => r.userId === userId);
-                return reportReturnFormat(userReports);
-            }
-
-            return reportReturnFormat(reports);
 
         } catch (error) {
             bad(error);
