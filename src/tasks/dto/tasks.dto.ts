@@ -124,6 +124,10 @@ export class UpdateTaskDto {
   @ValidateIf(o => o.status === TaskStatus.CANCELLED)
   @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
   requireRejectionReason?: string;
+
+  @ValidateIf(o => o.status === TaskStatus.ISSUES)
+  @IsNotEmpty({ message: 'Issue is required' })
+  issue?: string;
 }
 
 class CreatedByDto {

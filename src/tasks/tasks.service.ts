@@ -516,8 +516,8 @@ export class TasksService {
 
   }
 
-  async updateTask(id: string, taskData: UpdateTaskDto) {
-    const { assignees, category, uploads, ...rest } = taskData;
+  async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
+    const { assignees, category, uploads, status, issue, ...rest } = taskData;
 
     await this.getOneTask(id);
 
@@ -578,6 +578,29 @@ export class TasksService {
         });
 
 
+      }
+
+      // --- Handle Task Status
+      if (status) {
+        await tx.task.update({
+          where: {
+            id
+          },
+          data: status === "ISSUES" ? {
+            hasIssues: true,
+            status,
+            taskIssues: {
+              create: {
+                issue: issue,
+                reportedBy: {
+                  connect: { id: userId }
+                }
+              }
+            }
+          } : {
+            status
+          }
+        })
       }
 
       // --- Update Task Base Data ---

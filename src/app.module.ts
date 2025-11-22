@@ -32,15 +32,14 @@ import { CategoryService } from './category/category.service';
 import { AppraisalModule } from './appraisal/appraisal.module';
 import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
+import { ScheduleModule } from '@nestjs/schedule/dist';
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
     UserModule,
     InviteModule,
     AuthModule,
     PrismaModule,
-    ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     LevelModule,
     AssetModule,
@@ -59,6 +58,8 @@ import { ReportModule } from './report/report.module';
     AppraisalModule,
     KpiModule,
     ReportModule,
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController, UploadsController, NotificationController, CategoryController],
   providers: [AppService, UploadsService, NotificationService, CategoryService],
