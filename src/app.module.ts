@@ -10,7 +10,6 @@ import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AssetModule } from './assets/asset.module';
-import { OffboardingModule } from './offboarding/offboarding.module';
 import { UploadsController } from './uploads/uploads.controller';
 import { UploadsService } from './uploads/uploads.service';
 import { UploadsModule } from './uploads/uploads.module';
@@ -23,25 +22,27 @@ import { EntitlementModule } from './entitlement/entitlement.module';
 import { LeaveModule } from './leave/leave.module';
 import { ApproverModule } from './approver/approver.module';
 import { ClaimsModule } from './claims/claims.module';
-import { TasksModule } from './tasks/tasks.module';
 import { PayrollModule } from './payroll/payroll.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BankModule } from './bank/bank.module';
+import { TasksModule } from './tasks/tasks.module';
+import { CategoryController } from './category/category.controller';
+import { CategoryModule } from './category/category.module';
+import { CategoryService } from './category/category.service';
 import { AppraisalModule } from './appraisal/appraisal.module';
 import { KpiModule } from './kpi/kpi.module';
+import { ReportModule } from './report/report.module';
+import { ScheduleModule } from '@nestjs/schedule/dist';
 
 @Module({
   imports: [
-    EventEmitterModule.forRoot(),
     UserModule,
     InviteModule,
     AuthModule,
     PrismaModule,
-    ConfigModule.forRoot({ isGlobal: true }),
     DepartmentModule,
     LevelModule,
     AssetModule,
-    OffboardingModule,
     UploadsModule,
     NotificationModule,
     CloudinaryModule,
@@ -49,14 +50,18 @@ import { KpiModule } from './kpi/kpi.module';
     LeaveModule,
     ApproverModule,
     ClaimsModule,
-    TasksModule,
     PayrollModule,
     ContactsModule,
     BankModule,
+    TasksModule,
+    CategoryModule,
     AppraisalModule,
     KpiModule,
+    ReportModule,
+    EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
   ],
-  controllers: [AppController, UploadsController, NotificationController],
-  providers: [AppService, UploadsService, NotificationService],
+  controllers: [AppController, UploadsController, NotificationController, CategoryController],
+  providers: [AppService, UploadsService, NotificationService, CategoryService],
 })
 export class AppModule { }

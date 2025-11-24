@@ -1,12 +1,12 @@
 // create-task.dto.ts
-import { 
-  IsString, 
-  IsOptional, 
-  IsDate, 
-  IsArray, 
-  IsEnum, 
+import {
+  IsString,
+  IsOptional,
+  IsDate,
+  IsArray,
+  IsEnum,
   IsBoolean,
-  MinLength, 
+  MinLength,
   MaxLength,
   ArrayMinSize,
   ValidateIf,
@@ -29,16 +29,6 @@ export enum TaskPriority {
   URGENT = 'URGENT'
 }
 
-export enum TaskCategory {
-  DEVELOPMENT = 'DEVELOPMENT',
-  DESIGN = 'DESIGN',
-  MARKETING = 'MARKETING',
-  SALES = 'SALES',
-  SUPPORT = 'SUPPORT',
-  OPERATIONS = 'OPERATIONS',
-  OTHER = 'OTHER'
-}
-
 export class CreateTaskDto {
   @IsString()
   title: string;
@@ -59,8 +49,8 @@ export class CreateTaskDto {
   dueDate?: Date;
 
   @IsOptional()
-  @IsEnum(TaskCategory, { message: 'Invalid category' })
-  category?: TaskCategory;
+  @IsArray()
+  category?: string[];
 
   @IsOptional()
   @IsEnum(TaskPriority, { message: 'Invalid priority' })
@@ -76,6 +66,11 @@ export class CreateTaskDto {
   @IsBoolean()
   @Type(() => Boolean)
   requiresApproval?: boolean;
+
+
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
 }
 
 export class UpdateTaskDto {
@@ -99,8 +94,8 @@ export class UpdateTaskDto {
   dueDate?: Date;
 
   @IsOptional()
-  @IsEnum(TaskCategory, { message: 'Invalid category' })
-  category?: TaskCategory;
+  @IsArray()
+  category?: string[];
 
   @IsOptional()
   @IsEnum(TaskPriority, { message: 'Invalid priority' })
@@ -121,10 +116,18 @@ export class UpdateTaskDto {
   @MaxLength(500, { message: 'Rejection reason cannot exceed 500 characters' })
   rejectionReason?: string;
 
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
+
   // Custom validation: rejectionReason is required when status is CANCELLED
   @ValidateIf(o => o.status === TaskStatus.CANCELLED)
   @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
   requireRejectionReason?: string;
+
+  @ValidateIf(o => o.status === TaskStatus.ISSUES)
+  @IsNotEmpty({ message: 'Issue is required' })
+  issue?: string;
 }
 
 class CreatedByDto {
@@ -196,6 +199,9 @@ export class TaskResponseDto {
   @IsUUID()
   id: string;
 
+  @IsUUID()
+  taskId: string;
+
   @IsString()
   title: string;
 
@@ -214,8 +220,8 @@ export class TaskResponseDto {
   dueDate?: Date;
 
   @IsOptional()
-  @IsEnum(TaskCategory)
-  category?: TaskCategory;
+  @IsArray()
+  category?: string[];
 
   @IsOptional()
   @IsEnum(TaskPriority)
@@ -309,8 +315,8 @@ export class TaskQueryDto {
   priority?: TaskPriority;
 
   @IsOptional()
-  @IsEnum(TaskCategory)
-  category?: TaskCategory;
+  @IsArray()
+  category?: string[];
 
   @IsOptional()
   @IsString()

@@ -1,44 +1,40 @@
 // tasks.service.ts
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApprovalStatus, Prisma, TaskStatus } from '@prisma/client';
-import { ApprovalRequestDto, CreateTaskDto, TaskCategory, TaskPriority, TaskQueryDto, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
+import { ApprovalStatus, CategoryType, Prisma, TaskStatus, User } from '@prisma/client';
+import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
+import { IdGenerator } from 'src/utils/IdGenerator.util';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { CreateCategoryDto } from 'src/category/category.dto';
+import { create } from 'domain';
 
-
-// Define Prisma types for better type safety
-type TaskWithRelations = Prisma.TaskGetPayload<{
-  include: {
-    createdBy: { select: { id: true; firstName: true; lastName: true; email: true; role: true } };
-    approvedBy: { select: { id: true; firstName: true; lastName: true; email: true } };
-    assignees: { include: { user: { select: { id: true; firstName: true; lastName: true; email: true } } } };
-    uploads: true;
-  };
-}>;
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  private async getUserRole(userId: string): Promise<string> {
+  private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true }
+      select: { userRole: true }
     });
-    return user?.role || 'EMPLOYEE';
+    return user?.userRole
   }
 
-  private isManager(role: string): boolean {
-    return role === 'MANAGER' || role === 'ADMIN';
+  private isManager(role: string[]): boolean {
+    const managerRoles = ["ADMIN", "DEPT_MANAGER"]
+    return role?.some(r => managerRoles.includes(r))
   }
 
-  private mapToTaskResponseDto(task: TaskWithRelations): TaskResponseDto {
+  private mapToTaskResponseDto(task): TaskResponseDto {
     return {
       id: task.id,
+      taskId: task.taskId,
       title: task.title,
       description: task.description,
       startDate: task.startDate,
       dueDate: task.dueDate,
-      category: task.category as TaskCategory,
+      // category: task.category,
       priority: task.priority as TaskPriority,
       status: task.status as TaskStatus,
       approvalStatus: task.approvalStatus as ApprovalStatus,
@@ -48,8 +44,8 @@ export class TasksService {
       approvedAt: task.approvedAt,
       rejectionReason: task.rejectionReason,
       createdBy: {
-        id: task.createdBy.id,
-        name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
+        id: task.createdById,
+        name: `${task.createdBy} ${task.createdBy.lastName}`,
         email: task.createdBy.email,
         role: task.createdBy.role,
       },
@@ -76,172 +72,115 @@ export class TasksService {
     };
   }
 
-  // async createTask(createTaskDto: CreateTaskDto, createdById: string, files?: Express.Multer.File[]) {
-  //   const { assignees, ...taskData } = createTaskDto;
-  //   const userRole = await this.getUserRole(createdById);
-  //   const isManager = this.isManager(userRole);
+  async createTask(createTaskDto: CreateTaskDto, createdById: string) {
+    try {
+      const { uploads, assignees, category, ...taskData } = createTaskDto;
+      const userRole = await this.getUserRole(createdById);
+      const isManager = this.isManager(userRole);
 
-  //      // Validate assignees exist if provided
-  //   if (assignees && assignees.length > 0) {
-  //     const existingUsers = await this.prisma.user.findMany({
-  //       where: { id: { in: assignees } },
-  //       select: { id: true },
-  //     });
-      
-  //     if (existingUsers.length !== assignees.length) {
-  //       throw new BadRequestException('One or more assignees not found');
-  //     }
-  //   }
+      if (isManager) {
+        if (!assignees.length)
+          return bad("Please provide at least one assignee");
 
-  //     // Convert date strings to Date objects with proper time
-  //   const startDate = taskData.startDate ? new Date(taskData.startDate + 'T00:00:00.000Z') : null;
-  //   const dueDate = taskData.dueDate ? new Date(taskData.dueDate + 'T23:59:59.999Z') : null;
+        const { startDate, dueDate } = createTaskDto;
 
+        if (!startDate)
+          return bad("Please provide a start date");
 
-  //   // Determine approval status based on user role
-  //   const approvalStatus = isManager ? ApprovalStatus.APPROVED : ApprovalStatus.PENDING;
-  //   const status = isManager ? TaskStatus.IN_PROGRESS : TaskStatus.PENDING_APPROVAL;
-    
-  //   // Managers can assign directly, employees cannot
-  //   const assigneesData = isManager && assignees && assignees.length > 0 ? {
-  //     create: assignees.map(userId => ({ userId })),
-  //   } : undefined;
-
-  //   const task = await this.prisma.task.create({
-  //     data: {
-  //       ...taskData,
-  //       status,
-  //       startDate,
-  //       dueDate,
-  //       approvalStatus,
-  //       createdById,
-  //       // If manager creates and assigns, they auto-approve
-  //       ...(isManager && assignees && assignees.length > 0 && {
-  //         approvedById: createdById,
-  //         approvedAt: new Date(),
-  //         approvalRequestedAt: new Date(),
-  //       }),
-  //       // Only set approval requested date for employees
-  //       ...(!isManager && {
-  //         approvalRequestedAt: new Date(),
-  //       }),
-  //       assignees: assigneesData,
-  //     },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   // Handle file uploads
-  //   if (files && files.length > 0) {
-  //     await this.prisma.upload.createMany({
-  //       data: files.map(file => ({
-  //         name: file.originalname,
-  //         size: file.size,
-  //         type: file.mimetype,
-  //         key: file.filename,
-  //         uri: file.path,
-  //         taskId: task.id,
-  //       })),
-  //     });
-  //   }
-
-  //   // Reload with all relations
-  //   const taskWithRelations = await this.prisma.task.findUnique({
-  //     where: { id: task.id },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   return this.mapToTaskResponseDto(taskWithRelations!);
-  // }
-
-  // src/tasks/tasks.service.ts
-async createTask(createTaskDto: CreateTaskDto, createdById: string, files?: Express.Multer.File[]) {
-  try {
-    const { assignees, ...taskData } = createTaskDto;
-    const userRole = await this.getUserRole(createdById);
-    const isManager = this.isManager(userRole);
-
-    // Validate assignees exist if provided
-    if (assignees && assignees.length > 0) {
-      const existingUsers = await this.prisma.user.findMany({
-        where: { id: { in: assignees } },
-        select: { id: true },
-      });
-      
-      if (existingUsers.length !== assignees.length) {
-        throw new BadRequestException('One or more assignees not found');
+        if (!dueDate)
+          return bad("Please provide a due date");
       }
-    }
 
-    // FIX: Only include dates if they are valid ISO strings
-    const createData: any = {
-      title: taskData.title,
-      description: taskData.description,
-      category: taskData.category,
-      priority: taskData.priority,
-      status: isManager ? 'IN_PROGRESS' : 'PENDING_APPROVAL',
-      approvalStatus: isManager ? 'APPROVED' : 'PENDING',
-      createdById,
-    };
+      if (assignees && assignees.length > 0) {
+        const existingUsers = await this.prisma.user.findMany({
+          where: { id: { in: assignees } },
+          select: { id: true },
+        });
 
-    // Only add startDate if it's a valid ISO string
-    if (typeof taskData.startDate === 'string' && this.isValidISODate(taskData.startDate)) {
-      createData.startDate = new Date(taskData.startDate);
-    }
+        if (existingUsers.length !== assignees.length) {
+          throw new BadRequestException('One or more assignees not found');
+        }
+      }
 
-    // Only add dueDate if it's a valid ISO string
-    if (typeof taskData.dueDate === 'string' && this.isValidISODate(taskData.dueDate)) {
-      createData.dueDate = new Date(taskData.dueDate);
-    }
-
-    // Add approval data for managers
-    if (isManager && assignees && assignees.length > 0) {
-      createData.approvedById = createdById;
-      createData.approvedAt = new Date();
-      createData.approvalRequestedAt = new Date();
-    } else if (!isManager) {
-      createData.approvalRequestedAt = new Date();
-    }
-
-    // Add assignees if provided
-    if (assignees && assignees.length > 0) {
-      createData.assignees = {
-        create: assignees.map(userId => ({ userId })),
+      const createData: any = {
+        title: taskData.title,
+        description: taskData.description,
+        priority: taskData.priority,
+        status: isManager ? 'IN_PROGRESS' : 'PENDING_APPROVAL',
+        approvalStatus: isManager ? 'APPROVED' : 'PENDING',
+        createdById,
       };
+
+      if (typeof taskData.startDate === 'string' && this.isValidISODate(taskData.startDate)) {
+        createData.startDate = new Date(taskData.startDate);
+      }
+
+      if (typeof taskData.dueDate === 'string' && this.isValidISODate(taskData.dueDate)) {
+        createData.dueDate = new Date(taskData.dueDate);
+      }
+
+      if (isManager && assignees && assignees.length > 0) {
+        createData.approvedById = createdById;
+        createData.approvedAt = new Date();
+        createData.approvalRequestedAt = new Date();
+      } else if (!isManager) {
+        createData.approvalRequestedAt = new Date();
+      }
+
+      if (assignees && assignees.length > 0) {
+        createData.assignees = {
+          create: assignees.map(userId => ({ userId })),
+        };
+      }
+
+      //Add creator as assignee if not manager
+      createData.assignees = {
+        create: { userId: createdById },
+      }
+
+      const task = await this.prisma.task.create({
+        data: {
+          ...createData,
+          taskId: IdGenerator("TSK"),
+          ...(uploads && uploads.length > 0
+            ? {
+              uploads: {
+                connect: uploads.map((id) => ({ id })),
+              },
+            }
+            : {}),
+          ...(category && category.length > 0
+            ? {
+              category: {
+                connect: category.map((id) => ({ id })),
+              },
+            }
+            : {}),
+        },
+        // include: this.getTaskInclude(),
+      });
+
+      return task;
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error creating task:', error);
+      throw new InternalServerErrorException('Error creating task');
     }
-
-    console.log('🔍 Creating task with data:', createData);
-
-    const task = await this.prisma.task.create({
-      data: createData,
-      include: this.getTaskInclude(),
-    });
-
-    // Handle file uploads
-    if (files && files.length > 0) {
-      console.log('Files to upload:', files);
-    }
-
-    return task;
-  } catch (error) {
-    if (error instanceof BadRequestException || error instanceof NotFoundException) {
-      throw error;
-    }
-    console.error('Error creating task:', error);
-    throw new InternalServerErrorException('Error creating task');
   }
-}
 
-// Helper method to validate ISO date strings
-private isValidISODate(dateString: string): boolean {
-  if (!dateString) return false;
-  
-  // Check if it's a valid ISO string
-  const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
-  if (!isoRegex.test(dateString)) return false;
-  
-  const date = new Date(dateString);
-  return !isNaN(date.getTime());
-}
+  // Helper method to validate ISO date strings
+  private isValidISODate(dateString: string): boolean {
+    if (!dateString) return false;
+
+    // Check if it's a valid ISO string
+    const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/;
+    if (!isoRegex.test(dateString)) return false;
+
+    const date = new Date(dateString);
+    return !isNaN(date.getTime());
+  }
 
   async requestApproval(taskId: string, approvalRequestDto: ApprovalRequestDto, requestedById: string) {
     const { assignees } = approvalRequestDto;
@@ -276,7 +215,7 @@ private isValidISODate(dateString: string): boolean {
         status: TaskStatus.PENDING_APPROVAL,
         approvalRequestedAt: new Date(),
       },
-      include: this.getTaskInclude(),
+      // include: this.getTaskInclude(),
     });
 
     return this.mapToTaskResponseDto(updatedTask);
@@ -302,25 +241,72 @@ private isValidISODate(dateString: string): boolean {
     }
 
     // Update task with approval and assignees
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        approvalStatus: ApprovalStatus.APPROVED,
-        status: TaskStatus.IN_PROGRESS,
-        approvedById,
-        approvedAt: new Date(),
-        // Clear any existing assignees and set new ones
-        ...(assignees && assignees.length > 0 && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map(userId => ({ userId })),
-          },
-        }),
-      },
-      include: this.getTaskInclude(),
-    });
+    // const updatedTask = await this.prisma.task.update({
+    //   where: { id: taskId },
+    //   data: {
+    //     approvalStatus: ApprovalStatus.APPROVED,
+    //     status: TaskStatus.IN_PROGRESS,
+    //     approvedById,
+    //     approvedAt: new Date(),
+    //     // Clear any existing assignees and set new ones
+    //     ...(assignees && assignees.length > 0 && {
+    //       assignees: {
+    //         deleteMany: {},
+    //         create: assignees.map(userId => ({ userId })),
+    //       },
+    //     }),
+    //   },
+    //   // include: this.getTaskInclude(),
+    // });
 
-    return this.mapToTaskResponseDto(updatedTask);
+    // return this.mapToTaskResponseDto(updatedTask);
+  }
+
+  //Comments
+
+  async commentOnTask(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+    try {
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        }
+      })
+
+      if (!user) mustHave(user, "user not found", 404)
+
+      const comment = await this.prisma.comment.create({
+        data: {
+          comment: dto.comment,
+          ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+          task: { connect: { id } },
+          user: { connect: { id: userId } }
+        }
+      })
+      return {
+        message: "Comment added successfully",
+        data: comment
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async listTaskComments(id: string) {
+    try {
+      const task = await this.getOneTask(id)
+      if (!task) mustHave(task, "task not found", 404)
+
+      return task.comments
+    } catch (error) {
+      bad(error)
+    }
   }
 
   async rejectTask(taskId: string, rejectedById: string, rejectionReason: string) {
@@ -351,160 +337,163 @@ private isValidISODate(dateString: string): boolean {
         approvedById: rejectedById,
         approvedAt: new Date(),
       },
-      include: this.getTaskInclude(),
+      // include: this.getTaskInclude(),
     });
 
     return this.mapToTaskResponseDto(updatedTask);
   }
 
-  // async getAllTasks(
-  //   page: number = 1, 
-  //   limit: number = 50, 
-  //   userId?: string, 
-  //   userRole?: string,
-  //   filters?: TaskQueryDto
-  // ) {
-  //   const skip = (page - 1) * limit;
-    
-  //   // Build where clause based on user role and filters
-  //   let where: any = {};
-    
-  //   // Role-based filtering
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     where.OR = [
-  //       { createdById: userId },
-  //       { assignees: { some: { userId } } },
-  //     ];
-  //   }
-
-  //   // Apply filters
-  //   if (filters) {
-  //     if (filters.status) where.status = filters.status;
-  //     if (filters.approvalStatus) where.approvalStatus = filters.approvalStatus;
-  //     if (filters.priority) where.priority = filters.priority;
-  //     if (filters.category) where.category = filters.category;
-      
-  //     // Date range filters
-  //     if (filters.startDateFrom || filters.startDateTo) {
-  //       where.startDate = {};
-  //       if (filters.startDateFrom) where.startDate.gte = filters.startDateFrom;
-  //       if (filters.startDateTo) where.startDate.lte = filters.startDateTo;
-  //     }
-      
-  //     if (filters.dueDateFrom || filters.dueDateTo) {
-  //       where.dueDate = {};
-  //       if (filters.dueDateFrom) where.dueDate.gte = filters.dueDateFrom;
-  //       if (filters.dueDateTo) where.dueDate.lte = filters.dueDateTo;
-  //     }
-      
-  //     // Search filter
-  //     if (filters.search) {
-  //       where.OR = [
-  //         ...(where.OR || []),
-  //         { title: { contains: filters.search, mode: 'insensitive' } },
-  //         { description: { contains: filters.search, mode: 'insensitive' } },
-  //       ];
-  //     }
-  //   }
-
-  //   const [tasks, total] = await Promise.all([
-  //     this.prisma.task.findMany({
-  //       where,
-  //       skip,
-  //       take: limit,
-  //       include: this.getTaskInclude(),
-  //       orderBy: { 
-  //         [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc' 
-  //       },
-  //     }),
-  //     this.prisma.task.count({ where }),
-  //   ]);
-
-  //   return {
-  //     tasks: tasks.map(task => this.mapToTaskResponseDto(task)),
-  //     pagination: {
-  //       page,
-  //       limit,
-  //       total,
-  //       pages: Math.ceil(total / limit),
-  //     },
-  //   };
-  // }
-
-
-  // async getOneTask(id: string, userId?: string, userRole?: string) {
-  //   const task = await this.prisma.task.findUnique({
-  //     where: { id },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   if (!task) {
-  //     throw new NotFoundException(`Task with ID ${id} not found`);
-  //   }
-
-  //   // Authorization check
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     const isCreator = task.createdById === userId;
-  //     const isAssignee = task.assignees.some(assignee => assignee.userId === userId);
-      
-  //     if (!isCreator && !isAssignee) {
-  //       throw new ForbiddenException('You do not have permission to view this task');
-  //     }
-  //   }
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-  // async updateTask(id: string, updateTaskDto: UpdateTaskDto, userId: string, userRole: string) {
-  //   const { assignees, ...taskData } = updateTaskDto;
-
-  //   const existingTask = await this.getOneTask(id, userId, userRole);
-
-  //   // Authorization: Only creators or managers can update tasks
-  //   const isCreator = existingTask.createdBy.id === userId;
-  //   if (!isCreator && !this.isManager(userRole)) {
-  //     throw new ForbiddenException('You can only update your own tasks');
-  //   }
-
-  //   // Managers can update anything, creators can only update certain fields
-  //   const allowedUpdates = this.isManager(userRole) ? 
-  //     { ...taskData } : 
-  //     { 
-  //       title: taskData.title,
-  //       description: taskData.description,
-  //       startDate: taskData.startDate,
-  //       dueDate: taskData.dueDate,
-  //       category: taskData.category,
-  //       priority: taskData.priority,
-  //     };
-
-  //   const task = await this.prisma.task.update({
-  //     where: { id },
-  //     data: {
-  //       ...allowedUpdates,
-  //       // Only managers can update assignees directly
-  //       ...(this.isManager(userRole) && assignees && {
-  //         assignees: {
-  //           deleteMany: {},
-  //           create: assignees.map(userId => ({ userId })),
-  //         },
-  //       }),
-  //     },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-    async getAllTasks() {
+  async getAllTasks() {
     const tasks = await this.prisma.task.findMany({
       include: this.getTaskInclude(),
-      orderBy: { 
-        createdAt: 'desc' 
+      orderBy: {
+        createdAt: 'desc'
       },
     });
 
-    return tasks.map(task => this.mapToTaskResponseDto(task));
+    return tasks
+  }
+
+  async createTaskCategory(userId: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto
+
+    try {
+      const createdBy = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        },
+      })
+
+      if (!createdBy) mustHave(createdBy, "User not found", 404)
+
+      const categoryExists = await this.prisma.category.findUnique({
+        where: {
+          title
+        }
+      })
+
+      if (categoryExists) bad(`${title} already created`)
+      if (department) {
+        const deptExists = await this.prisma.department.findMany({ where: { id: { in: department } } })
+
+        if (deptExists.length < department.length) bad("One or more departments not found")
+      }
+
+      const res = await this.prisma.category.create({
+        data: {
+          categoryId: IdGenerator("CAT"),
+          title,
+          type: CategoryType.Task,
+          description: description || undefined,
+          color: color || "gray",
+          departments: { connect: department.map((id) => ({ id })) },
+          createdBy: { connect: { id: userId } },
+        },
+      })
+
+      return {
+        message: title + " " + "created successfully",
+        data: res
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async updateTaskCategory(id: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto;
+
+    try {
+      const category = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true },
+      });
+
+      if (!category) bad("Category not found");
+
+      if (department && department.length > 0) {
+        const deptExists = await this.prisma.department.findMany({
+          where: { id: { in: department } },
+        });
+
+        if (deptExists.length < department.length) {
+          bad("One or more departments not found");
+        }
+      }
+
+      const res = await this.prisma.category.update({
+        where: { id },
+        data: {
+          title: title || undefined,
+          description: description || undefined,
+          color: color || undefined,
+
+          departments: {
+            set: department
+              ? department.map((id) => ({ id }))
+              : undefined,
+          },
+        },
+      });
+
+      return {
+        message: `${title} updated successfully`,
+        data: res,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async deleteTaskCategory(id: string) {
+
+    try {
+      await this.prisma.category.delete({
+        where: {
+          id
+        }
+      })
+
+      return {
+        message: `category deleted successfully`,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async listTaskCategories(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+
+      if (!user) bad("User not found");
+
+      const departmentIds = user.departments.map((d) => d.id);
+
+      const categories = await this.prisma.category.findMany({
+        where: {
+          type: CategoryType.Task,
+          departments: {
+            some: {
+              id: { in: departmentIds }
+            }
+          },
+        },
+        orderBy: { title: "asc" },
+        include: {
+          tasks: {
+            include: this.getTaskInclude(),
+          },
+        },
+      });
+
+      return categories;
+    } catch (error) {
+      bad(error);
+    }
   }
 
   async getOneTask(id: string) {
@@ -517,34 +506,138 @@ private isValidISODate(dateString: string): boolean {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    return this.mapToTaskResponseDto(task);
+    return task
   }
 
-  async updateTask(id: string, updateTaskDto: UpdateTaskDto) {
-    const { assignees, ...taskData } = updateTaskDto;
+  async getTaskCategory(id: string) {
+    try {
+      const taskCategory = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true }
+      });
 
-    // Check if task exists
-    await this.getOneTask(id);
+      if (!taskCategory) {
+        bad(`Task with ID ${id} not found`);
+      }
+      return taskCategory
+    } catch (error) {
+      bad(error)
+    }
 
-    const task = await this.prisma.task.update({
-      where: { id },
-      data: {
-        ...taskData,
-        ...(assignees !== undefined && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map(userId => ({ userId })),
+  }
+
+  async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
+    const { assignees, category, uploads, status, issue, ...rest } = taskData;
+
+    const findTask = await this.getOneTask(id);
+    if (!findTask) mustHave(findTask, "Task not found", 404)
+
+    if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
+      if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
+      if (!findTask.startDate) bad("Cannot approve task without start date")
+      if (!findTask.dueDate) bad("Cannot approve task without due date")
+      if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
+    }
+
+    const task = await this.prisma.$transaction(async (tx) => {
+
+      // --- handle Uploads ---
+      if (uploads !== undefined && uploads.length > 0) {
+        await tx.task.update({
+          where: { id },
+          data: {
+            uploads: {
+              // set: [], // optional: clears old uploads if needed
+              connect: uploads.map((u: string) => ({ id: u })),
+            },
           },
-        }),
-      },
-      include: this.getTaskInclude(),
+        });
+      }
+
+      // --- Sync Assignees ---
+      if (assignees !== undefined) {
+        const existingAssignees = await tx.userTask.findMany({
+          where: { taskId: id },
+          select: { userId: true },
+        });
+        const existingIds = existingAssignees.map((a) => a.userId);
+
+        const newIds = assignees.filter((id: string) => !existingIds.includes(id));
+        const removedIds = existingIds.filter((id) => !assignees.includes(id));
+
+        // Add new ones
+        if (newIds.length > 0) {
+          await tx.userTask.createMany({
+            data: newIds.map((userId: string) => ({
+              taskId: id,
+              userId,
+            })),
+          });
+        }
+
+        // Remove unselected ones
+        if (removedIds.length > 0) {
+          await tx.userTask.deleteMany({
+            where: { taskId: id, userId: { in: removedIds } },
+          });
+        }
+      }
+
+      // --- Handle Categories ---
+      if (category !== undefined && category.length > 0) {
+        await tx.task.update({
+          where: { id },
+          data: {
+            category: {
+              connect: category.map(id => ({ id }))
+            }
+          },
+        });
+
+
+      }
+
+      // --- Handle Task Status
+      if (status) {
+
+        await tx.task.update({
+          where: {
+            id
+          },
+          data: status === "ISSUES" ? {
+            hasIssues: true,
+            status,
+            taskIssues: {
+              create: {
+                issue: issue,
+                reportedBy: {
+                  connect: { id: userId }
+                }
+              }
+            }
+          } : {
+            status
+          }
+        })
+      }
+
+      // --- Update Task Base Data ---
+      const updatedTask = await tx.task.update({
+        where: { id },
+        data: rest,
+        include: this.getTaskInclude(),
+      });
+
+      return updatedTask;
     });
 
-    return this.mapToTaskResponseDto(task);
+    return task;
   }
 
-  async deleteTask(id: string, userId: string, userRole: string) {
+  async deleteTask(id: string, userId: string, userRole: string[]) {
     const task = await this.getOneTask(id);
+
+    console.log(task, userId)
 
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;
@@ -559,37 +652,44 @@ private isValidISODate(dateString: string): boolean {
     return { message: 'Task deleted successfully' };
   }
 
-  private getTaskInclude() {
+  getTaskInclude() {
     return {
       createdBy: {
-        select: { 
-          id: true, 
-          firstName: true, 
-          lastName: true, 
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
           email: true,
           role: true,
         },
       },
       approvedBy: {
-        select: { 
-          id: true, 
-          firstName: true, 
-          lastName: true, 
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
           email: true,
         },
       },
       assignees: {
         include: {
           user: {
-            select: { 
-              id: true, 
-              firstName: true, 
-              lastName: true, 
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
               email: true,
             },
           },
         },
       },
+      comments: {
+        include: {
+          uploads: true,
+          user: true
+        }
+      },
+      category: true,
       uploads: true,
     };
   }

@@ -3,7 +3,6 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
-import { AddClaimMailDto, ApproveClaimMailDto, RejectClaimMailDto } from 'src/claims/dto/claims.dto';
 
 @Injectable()
 export class MailService {
@@ -154,57 +153,4 @@ export class MailService {
       context: { name, leaveType, startDate, endDate, leaveValue, reason },
     })
   }
-
-  async sendAddClaimMail(data: AddClaimMailDto) {
-  const { email, name, claimType, amount, dateOfExpense, reason, link } = data;
-
-  await this.mailerService.sendMail({
-    to: email,
-    subject: MAIL_SUBJECT.ADD_CLAIM,
-    template: 'addClaim',
-    context: { 
-      name, 
-      claimType, 
-      amount, 
-      dateOfExpense, 
-      reason, 
-      link 
-    },
-  });
 }
-
-async sendApproveClaimMail(data: ApproveClaimMailDto) {
-  const { email, name, claimType, amount, dateOfExpense } = data;
-
-  await this.mailerService.sendMail({
-    to: email,
-    subject: MAIL_SUBJECT.CLAIM_APPROVED,
-    template: 'approveClaim',
-    context: { 
-      name, 
-      claimType,
-      amount,
-      dateOfExpense
-    },
-  });
-}
-
-async sendRejectClaimMail(data: RejectClaimMailDto) {
-  const { email, name, claimType, amount, dateOfExpense, reason } = data;
-
-  await this.mailerService.sendMail({
-    to: email,
-    subject: MAIL_SUBJECT.CLAIM_REJECTED,
-    template: 'rejectClaim',
-    context: { 
-      name, 
-      claimType, 
-      amount, 
-      dateOfExpense, 
-      reason 
-    },
-  });
-}
-
-}
-

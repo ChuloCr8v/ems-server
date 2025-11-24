@@ -8,6 +8,6 @@ import { PayslipTemplateService } from './template.service';
 @Module({
   imports: [PrismaModule],
   controllers: [PayrollController],
-  providers: [PayrollService, TaxService, PayslipTemplateService],
+  providers: [PayrollService, TaxService, PayslipTemplateService,],
 })
-export class PayrollModule {}
+export class PayrollModule { }
