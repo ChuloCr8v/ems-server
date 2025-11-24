@@ -45,8 +45,6 @@ model User {
   maritalStatus         MaritalStatus?
   levelId               String?            @db.Uuid
   prospectId            String?            @unique @db.Uuid
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
   dateOfBirth           DateTime?
   approvals             Approval[]
   approver              Approver[]
@@ -83,7 +81,11 @@ model User {
   appraisals   Appraisal[] @relation("Appraised")
   appraisers   Appraisal[] @relation("Appraiser")
 
-  reports Report[]
+  reports    Report[]
+  taskIssues TaskIssues[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([eId])
@@ -593,6 +595,21 @@ model ClaimType {
 /////////////////////////////////////////// PERFORMANCE ////////////////////////////////////////
 
 /////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
+
+model TaskIssues {
+  id    String @id @default(uuid()) @db.Uuid
+  issue String
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  reportedBy User?   @relation(fields: [userId], references: [id])
+  userId     String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Task {
   id          String     @id @default(uuid()) @db.Uuid
   taskId      String?    @unique
@@ -603,6 +620,8 @@ model Task {
   category    Category[]
   priority    String?
   status      TaskStatus @default(PENDING_APPROVAL)
+
+  isReported Boolean @default(false)
 
   // Relations
   createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
@@ -622,7 +641,10 @@ model Task {
   approvedAt          DateTime?
   rejectionReason     String?
 
-  reports Report[]
+  hasIssues Boolean? @default(false)
+
+  reports    Report[]
+  taskIssues TaskIssues[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -665,7 +687,7 @@ model UserTask {
   assignedAt DateTime @default(now())
   userId     String   @db.Uuid
   taskId     String   @db.Uuid
-  Task       Task     @relation(fields: [taskId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, taskId])
@@ -806,6 +828,7 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+  ISSUES
 }
 
 enum AStatus {

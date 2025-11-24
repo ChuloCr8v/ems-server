@@ -103,8 +103,10 @@ export class TasksController {
 
   @Auth()
   @Patch(':id')
-  updateTask(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto) {
-    return this.tasksService.updateTask(id, updateTaskDto);
+  updateTask(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto, @Req() req: ReqPayload) {
+
+    const userId = req.user.id
+    return this.tasksService.updateTask(id, updateTaskDto, userId);
   }
 
   @Auth()
