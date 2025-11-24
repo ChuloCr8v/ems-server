@@ -226,7 +226,7 @@ export class PayrollService {
             ...staticEarningComponents,
         ].map((component) => ({
             ...component,
-            id: crypto.randomUUID(), // ✅ add unique id
+            id: crypto.randomUUID(), //  add unique id
         }));
 
         for (const component of allEarningComponents) {
@@ -241,7 +241,7 @@ export class PayrollService {
             ...staticDeductionComponents,
         ].map((component) => ({
             ...component,
-            id: crypto.randomUUID(), // ✅ add unique id
+            id: crypto.randomUUID(), //  add unique id
         }));
 
         for (const component of allDeductionComponents) {
@@ -540,6 +540,7 @@ export class PayrollService {
     }
 
     private async generateConsolidatedDeductionSummary(payrolls: Payroll[]): Promise<void> {
+        console.log({ payrolls })
         const now = new Date();
         const month = now.getMonth() + 1;
         const year = now.getFullYear();
@@ -553,11 +554,12 @@ export class PayrollService {
             where: {
                 payrollId: { in: payrolls.map((p) => p.id) },
                 category: { in: ["STATIC_DEDUCTION"] },
-                createdAt: { gte: monthStart, lte: monthEnd },
+                // createdAt: { gte: monthStart, lte: monthEnd },
             },
             include: { user: true },
         });
 
+        console.log({ comps })
         // === 2. Fetch all earnings (for employer pension calc)
         const earningComponents = await this.prisma.payrollComponent.findMany({
             where: {
@@ -601,6 +603,7 @@ export class PayrollService {
             }
         }
 
+        console.log({ employeeMap })
         // Employee pension + tax deductions
         for (const c of comps) {
             const id = c.user.eId;
@@ -622,7 +625,13 @@ export class PayrollService {
             emp.totalPension = (emp.employeePension || 0) + (emp.employerPension || 0);
         }
 
+        console.log({ employeeMap })
+
+
         const structuredData = Array.from(employeeMap.values());
+
+
+        console.log({ structuredData })
 
         // === 5. Generate Excel file
         const excelBuffer = await this.generateDeductionsExcel({
@@ -649,7 +658,7 @@ export class PayrollService {
         try {
             const { start, end } = getMonthDateRange();
 
-            // ✅ Check if payslips already exist for this month
+            // Check if payslips already exist for this month
             const existingPayslip = await this.prisma.payslip.findFirst({
                 where: {
                     createdAt: {
@@ -663,7 +672,7 @@ export class PayrollService {
             //     throw new ConflictException('Payslips have already been generated for this month');
             // }
 
-            // ✅ Fetch payrolls with related data
+            //  Fetch payrolls with related data
             const payrolls = await this.prisma.payroll.findMany({
                 include: {
                     user: true,
@@ -675,30 +684,36 @@ export class PayrollService {
                 throw new NotFoundException('No payrolls found to generate payslips');
             }
 
-            // ✅ Generate PDF payslips for each payroll (user)
-            const results = await Promise.allSettled(
-                payrolls.map(payroll => this.generatePayslipPDFOnly(payroll))
+            //  Generate all payslip PDFs
+            // Using Promise.all ensures that if one fails, the entire operation fails.
+            await Promise.all(
+                payrolls.map(async (payroll) => {
+                    try {
+                        await this.generatePayslipPDFOnly(payroll);
+                    } catch (err: any) {
+                        console.error(`Failed to generate payslip for user ${payroll.user?.id || "unknown"}`, err);
+                        throw new Error(`Payslip generation failed for user ${payroll.user?.firstName || payroll.user?.id}`);
+                    }
+                })
             );
 
-            // ✅ Generate ONE consolidated deductions Excel for ALL users
+            //  Generate consolidated deductions Excel
             await this.generateConsolidatedDeductionSummary(payrolls);
-
-            const successCount = results.filter(r => r.status === 'fulfilled').length;
-            const failedCount = results.length - successCount;
 
             return {
                 success: true,
-                message: `Successfully generated ${successCount} payslips${failedCount ? ` (${failedCount} failed)` : ''}`,
+                message: `Successfully generated payslips for ${payrolls.length} employees.`,
             };
         } catch (error: any) {
-            if (
-                error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException
-            ) {
+            console.error("Error in generatePayslips:", error);
+
+            if (error instanceof ConflictException || error instanceof NotFoundException) {
                 throw error;
             }
-            throw new BadRequestException(`Failed to generate payslips: ${error.message}`);
+
+            throw new BadRequestException(
+                `Failed to generate payslips: ${error.message || "Unknown error"}`
+            );
         }
     }
 
@@ -748,9 +763,16 @@ export class PayrollService {
     async listPayslips() {
         try {
             return await this.prisma.payslip.findMany({
-                include: {
+                select: {
+                    id: true,
                     user: true,
+                    name: true,
+                    createdAt: true,
+                    amount: true,
+                    month: true,
+                    payrollId: true, userId: true
                 },
+
                 orderBy: {
                     createdAt: "desc"
                 }
@@ -911,7 +933,7 @@ export class PayrollService {
         try {
             const payroll = await this.findPayroll(payrollId);
             //Update or create tax component
-            const taxComponentTitles = ['Pension Contribution', 'NHF Contribution', 'PAYE Tax'];
+            // const taxComponentTitles = ['Pension Contribution', 'NHF Contribution', 'PAYE Tax'];
             const taxComponents = [
                 { title: 'Pension Contribution', amount: taxResults.pension },
                 { title: 'NHF Contribution', amount: taxResults.nhf },
@@ -1004,6 +1026,8 @@ export class PayrollService {
                             lastName: true,
                             jobType: true,
                             email: true,
+                            // departments: true,
+                            departments: { select: { id: true } }
                         },
                     },
                 },
@@ -1290,7 +1314,7 @@ export class PayrollService {
         deductions: any[];
         month: string;
         year: number;
-    }): Promise<Buffer> {
+    }): Promise<any> {
         try {
             const workbook = new ExcelJS.Workbook();
             const sheet = workbook.addWorksheet(`Deductions ${month}-${year}`);
