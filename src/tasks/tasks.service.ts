@@ -6,6 +6,7 @@ import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, Updat
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
+import { create } from 'domain';
 
 
 @Injectable()
@@ -77,9 +78,19 @@ export class TasksService {
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
-      console.log(createTaskDto)
+      if (isManager) {
+        if (!assignees.length)
+          return bad("Please provide at least one assignee");
 
-      // Validate assignees exist if provided
+        const { startDate, dueDate } = createTaskDto;
+
+        if (!startDate)
+          return bad("Please provide a start date");
+
+        if (!dueDate)
+          return bad("Please provide a due date");
+      }
+
       if (assignees && assignees.length > 0) {
         const existingUsers = await this.prisma.user.findMany({
           where: { id: { in: assignees } },
@@ -91,7 +102,6 @@ export class TasksService {
         }
       }
 
-      // FIX: Only include dates if they are valid ISO strings
       const createData: any = {
         title: taskData.title,
         description: taskData.description,
@@ -101,17 +111,14 @@ export class TasksService {
         createdById,
       };
 
-      // Only add startDate if it's a valid ISO string
       if (typeof taskData.startDate === 'string' && this.isValidISODate(taskData.startDate)) {
         createData.startDate = new Date(taskData.startDate);
       }
 
-      // Only add dueDate if it's a valid ISO string
       if (typeof taskData.dueDate === 'string' && this.isValidISODate(taskData.dueDate)) {
         createData.dueDate = new Date(taskData.dueDate);
       }
 
-      // Add approval data for managers
       if (isManager && assignees && assignees.length > 0) {
         createData.approvedById = createdById;
         createData.approvedAt = new Date();
@@ -120,14 +127,17 @@ export class TasksService {
         createData.approvalRequestedAt = new Date();
       }
 
-      // Add assignees if provided
       if (assignees && assignees.length > 0) {
         createData.assignees = {
           create: assignees.map(userId => ({ userId })),
         };
       }
 
-      console.log('🔍 Creating task with data:', createData);
+      //Add creator as assignee if not manager
+      createData.assignees = {
+        create: { userId: createdById },
+      }
+
       const task = await this.prisma.task.create({
         data: {
           ...createData,
@@ -519,7 +529,15 @@ export class TasksService {
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
     const { assignees, category, uploads, status, issue, ...rest } = taskData;
 
-    await this.getOneTask(id);
+    const findTask = await this.getOneTask(id);
+    if (!findTask) mustHave(findTask, "Task not found", 404)
+
+    if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
+      if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
+      if (!findTask.startDate) bad("Cannot approve task without start date")
+      if (!findTask.dueDate) bad("Cannot approve task without due date")
+      if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
+    }
 
     const task = await this.prisma.$transaction(async (tx) => {
 
@@ -535,7 +553,6 @@ export class TasksService {
           },
         });
       }
-
 
       // --- Sync Assignees ---
       if (assignees !== undefined) {
@@ -582,6 +599,7 @@ export class TasksService {
 
       // --- Handle Task Status
       if (status) {
+
         await tx.task.update({
           where: {
             id
