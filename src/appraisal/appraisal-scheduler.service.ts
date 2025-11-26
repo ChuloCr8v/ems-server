@@ -9,14 +9,17 @@ export class AppraisalSchedulerService {
 
     constructor(private readonly prisma: PrismaService) {}
 
-    @Cron(CronExpression.EVERY_QUARTER)
-    async generateQuaterlyAppraisals() {
+    // @Cron(CronExpression.EVERY_QUARTER)
+    async generateQuaterlyAppraisals(userId: string, data: { quarter: string, year: number }) {
         this.logger.log('Starting quarterly appraisal generation...');
 
-        const currentDate = new Date();
-        const quarter = this.getCurrentQuarter(currentDate);
-        const year = currentDate.getFullYear();
-        const period = `${quarter} ${year}`;
+        // const currentDate = new Date();
+        // const quarter = this.getCurrentQuarter(currentDate);
+        // const year = currentDate.getFullYear();
+        // const period = `${quarter} ${year}`;
+
+        const { quarter, year } = data;
+        const period = `${quarter} ${year}`
 
         try {
             // Get all active employees with their managers

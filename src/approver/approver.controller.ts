@@ -11,6 +11,11 @@ export class ApproverController {
     return this.approverService.getGlobalApprovers();
   }
 
+  @Get('dept')
+  findAllDeptApprovers() {
+    return this.approverService.getDepartmentApprovers();
+  }
+
   // @Get('department/:departmentId')
   // findByDepartment(@Param('departmentId', ParseUUIDPipe) departmentId: string) {
   //   return this.approverService.getApproversForDepartment(departmentId);

@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Res, Req, Delete } from '@ne
 import { KpiService } from './kpi.service';
 import { CreateKpiDto } from './dto/kpi.dto';
 import { Response } from 'express';
-import { Auth, AuthUser, KpiUser } from 'src/auth/decorators/auth.decorator';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 
 import type { Request } from 'express';
