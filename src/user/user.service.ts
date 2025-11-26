@@ -356,16 +356,20 @@ export class UserService {
         });
     }
 
-    async getUser(id: string) {
+    async getUser(id: string, requesterId: string) {
         try {
 
-            const user = await this.__findUserById(id)
+            const requester = await this.__findUserById(requesterId)
+            mustHave(requester, "Requester not found", 404)
 
+            const user = await this.__findUserById(id)
             if (!user) mustHave(user, "User not found", 404)
-            return user
+            if (requester.userRole?.includes(Role.ADMIN) || requester.userRole?.includes(Role.ASSET_MANAGER)) return user
+            if (user.id === requesterId) return user
+
+            return bad("You do not have permission to view this user")
 
         } catch (error) {
-            console.log(error)
             bad(error)
         }
 

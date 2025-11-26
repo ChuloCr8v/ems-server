@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { EntitlementDto, UpdateEntitlement } from './dto/entitlement.dto';
-import { bad } from 'src/utils/error.utils';
+import { EntitlementDto, UpdateEntitlementDto } from './dto/entitlement.dto';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { EntitlementType } from '@prisma/client';
 
 @Injectable()
 export class EntitlementService {
@@ -17,7 +18,14 @@ export class EntitlementService {
             return await this.prisma.entitlement.create({
                 data: {
                     name,
-                    unit
+                    unit,
+                    type: dto.type,
+                    levels: dto.levels ? {
+                        create: dto.levels?.map((level) => ({
+                            levelId: level.levelId,
+                            value: level.value,
+                        })),
+                    } : undefined,
                 },
             });
         } catch (error) {
@@ -37,7 +45,11 @@ export class EntitlementService {
                     createdAt: "desc"
                 },
                 include: {
-                    levels: true,
+                    levels: {
+                        include: {
+                            level: true
+                        }
+                    },
                 }
             });
         } catch (error) {
@@ -63,8 +75,32 @@ export class EntitlementService {
         }
     }
 
-    async updateEntitlement(id: string, dto: UpdateEntitlement) {
-        const { name, unit } = dto;
+    async getEmployeeLeaveEntitlement(id: string, context: "CLAIMS" | "LEAVE") {
+
+        const isLeave = context === "LEAVE"
+        try {
+            const employee = await this.prisma.user.findUnique({
+                where: { id }, include: {
+                    level: {
+                        include: {
+                            entitlements: {
+                                include: { entitlement: true }
+                            }
+                        }
+                    }
+                }
+            })
+            if (!employee) mustHave(employee, "Account not found", 404)
+
+            const leaveEntitlements = employee.level.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
+            return leaveEntitlements
+        } catch (error) {
+            bad(error)
+        }
+    }
+
+    async updateEntitlement(id: string, dto: UpdateEntitlementDto) {
+        const { name, unit, levels } = dto;
         try {
             await this.__findEntitlementById(id);
             const update = await this.prisma.entitlement.update({
@@ -72,16 +108,18 @@ export class EntitlementService {
                 data: {
                     name,
                     unit,
+                    levels: levels ? {
+                        deleteMany: {},
+                        create: levels?.map((level) => ({
+                            levelId: level.levelId,
+                            value: level.value,
+                        })),
+                    } : undefined,
                 },
             });
             return update;
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to edit entitlement');
+            bad(error)
         }
     }
 

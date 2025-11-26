@@ -19,17 +19,7 @@ import { CreateCategoryDto } from 'src/category/category.dto';
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService,
-    private readonly prisma: PrismaService,
   ) { }
-
-  private async getFirstUser() {
-    const user = await this.prisma.user.findFirst();
-    if (!user) {
-      throw new Error('No users found in database. Please run the seed script.');
-    }
-    return user;
-  }
-
 
   //Categories
 
