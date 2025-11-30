@@ -1,14 +1,11 @@
-import { IsString, IsNumber, IsDate, IsOptional, IsEnum, IsArray } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsEnum, IsArray, isString } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ClaimStatus, ClaimType } from '@prisma/client';
+import { ClaimStatus, Entitlement } from '@prisma/client';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateClaimDto {
   @IsString()
   title: string;
-
-  @IsString()
-  claimType: string;
 
   @Type(() => Number)
   @IsNumber()
@@ -17,6 +14,10 @@ export class CreateClaimDto {
   @IsDate()
   @Type(() => Date)
   dateOfExpense: Date;
+
+  @IsString()
+  @Type(() => String)
+  entitlement: string;
 
   @IsOptional()
   @IsString()
@@ -45,7 +46,7 @@ export class FileResponseDto {
 export class ClaimResponseDto {
   id: string;
   title: string;
-  claimType: ClaimType;
+  entitlement: Entitlement;
   amount: number;
   dateOfExpense: Date;
   description?: string;

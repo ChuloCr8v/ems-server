@@ -10,12 +10,14 @@ import {
   UploadedFiles,
   Patch,
   Delete,
+  Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
 import { Response } from 'express';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { ReqPayload } from 'src/auth/dto/auth.dto';
 
 
 @Controller('users')
@@ -28,7 +30,7 @@ export class UserController {
     return await this.userService.getMe(user.sub);
   }
 
-  @Auth(["ADMIN", "HR"])
+  // @Auth(["ADMIN", "HR"])
   @Post('invite/:id')
   async createUser(@Param('id') id: string, @Body() data: UpdateUserDto) {
     return await this.userService.updateUser(id, data, "invite");
@@ -47,7 +49,7 @@ export class UserController {
     return res.status(200).json({ message: `Assets assigned`, user });
   }
 
-  @Auth()
+  @Auth(["ADMIN", "HR", "FACILITY"])
   @Get()
   async findAllUsers() {
     return await this.userService.findAllUsers();
@@ -55,8 +57,9 @@ export class UserController {
 
   @Auth()
   @Get(":id")
-  async getUser(@Param("id") id: string) {
-    return this.userService.getUser(id);
+  async getUser(@Param("id") id: string, @Req() req: ReqPayload) {
+    const requesterId = req.user.id
+    return this.userService.getUser(id, requesterId);
   }
 
   @Auth(["ADMIN", "HR"])
@@ -68,7 +71,7 @@ export class UserController {
   @Auth(["ADMIN", "HR", "FACILITY"])
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
-  async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @UploadedFiles() uploads: { uploads?: Express.Multer.File[] }, @Res() res: Response) {
+  async updateUser(@Param('id') id: string, @Body() data: UpdateUserDto, @Res() res: Response) {
 
     const user = await this.userService.updateEmployee(id, data);
     return res.status(200).json({ message: `User Details Has Been Updated`, user })

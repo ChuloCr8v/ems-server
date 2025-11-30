@@ -19,17 +19,7 @@ import { CreateCategoryDto } from 'src/category/category.dto';
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService,
-    private readonly prisma: PrismaService,
   ) { }
-
-  private async getFirstUser() {
-    const user = await this.prisma.user.findFirst();
-    if (!user) {
-      throw new Error('No users found in database. Please run the seed script.');
-    }
-    return user;
-  }
-
 
   //Categories
 
@@ -91,8 +81,10 @@ export class TasksController {
 
   @Auth()
   @Get()
-  getAllTasks() {
-    return this.tasksService.getAllTasks();
+  getAllTasks(
+    @Req() req: ReqPayload
+  ) {
+    return this.tasksService.getAllTasks(req.user.id);
   }
 
   @Auth()
@@ -140,6 +132,51 @@ export class TasksController {
     // In a real app, you'd get this from the auth token
     const approvedById = 'user-id-from-token'; // Replace with actual user ID from auth
     return this.tasksService.approveTask(id, approvedById, body.assignees);
+  }
+
+  @Auth(["DEPT_MANAGER", "ADMIN", "TEAM_LEAD"])
+  @Post(':id/transfer')
+  async transferTask(
+    @Param('id') id: string, @Req() req: ReqPayload, @Body() dto: { ownerId: string, newDeliveryDate: Date, note?: string }) {
+    return this.tasksService.transfer(id, req.user.id, dto.ownerId, dto.newDeliveryDate, dto.note);
+  }
+
+
+  @Auth(["DEPT_MANAGER", "ADMIN", "TEAM_LEAD"])
+  @Post(':id/extend')
+  async extendDueDate(
+    @Param('id') id: string, @Req() req: ReqPayload, @Body() dto: { newDeliveryDate: Date, note?: string }) {
+    return this.tasksService.extendDueDate(id, req.user.id, dto.newDeliveryDate, dto.note);
+  }
+
+
+  @Auth()
+  @Post(':id/request-extension')
+  async requestExtension(
+    @Param('id') id: string, @Req() req: ReqPayload, @Body() dto: { newDeliveryDate: Date, note?: string }) {
+    return this.tasksService.requestExtension(id, req.user.id, dto.newDeliveryDate, dto.note);
+  }
+
+
+  @Auth()
+  @Post(':id/accept-extension')
+  async acceptExtensionRequest(
+    @Param('id') id: string, @Req() req: ReqPayload, @Body() dto: { newDeliveryDate: Date, note?: string }) {
+    return this.tasksService.acceptExtensionRequest(id, req.user.userRole, dto.newDeliveryDate);
+  }
+
+  @Auth()
+  @Patch(':id/reject-extension')
+  async rejectExtensionRequest(
+    @Param('id') id: string, @Req() req: ReqPayload) {
+    return this.tasksService.rejectExtensionRequest(id, req.user.userRole);
+  }
+
+  @Auth()
+  @Patch(':id/hide-extension')
+  async hideExtension(
+    @Param('id') id: string) {
+    return this.tasksService.hideExtension(id);
   }
 
   //Task Comments
