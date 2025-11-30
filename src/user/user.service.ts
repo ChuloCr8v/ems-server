@@ -23,6 +23,7 @@ export class UserService {
                     id: sub
                 },
                 include: {
+                    departments: true,
                     approver: {
                         include: {
                             department: true
@@ -294,9 +295,12 @@ export class UserService {
             await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency, data.nextOfKin);
         }
 
-        if ("departments" in user && user.departments?.length) {
+        if (data.departments.length > 0) {
+            console.log({ "data": data })
+
             updateData.departments = {
-                connect: user.departments.map((d) => ({ id: d.id })),
+                set: [],
+                connect: data.departments.map((d) => ({ id: d })),
             };
         }
 

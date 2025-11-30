@@ -92,7 +92,7 @@ export class EntitlementService {
             })
             if (!employee) mustHave(employee, "Account not found", 404)
 
-            const leaveEntitlements = employee.level.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
+            const leaveEntitlements = employee.level?.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
             return leaveEntitlements
         } catch (error) {
             bad(error)

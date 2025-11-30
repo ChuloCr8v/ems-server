@@ -71,6 +71,10 @@ export class CreateTaskDto {
   @IsOptional()
   @IsArray()
   uploads?: string[];
+
+  @IsString()
+  @IsOptional()
+  department?: string;
 }
 
 export class UpdateTaskDto {

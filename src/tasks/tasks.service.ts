@@ -1,7 +1,7 @@
 // tasks.service.ts
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApprovalStatus, CategoryType, Prisma, TaskStatus, User } from '@prisma/client';
+import { ApprovalStatus, CategoryType, Prisma, Role, Task, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
@@ -75,11 +75,25 @@ export class TasksService {
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
       const { uploads, assignees, category, ...taskData } = createTaskDto;
+
+      const taskCreator = await this.prisma.user.findUnique({
+        where: {
+          id: createdById
+        }, include: {
+          departments: true
+        }
+      })
+
+      if (!taskCreator) mustHave(taskCreator, "Unathorized", 401)
+
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
+
+
+
       if (isManager) {
-        if (!assignees.length)
+        if (!assignees)
           return bad("Please provide at least one assignee");
 
         const { startDate, dueDate } = createTaskDto;
@@ -133,6 +147,16 @@ export class TasksService {
         };
       }
 
+      const taskDepts = createTaskDto.department ?? (await this.prisma.user.findUnique({
+        where: { id: createdById },
+        include:
+        {
+          departments: true
+        }
+      }))?.departments[0].id
+
+      console.log(taskDepts)
+
       //Add creator as assignee if not manager
       createData.assignees = {
         create: { userId: createdById },
@@ -141,6 +165,7 @@ export class TasksService {
       const task = await this.prisma.task.create({
         data: {
           ...createData,
+          departmentId: taskDepts,
           taskId: IdGenerator("TSK"),
           ...(uploads && uploads.length > 0
             ? {
@@ -343,16 +368,252 @@ export class TasksService {
     return this.mapToTaskResponseDto(updatedTask);
   }
 
-  async getAllTasks() {
-    const tasks = await this.prisma.task.findMany({
-      include: this.getTaskInclude(),
-      orderBy: {
-        createdAt: 'desc'
-      },
-    });
+  async getAllTasks(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
 
-    return tasks
+      if (!user) throw new UnauthorizedException();
+
+      const baseFindArgs: Prisma.TaskFindManyArgs = {
+        include: this.getTaskInclude(),
+        orderBy: { createdAt: 'desc' },
+      };
+
+      if (user.userRole.includes(Role.ADMIN)) {
+        return this.prisma.task.findMany(baseFindArgs);
+      }
+
+      if (user.userRole.includes(Role.DEPT_MANAGER) || user.userRole.includes(Role.TEAM_LEAD)) {
+        const userDeptIds = user.departments.map((d) => d.id);
+
+        return this.prisma.task.findMany({
+          ...baseFindArgs,
+          where: {
+            OR: [
+              {
+                department: {
+                  id: { in: userDeptIds }
+                }
+              },
+
+              {
+                assignees: {
+                  some: { userId },
+                },
+              },
+              {
+                createdById: userId,
+              },
+              {
+                taskTransfers: {
+                  some: { userId },
+                },
+              },
+            ],
+          },
+        });
+      }
+
+      return this.prisma.task.findMany({
+        ...baseFindArgs,
+        where: {
+          OR: [
+            {
+              assignees: {
+                some: { userId },
+              },
+            },
+            {
+              createdById: userId,
+            },
+            {
+              taskTransfers: {
+                some: { userId },
+              },
+            },
+          ],
+        },
+      });
+    } catch (error) {
+      bad(error);
+    }
   }
+
+
+  //TASK EXTENSIONS
+  async extendDueDate(id: string, userId: string, dueDate: Date, note?: string) {
+    try {
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+          OR: [
+            {
+              userRole: {
+                hasSome: [Role.ADMIN, Role.DEPT_MANAGER, Role.TEAM_LEAD]
+              }
+            },
+          ]
+        },
+      })
+
+      if (!user) mustHave(user, "Unathorized", 401)
+
+
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+
+      await this.prisma.taskDueDate.create({
+        data: {
+          dueDate,
+          task: { connect: { id } },
+          note: note ?? undefined
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async requestExtension(id: string, userId: string, dueDate: Date, note?: string) {
+    try {
+
+
+      console.log({ dueDate })
+
+
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        },
+        include: {
+          taskTransfers: {
+            orderBy: { createdAt: "desc" },
+            take: 1
+          }
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+
+      const taskOwner = () => {
+        if (task.hasTransfer) {
+          return task.taskTransfers[0].userId
+        } else {
+          return task.createdById
+        }
+      }
+
+      if (taskOwner() !== userId) bad("You can only request extensions on your task")
+
+      await this.prisma.extensionRequests.create({
+        data: {
+          dueDate: dueDate,
+          task: { connect: { id } },
+          note: note ?? undefined,
+          requester: { connect: { id: userId } }
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async acceptExtensionRequest(id: string, userRole: Role[], dueDate?: Date,) {
+    try {
+      console.log(userRole)
+      const canAccept = (userRole.includes(Role.DEPT_MANAGER) || userRole.includes(Role.TEAM_LEAD))
+
+      if (!canAccept) bad("You are not authorized to accept this request")
+
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          status: "APPROVED"
+        }
+      })
+
+      if (dueDate) {
+        await this.prisma.taskDueDate.create({
+          data: {
+            dueDate: dueDate,
+            task: {
+              connect: { id: extentionRequest.taskId }
+            }
+          }
+        })
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async rejectExtensionRequest(id: string, userRole: Role[]) {
+    try {
+
+      const canReject = (userRole.includes(Role.DEPT_MANAGER) || userRole.includes(Role.TEAM_LEAD))
+
+      if (!canReject) bad("You are not authorized to reject this request")
+
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          status: "REJECTED"
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async hideExtension(id: string) {
+    try {
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          isVisible: false
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+
+  //TASK CATEGORIES
 
   async createTaskCategory(userId: string, dto: CreateCategoryDto) {
     const { title, department, description, color } = dto
@@ -527,15 +788,29 @@ export class TasksService {
   }
 
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
-    const { assignees, category, uploads, status, issue, ...rest } = taskData;
 
+    const { assignees, category, uploads, status, issue, ...rest } = taskData;
     const findTask = await this.getOneTask(id);
     if (!findTask) mustHave(findTask, "Task not found", 404)
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId
+      }
+    })
+
+    if (!user) mustHave(user, "User not found", 404)
+
+    const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
+
+    const ownerId = await this.taskOwner(findTask.id)
+
+    if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
 
     if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
       if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
       if (!findTask.startDate) bad("Cannot approve task without start date")
-      if (!findTask.dueDate) bad("Cannot approve task without due date")
+      if (!findTask.hasTransfer && !findTask.taskDueDates.length && !findTask.dueDate) bad("Cannot approve task without due date")
       if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
     }
 
@@ -593,33 +868,35 @@ export class TasksService {
             }
           },
         });
-
-
       }
 
       // --- Handle Task Status
-      if (status) {
+      const completedStatus = () => {
+        if (status === "COMPLETED") {
+          if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
+        } else return status
+      }
 
-        await tx.task.update({
-          where: {
-            id
-          },
-          data: status === "ISSUES" ? {
-            hasIssues: true,
-            status,
-            taskIssues: {
-              create: {
-                issue: issue,
-                reportedBy: {
-                  connect: { id: userId }
-                }
+      await tx.task.update({
+        where: {
+          id
+        },
+        data: status === "ISSUES" ? {
+          hasIssues: true,
+          status,
+          taskIssues: {
+            create: {
+              issue: issue,
+              reportedBy: {
+                connect: { id: userId }
               }
             }
-          } : {
-            status
           }
-        })
-      }
+        } : {
+          status: completedStatus()
+        }
+      })
+
 
       // --- Update Task Base Data ---
       const updatedTask = await tx.task.update({
@@ -634,11 +911,103 @@ export class TasksService {
     return task;
   }
 
+  async transfer(
+    id: string,
+    userId: string,
+    ownerId: string,
+    newDeliveryDate?: Date,
+    note?: string
+  ) {
+    try {
+      const findTask = await this.prisma.task.findUnique({
+        where: { id },
+        include: {
+          assignees: true,
+          createdBy: {
+            include: { departments: true },
+          },
+        },
+      });
+
+      mustHave(findTask, "Task not found", 404);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+
+      mustHave(user, "User not found", 404);
+
+      const userDepts = user.departments.map((d) => d.id);
+      const taskCreatorDepts = findTask.createdBy.departments.map((d) => d.id);
+
+      const canTransfer = () => {
+        if (user.userRole.includes(Role.ADMIN)) return true;
+
+        const isDeptManagerOrLead =
+          user.userRole.includes(Role.DEPT_MANAGER) ||
+          user.userRole.includes(Role.TEAM_LEAD);
+
+        const sameDept = taskCreatorDepts.some((d) => userDepts.includes(d));
+
+        return isDeptManagerOrLead && sameDept;
+      };
+
+      if (!canTransfer()) {
+        throw new UnauthorizedException("You cannot transfer this task");
+      }
+
+      await this.prisma.taskTransfer.create({
+        data: {
+          user: { connect: { id: ownerId } },
+          task: { connect: { id } },
+          note: note ?? undefined,
+        },
+      });
+
+      await this.prisma.task.update({
+        where: { id },
+        data: {
+          hasTransfer: true,
+        },
+      });
+
+      const alreadyAssigned = findTask.assignees.some(
+        (a) => a.userId === ownerId
+      );
+
+      if (!alreadyAssigned) {
+        await this.prisma.userTask.create({
+          data: {
+            user: { connect: { id: ownerId } },
+            task: { connect: { id } },
+          },
+        });
+      }
+
+      if (newDeliveryDate) {
+        await this.prisma.taskDueDate.create({
+          data: {
+            dueDate: newDeliveryDate,
+            task: { connect: { id } },
+            note: note ?? undefined,
+          },
+        });
+      }
+
+      return await this.prisma.task.findUnique({
+        where: { id },
+        include: {
+          assignees: true,
+        },
+      });
+    } catch (error) {
+      bad(error?.message ?? "Failed to transfer task");
+    }
+  }
+
   async deleteTask(id: string, userId: string, userRole: string[]) {
     const task = await this.getOneTask(id);
-
-    console.log(task, userId)
-
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;
     if (!isCreator && !this.isManager(userRole)) {
@@ -652,8 +1021,21 @@ export class TasksService {
     return { message: 'Task deleted successfully' };
   }
 
+  async taskOwner(taskId: string) {
+    const task = await this.getOneTask(taskId);
+
+    if (task.hasTransfer) {
+
+      return task.taskTransfers[0].userId
+    } else {
+      return task.createdById
+    }
+  }
+
+
   getTaskInclude() {
     return {
+      department: true,
       createdBy: {
         select: {
           id: true,
@@ -661,6 +1043,7 @@ export class TasksService {
           lastName: true,
           email: true,
           role: true,
+          departments: true,
         },
       },
       approvedBy: {
@@ -686,11 +1069,31 @@ export class TasksService {
       comments: {
         include: {
           uploads: true,
-          user: true
-        }
+          user: true,
+        },
       },
       category: true,
       uploads: true,
+      taskTransfers: {
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      },
+      taskDueDates: {
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      },
+      extensionRequests: {
+        include: { requester: true },
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      }
+
     };
   }
 }

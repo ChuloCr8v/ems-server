@@ -103,6 +103,7 @@ export class CreateUserDto {
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   status: Status;
+  departments: string[];
 }
 export class ApproveUserDto {
   @IsString()

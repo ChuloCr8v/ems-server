@@ -81,8 +81,11 @@ model User {
   appraisals   Appraisal[] @relation("Appraised")
   appraisers   Appraisal[] @relation("Appraiser")
 
-  reports    Report[]
-  taskIssues TaskIssues[]
+  extensionRequests ExtensionRequests[]
+
+  reports       Report[]
+  taskIssues    TaskIssues[]
+  taskTransfers TaskTransfer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -105,6 +108,7 @@ model Department {
   user           User[]            @relation("DepartmentToUser")
   kpiCategories  KpiCategory[]
   appraisals     Appraisal[]
+  tasks          Task[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -626,6 +630,24 @@ model TaskIssues {
   updatedAt DateTime @updatedAt
 }
 
+model ExtensionRequests {
+  id String @id @default(uuid()) @db.Uuid
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  requester   User?    @relation(fields: [requesterId], references: [id])
+  requesterId String?  @db.Uuid
+  dueDate     DateTime
+  note        String?
+
+  status ClaimStatus? @default(PENDING)
+
+  isVisible Boolean? @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Task {
   id          String     @id @default(uuid()) @db.Uuid
   taskId      String?    @unique
@@ -644,12 +666,18 @@ model Task {
   approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
   createdById String @db.Uuid
 
+  departmentId String?     @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
+
   comments Comment[]
 
   approvedById String? @db.Uuid
 
   assignees UserTask[]
   uploads   Upload[]
+
+  hasTransfer   Boolean?       @default(false)
+  taskTransfers TaskTransfer[]
 
   // Approval tracking
   approvalStatus      ApprovalStatus @default(PENDING)
@@ -659,8 +687,36 @@ model Task {
 
   hasIssues Boolean? @default(false)
 
-  reports    Report[]
-  taskIssues TaskIssues[]
+  reports           Report[]
+  taskIssues        TaskIssues[]
+  taskDueDates      taskDueDate[]
+  extensionRequests ExtensionRequests[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model taskDueDate {
+  id     String  @id @default(uuid()) @db.Uuid()
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  dueDate DateTime?
+  note    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaskTransfer {
+  id     String  @id @default(uuid()) @db.Uuid()
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String? @db.Uuid
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  note String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -830,6 +886,7 @@ model RatingSummary {
 
 enum ApproverRole {
   DEPARTMENT_HEAD
+  DEPARTMENT_LEAD
   HR
   CISO
 }
@@ -845,6 +902,7 @@ enum TaskStatus {
   PENDING_APPROVAL
   APPROVED
   IN_PROGRESS
+  PENDING_REVIEW
   COMPLETED
   CANCELLED
   ISSUES

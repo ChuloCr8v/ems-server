@@ -101,7 +101,7 @@ export class ClaimsService {
 
     if (userRole.includes(Role.ADMIN)) {
       res = claims;
-    } else if (approverDepartmentIds.length) {
+    } else if (userRole.includes(Role.DEPT_MANAGER) && approverDepartmentIds.length) {
       res = claims.filter((claim) =>
         claim.user.departments.some((dept) =>
           approverDepartmentIds.includes(dept.id)
