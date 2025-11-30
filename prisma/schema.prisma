@@ -45,8 +45,6 @@ model User {
   maritalStatus         MaritalStatus?
   levelId               String?            @db.Uuid
   prospectId            String?            @unique @db.Uuid
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
   dateOfBirth           DateTime?
   approvals             Approval[]
   approver              Approver[]
@@ -72,7 +70,7 @@ model User {
   userDocuments     Upload[]     @relation("UserDocuments")
   level             Level?       @relation(fields: [levelId], references: [id])
   prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  UserTask          UserTask[]
+  userTask          UserTask[]
   departments       Department[] @relation("DepartmentToUser")
   prospectDocuments Upload[]     @relation("ProspectDocuments")
 
@@ -82,6 +80,15 @@ model User {
   taskCategory Category[]
   appraisals   Appraisal[] @relation("Appraised")
   appraisers   Appraisal[] @relation("Appraiser")
+
+  extensionRequests ExtensionRequests[]
+
+  reports       Report[]
+  taskIssues    TaskIssues[]
+  taskTransfers TaskTransfer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([eId])
@@ -100,6 +107,8 @@ model Department {
   taskCategories Category[]
   user           User[]            @relation("DepartmentToUser")
   kpiCategories  KpiCategory[]
+  appraisals     Appraisal[]
+  tasks          Task[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -277,6 +286,9 @@ model Comment {
 
   taskId String? @db.Uuid
   task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  claimId String?
+  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -315,7 +327,7 @@ model Assignment {
   offboardingId String?           @db.Uuid
   asset         Asset             @relation(fields: [assetId], references: [id])
   offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  user          User              @relation(fields: [userId], references: [id])
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -393,13 +405,18 @@ model Payment {
 }
 
 model Entitlement {
-  id        String             @id @default(uuid()) @db.Uuid
-  name      String             @unique
-  unit      EntitlementUnit
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  request   LeaveRequest[]
-  levels    LevelEntitlement[]
+  id   String          @id @default(uuid()) @db.Uuid
+  name String          @unique
+  unit EntitlementUnit
+
+  type    EntitlementType?
+  request LeaveRequest[]
+  levels  LevelEntitlement[]
+
+  claims Claim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LevelEntitlement {
@@ -410,7 +427,7 @@ model LevelEntitlement {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   entitlement   Entitlement @relation(fields: [entitlementId], references: [id])
-  level         Level       @relation(fields: [levelId], references: [id])
+  level         Level       @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
   @@unique([levelId, entitlementId])
 }
@@ -546,14 +563,16 @@ model Payslip {
 }
 
 model Deductions {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  data      Bytes
+  id   String @id @default(uuid()) @db.Uuid
+  name String
+  data Bytes
+
+  month   String
+  pension Int
+  tax     Int
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  month     String
-  pension   Int
-  tax       Int
 
   @@index([id, month])
 }
@@ -567,30 +586,68 @@ model Claim {
   description   String?
   notes         String?
   status        ClaimStatus @default(PENDING)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  userId        String      @db.Uuid
-  claimId       String      @unique
-  claimsId      String?
-  claimType     ClaimType?  @relation(fields: [claimsId], references: [id], onDelete: SetNull)
-  user          User        @relation(fields: [userId], references: [id])
-  proofUrls     Upload[]
+
+  userId    String   @db.Uuid
+  claimId   String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  proofUrls Upload[]
+
+  entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  entitlementId String?      @db.Uuid
+
+  comments Comment[]
+
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([id])
 }
 
-model ClaimType {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  claim       Claim[]
-}
+// model ClaimType {
+//   id          String   @id @default(uuid())
+//   title       String
+//   description String?
+//   createdAt   DateTime @default(now())
+//   updatedAt   DateTime @updatedAt
+//   claim       Claim[]
+// }
 
 /////////////////////////////////////////// PERFORMANCE ////////////////////////////////////////
 
 /////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
+
+model TaskIssues {
+  id    String @id @default(uuid()) @db.Uuid
+  issue String
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  reportedBy User?   @relation(fields: [userId], references: [id])
+  userId     String? @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ExtensionRequests {
+  id String @id @default(uuid()) @db.Uuid
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  requester   User?    @relation(fields: [requesterId], references: [id])
+  requesterId String?  @db.Uuid
+  dueDate     DateTime
+  note        String?
+
+  status ClaimStatus? @default(PENDING)
+
+  isVisible Boolean? @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Task {
   id          String     @id @default(uuid()) @db.Uuid
   taskId      String?    @unique
@@ -601,13 +658,16 @@ model Task {
   category    Category[]
   priority    String?
   status      TaskStatus @default(PENDING_APPROVAL)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+
+  isReported Boolean @default(false)
 
   // Relations
   createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
   approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
   createdById String @db.Uuid
+
+  departmentId String?     @db.Uuid
+  department   Department? @relation(fields: [departmentId], references: [id])
 
   comments Comment[]
 
@@ -616,11 +676,63 @@ model Task {
   assignees UserTask[]
   uploads   Upload[]
 
+  hasTransfer   Boolean?       @default(false)
+  taskTransfers TaskTransfer[]
+
   // Approval tracking
   approvalStatus      ApprovalStatus @default(PENDING)
   approvalRequestedAt DateTime?
   approvedAt          DateTime?
   rejectionReason     String?
+
+  hasIssues Boolean? @default(false)
+
+  reports           Report[]
+  taskIssues        TaskIssues[]
+  taskDueDates      taskDueDate[]
+  extensionRequests ExtensionRequests[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model taskDueDate {
+  id     String  @id @default(uuid()) @db.Uuid()
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  dueDate DateTime?
+  note    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaskTransfer {
+  id     String  @id @default(uuid()) @db.Uuid()
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String? @db.Uuid
+
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String? @db.Uuid
+
+  note String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Report {
+  id    String @id @default(uuid()) @db.Uuid()
+  week  Int
+  title String
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @db.Uuid
+  tasks  Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
@@ -647,7 +759,7 @@ model UserTask {
   assignedAt DateTime @default(now())
   userId     String   @db.Uuid
   taskId     String   @db.Uuid
-  Task       Task     @relation(fields: [taskId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id])
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, taskId])
@@ -669,11 +781,14 @@ model Appraisal {
   appraisedAt         DateTime?
   hrReviewedAt        DateTime?
   autoGenerated       Boolean              @default(true)
+  isTemplate          Boolean              @default(false)
   status              AppraisalStatus      @default(GENERATED)
+  departmentId        String               @db.Uuid
+  department          Department           @relation(fields: [departmentId], references: [id])
   appraiserId         String               @db.Uuid
   appraiser           User                 @relation("Appraiser", fields: [appraiserId], references: [id])
-  appraisedId         String               @db.Uuid // The employee being appraised
-  appraised           User                 @relation("Appraised", fields: [appraisedId], references: [id])
+  appraisedId         String?              @db.Uuid // The employee being appraised
+  appraised           User?                @relation("Appraised", fields: [appraisedId], references: [id])
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 
@@ -684,7 +799,7 @@ model Appraisal {
 model Kpi {
   id          String        @id @default(uuid()) @db.Uuid
   appraisalId String?       @unique @db.Uuid
-  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id])
+  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
   categories  KpiCategory[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -718,7 +833,7 @@ model Objective {
   rating     Float? //Rating (1-5)
   comment    String?
   categoryId String      @db.Uuid
-  category   KpiCategory @relation(fields: [categoryId], references: [id])
+  category   KpiCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
@@ -771,6 +886,7 @@ model RatingSummary {
 
 enum ApproverRole {
   DEPARTMENT_HEAD
+  DEPARTMENT_LEAD
   HR
   CISO
 }
@@ -786,8 +902,10 @@ enum TaskStatus {
   PENDING_APPROVAL
   APPROVED
   IN_PROGRESS
+  PENDING_REVIEW
   COMPLETED
   CANCELLED
+  ISSUES
 }
 
 enum AStatus {
@@ -953,4 +1071,9 @@ enum Gender {
 
 enum CategoryType {
   Task
+}
+
+enum EntitlementType {
+  CLAIMS
+  LEAVE
 }

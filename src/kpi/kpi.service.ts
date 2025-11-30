@@ -6,7 +6,7 @@ import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class KpiService {
-    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) {}
+    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) { }
 
     // Admin Methods - Global KPIs
     async createCategory(user: any, data: CreateKpiDto) {
@@ -63,17 +63,6 @@ export class KpiService {
                 throw new BadRequestException('Not authorized or no department assigned');
             }
 
-            //         if (!manager?.department) {
-            //     // Log more details for debugging
-            //     const allManagers = await this.prisma.approver.findMany({
-            //         where: { userId: dbUser.id },
-            //         include: { department: true }
-            //     });
-            //     console.log('All approver records for user:', allManagers);
-                
-            //     throw new BadRequestException('Not authorized or no department assigned');
-            // }
-
             try {
                 const created = await Promise.all(
                     categories.map(cat =>
@@ -96,12 +85,12 @@ export class KpiService {
                 );
                 return created;
             } catch (error) {
-                if (error instanceof BadRequestException || 
-                                      error instanceof NotFoundException || 
-                                      error instanceof ConflictException) {
-                                    throw error;
-                                }
-                                throw new BadRequestException('Failed to create KPI categories:' + error.message);;
+                if (error instanceof BadRequestException ||
+                    error instanceof NotFoundException ||
+                    error instanceof ConflictException) {
+                    throw error;
+                }
+                throw new BadRequestException('Failed to create KPI categories:' + error.message);
             }
         }
 
@@ -136,10 +125,10 @@ export class KpiService {
         } else if (user && !user.userRole && user.id) {
             dbUser = await this.prisma.user.findUnique({ where: { id: user.id } });
         }
-        
+
         const category = await this.prisma.kpiCategory.findUnique({
             where: { id: categoryId },
-            include: { 
+            include: {
                 department: true,
                 objectives: true
             }
@@ -186,7 +175,7 @@ export class KpiService {
         // DEPT_MANAGER can only update their department's categories
         if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
             const manager = await this.prisma.approver.findFirst({
-                where: { 
+                where: {
                     userId: dbUser.id,
                     role: 'DEPT_MANAGER',
                     isActive: true,
@@ -230,22 +219,22 @@ export class KpiService {
     }
 
     async removeCategory(user: any, categoryId: string) {
+        // Ensure we have a valid user object from DB
         let dbUser = user;
-        if (typeof user === 'string') {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user } });
-        } else if (user && !user.userRole && user.id) {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user.id } });
+        if (typeof user === 'string' || (user && !user.userRole && user.id)) {
+            dbUser = await this.prisma.user.findUnique({ where: { id: user.id || user } });
         }
+
         const category = await this.prisma.kpiCategory.findUnique({
             where: { id: categoryId },
-            include: { department: true }
+            include: { department: true },
         });
 
         if (!category) {
             throw new NotFoundException('Category not found');
         }
 
-        // ADMIN can delete any global category
+        // ===== ADMIN BLOCK =====
         if (this.userHasRole(dbUser, Role.ADMIN)) {
             if (!category.isGlobal) {
                 throw new BadRequestException('Admins can only delete global categories');
@@ -262,15 +251,15 @@ export class KpiService {
             }
         }
 
-        // DEPT_MANAGER can only delete their department's categories
+        // ===== DEPT_MANAGER BLOCK =====
         if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
             const manager = await this.prisma.approver.findFirst({
-                where: { 
+                where: {
                     userId: dbUser.id,
                     role: 'DEPT_MANAGER',
                     isActive: true,
-                    departmentId: category.departmentId
-                }
+                    departmentId: category.departmentId,
+                },
             });
 
             if (!manager) {

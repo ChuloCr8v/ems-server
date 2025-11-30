@@ -71,6 +71,10 @@ export class CreateTaskDto {
   @IsOptional()
   @IsArray()
   uploads?: string[];
+
+  @IsString()
+  @IsOptional()
+  department?: string;
 }
 
 export class UpdateTaskDto {
@@ -124,6 +128,10 @@ export class UpdateTaskDto {
   @ValidateIf(o => o.status === TaskStatus.CANCELLED)
   @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
   requireRejectionReason?: string;
+
+  @ValidateIf(o => o.status === TaskStatus.ISSUES)
+  @IsNotEmpty({ message: 'Issue is required' })
+  issue?: string;
 }
 
 class CreatedByDto {

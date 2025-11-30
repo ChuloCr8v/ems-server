@@ -1,27 +1,29 @@
 // tasks.service.ts
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ApprovalStatus, CategoryType, Prisma, TaskStatus, User } from '@prisma/client';
+import { ApprovalStatus, CategoryType, Prisma, Role, Task, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
+import { create } from 'domain';
 
 
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService) { }
 
-  private async getUserRole(userId: string): Promise<string> {
+  private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true }
+      select: { userRole: true }
     });
-    return user?.role || 'EMPLOYEE';
+    return user?.userRole
   }
 
-  private isManager(role: string): boolean {
-    return role === 'MANAGER' || role === 'ADMIN';
+  private isManager(role: string[]): boolean {
+    const managerRoles = ["ADMIN", "DEPT_MANAGER"]
+    return role?.some(r => managerRoles.includes(r))
   }
 
   private mapToTaskResponseDto(task): TaskResponseDto {
@@ -73,12 +75,36 @@ export class TasksService {
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
       const { uploads, assignees, category, ...taskData } = createTaskDto;
+
+      const taskCreator = await this.prisma.user.findUnique({
+        where: {
+          id: createdById
+        }, include: {
+          departments: true
+        }
+      })
+
+      if (!taskCreator) mustHave(taskCreator, "Unathorized", 401)
+
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
-      console.log(createTaskDto)
 
-      // Validate assignees exist if provided
+
+
+      if (isManager) {
+        if (!assignees)
+          return bad("Please provide at least one assignee");
+
+        const { startDate, dueDate } = createTaskDto;
+
+        if (!startDate)
+          return bad("Please provide a start date");
+
+        if (!dueDate)
+          return bad("Please provide a due date");
+      }
+
       if (assignees && assignees.length > 0) {
         const existingUsers = await this.prisma.user.findMany({
           where: { id: { in: assignees } },
@@ -90,7 +116,6 @@ export class TasksService {
         }
       }
 
-      // FIX: Only include dates if they are valid ISO strings
       const createData: any = {
         title: taskData.title,
         description: taskData.description,
@@ -100,17 +125,14 @@ export class TasksService {
         createdById,
       };
 
-      // Only add startDate if it's a valid ISO string
       if (typeof taskData.startDate === 'string' && this.isValidISODate(taskData.startDate)) {
         createData.startDate = new Date(taskData.startDate);
       }
 
-      // Only add dueDate if it's a valid ISO string
       if (typeof taskData.dueDate === 'string' && this.isValidISODate(taskData.dueDate)) {
         createData.dueDate = new Date(taskData.dueDate);
       }
 
-      // Add approval data for managers
       if (isManager && assignees && assignees.length > 0) {
         createData.approvedById = createdById;
         createData.approvedAt = new Date();
@@ -119,17 +141,31 @@ export class TasksService {
         createData.approvalRequestedAt = new Date();
       }
 
-      // Add assignees if provided
       if (assignees && assignees.length > 0) {
         createData.assignees = {
           create: assignees.map(userId => ({ userId })),
         };
       }
 
-      console.log('🔍 Creating task with data:', createData);
+      const taskDepts = createTaskDto.department ?? (await this.prisma.user.findUnique({
+        where: { id: createdById },
+        include:
+        {
+          departments: true
+        }
+      }))?.departments[0].id
+
+      console.log(taskDepts)
+
+      //Add creator as assignee if not manager
+      createData.assignees = {
+        create: { userId: createdById },
+      }
+
       const task = await this.prisma.task.create({
         data: {
           ...createData,
+          departmentId: taskDepts,
           taskId: IdGenerator("TSK"),
           ...(uploads && uploads.length > 0
             ? {
@@ -158,9 +194,6 @@ export class TasksService {
       throw new InternalServerErrorException('Error creating task');
     }
   }
-
-
-
 
   // Helper method to validate ISO date strings
   private isValidISODate(dateString: string): boolean {
@@ -254,7 +287,6 @@ export class TasksService {
     // return this.mapToTaskResponseDto(updatedTask);
   }
 
-
   //Comments
 
   async commentOnTask(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
@@ -336,157 +368,252 @@ export class TasksService {
     return this.mapToTaskResponseDto(updatedTask);
   }
 
-  // async getAllTasks(
-  //   page: number = 1,
-  //   limit: number = 50,
-  //   userId?: string,
-  //   userRole?: string,
-  //   filters?: TaskQueryDto
-  // ) {
-  //   const skip = (page - 1) * limit;
+  async getAllTasks(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
 
-  //   // Build where clause based on user role and filters
-  //   let where: any = {};
+      if (!user) throw new UnauthorizedException();
 
-  //   // Role-based filtering
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     where.OR = [
-  //       { createdById: userId },
-  //       { assignees: { some: { userId } } },
-  //     ];
-  //   }
+      const baseFindArgs: Prisma.TaskFindManyArgs = {
+        include: this.getTaskInclude(),
+        orderBy: { createdAt: 'desc' },
+      };
 
-  //   // Apply filters
-  //   if (filters) {
-  //     if (filters.status) where.status = filters.status;
-  //     if (filters.approvalStatus) where.approvalStatus = filters.approvalStatus;
-  //     if (filters.priority) where.priority = filters.priority;
-  //     if (filters.category) where.category = filters.category;
+      if (user.userRole.includes(Role.ADMIN)) {
+        return this.prisma.task.findMany(baseFindArgs);
+      }
 
-  //     // Date range filters
-  //     if (filters.startDateFrom || filters.startDateTo) {
-  //       where.startDate = {};
-  //       if (filters.startDateFrom) where.startDate.gte = filters.startDateFrom;
-  //       if (filters.startDateTo) where.startDate.lte = filters.startDateTo;
-  //     }
+      if (user.userRole.includes(Role.DEPT_MANAGER) || user.userRole.includes(Role.TEAM_LEAD)) {
+        const userDeptIds = user.departments.map((d) => d.id);
 
-  //     if (filters.dueDateFrom || filters.dueDateTo) {
-  //       where.dueDate = {};
-  //       if (filters.dueDateFrom) where.dueDate.gte = filters.dueDateFrom;
-  //       if (filters.dueDateTo) where.dueDate.lte = filters.dueDateTo;
-  //     }
+        return this.prisma.task.findMany({
+          ...baseFindArgs,
+          where: {
+            OR: [
+              {
+                department: {
+                  id: { in: userDeptIds }
+                }
+              },
 
-  //     // Search filter
-  //     if (filters.search) {
-  //       where.OR = [
-  //         ...(where.OR || []),
-  //         { title: { contains: filters.search, mode: 'insensitive' } },
-  //         { description: { contains: filters.search, mode: 'insensitive' } },
-  //       ];
-  //     }
-  //   }
+              {
+                assignees: {
+                  some: { userId },
+                },
+              },
+              {
+                createdById: userId,
+              },
+              {
+                taskTransfers: {
+                  some: { userId },
+                },
+              },
+            ],
+          },
+        });
+      }
 
-  //   const [tasks, total] = await Promise.all([
-  //     this.prisma.task.findMany({
-  //       where,
-  //       skip,
-  //       take: limit,
-  //       include: this.getTaskInclude(),
-  //       orderBy: {
-  //         [filters?.sortBy || 'createdAt']: filters?.sortOrder || 'desc'
-  //       },
-  //     }),
-  //     this.prisma.task.count({ where }),
-  //   ]);
-
-  //   return {
-  //     tasks: tasks.map(task => this.mapToTaskResponseDto(task)),
-  //     pagination: {
-  //       page,
-  //       limit,
-  //       total,
-  //       pages: Math.ceil(total / limit),
-  //     },
-  //   };
-  // }
-
-
-  // async getOneTask(id: string, userId?: string, userRole?: string) {
-  //   const task = await this.prisma.task.findUnique({
-  //     where: { id },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   if (!task) {
-  //     throw new NotFoundException(`Task with ID ${id} not found`);
-  //   }
-
-  //   // Authorization check
-  //   if (userId && userRole && !this.isManager(userRole)) {
-  //     const isCreator = task.createdById === userId;
-  //     const isAssignee = task.assignees.some(assignee => assignee.userId === userId);
-
-  //     if (!isCreator && !isAssignee) {
-  //       throw new ForbiddenException('You do not have permission to view this task');
-  //     }
-  //   }
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-  // async updateTask(id: string, updateTaskDto: UpdateTaskDto, userId: string, userRole: string) {
-  //   const { assignees, ...taskData } = updateTaskDto;
-
-  //   const existingTask = await this.getOneTask(id, userId, userRole);
-
-  //   // Authorization: Only creators or managers can update tasks
-  //   const isCreator = existingTask.createdBy.id === userId;
-  //   if (!isCreator && !this.isManager(userRole)) {
-  //     throw new ForbiddenException('You can only update your own tasks');
-  //   }
-
-  //   // Managers can update anything, creators can only update certain fields
-  //   const allowedUpdates = this.isManager(userRole) ?
-  //     { ...taskData } :
-  //     {
-  //       title: taskData.title,
-  //       description: taskData.description,
-  //       startDate: taskData.startDate,
-  //       dueDate: taskData.dueDate,
-  //       category: taskData.category,
-  //       priority: taskData.priority,
-  //     };
-
-  //   const task = await this.prisma.task.update({
-  //     where: { id },
-  //     data: {
-  //       ...allowedUpdates,
-  //       // Only managers can update assignees directly
-  //       ...(this.isManager(userRole) && assignees && {
-  //         assignees: {
-  //           deleteMany: {},
-  //           create: assignees.map(userId => ({ userId })),
-  //         },
-  //       }),
-  //     },
-  //     include: this.getTaskInclude(),
-  //   });
-
-  //   return this.mapToTaskResponseDto(task);
-  // }
-
-
-  async getAllTasks() {
-    const tasks = await this.prisma.task.findMany({
-      include: this.getTaskInclude(),
-      orderBy: {
-        createdAt: 'desc'
-      },
-    });
-
-    return tasks
+      return this.prisma.task.findMany({
+        ...baseFindArgs,
+        where: {
+          OR: [
+            {
+              assignees: {
+                some: { userId },
+              },
+            },
+            {
+              createdById: userId,
+            },
+            {
+              taskTransfers: {
+                some: { userId },
+              },
+            },
+          ],
+        },
+      });
+    } catch (error) {
+      bad(error);
+    }
   }
 
+
+  //TASK EXTENSIONS
+  async extendDueDate(id: string, userId: string, dueDate: Date, note?: string) {
+    try {
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+          OR: [
+            {
+              userRole: {
+                hasSome: [Role.ADMIN, Role.DEPT_MANAGER, Role.TEAM_LEAD]
+              }
+            },
+          ]
+        },
+      })
+
+      if (!user) mustHave(user, "Unathorized", 401)
+
+
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+
+      await this.prisma.taskDueDate.create({
+        data: {
+          dueDate,
+          task: { connect: { id } },
+          note: note ?? undefined
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async requestExtension(id: string, userId: string, dueDate: Date, note?: string) {
+    try {
+
+
+      console.log({ dueDate })
+
+
+      const task = await this.prisma.task.findUnique({
+        where: {
+          id
+        },
+        include: {
+          taskTransfers: {
+            orderBy: { createdAt: "desc" },
+            take: 1
+          }
+        }
+      })
+
+      if (!task) mustHave(task, "Task not found", 404)
+
+      const taskOwner = () => {
+        if (task.hasTransfer) {
+          return task.taskTransfers[0].userId
+        } else {
+          return task.createdById
+        }
+      }
+
+      if (taskOwner() !== userId) bad("You can only request extensions on your task")
+
+      await this.prisma.extensionRequests.create({
+        data: {
+          dueDate: dueDate,
+          task: { connect: { id } },
+          note: note ?? undefined,
+          requester: { connect: { id: userId } }
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async acceptExtensionRequest(id: string, userRole: Role[], dueDate?: Date,) {
+    try {
+      console.log(userRole)
+      const canAccept = (userRole.includes(Role.DEPT_MANAGER) || userRole.includes(Role.TEAM_LEAD))
+
+      if (!canAccept) bad("You are not authorized to accept this request")
+
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          status: "APPROVED"
+        }
+      })
+
+      if (dueDate) {
+        await this.prisma.taskDueDate.create({
+          data: {
+            dueDate: dueDate,
+            task: {
+              connect: { id: extentionRequest.taskId }
+            }
+          }
+        })
+      }
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async rejectExtensionRequest(id: string, userRole: Role[]) {
+    try {
+
+      const canReject = (userRole.includes(Role.DEPT_MANAGER) || userRole.includes(Role.TEAM_LEAD))
+
+      if (!canReject) bad("You are not authorized to reject this request")
+
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          status: "REJECTED"
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+  async hideExtension(id: string) {
+    try {
+      const extentionRequest = await this.prisma.extensionRequests.findUnique({
+        where: {
+          id
+        },
+
+      })
+
+      if (!extentionRequest) mustHave(extentionRequest, "Request not found", 404)
+
+      await this.prisma.extensionRequests.update({
+        where: { id },
+        data: {
+          isVisible: false
+        }
+      })
+    } catch (error) {
+      bad(error)
+    }
+  }
+
+
+  //TASK CATEGORIES
 
   async createTaskCategory(userId: string, dto: CreateCategoryDto) {
     const { title, department, description, color } = dto
@@ -531,6 +658,68 @@ export class TasksService {
       }
     } catch (error) {
       bad(error)
+    }
+  }
+
+  async updateTaskCategory(id: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto;
+
+    try {
+      const category = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true },
+      });
+
+      if (!category) bad("Category not found");
+
+      if (department && department.length > 0) {
+        const deptExists = await this.prisma.department.findMany({
+          where: { id: { in: department } },
+        });
+
+        if (deptExists.length < department.length) {
+          bad("One or more departments not found");
+        }
+      }
+
+      const res = await this.prisma.category.update({
+        where: { id },
+        data: {
+          title: title || undefined,
+          description: description || undefined,
+          color: color || undefined,
+
+          departments: {
+            set: department
+              ? department.map((id) => ({ id }))
+              : undefined,
+          },
+        },
+      });
+
+      return {
+        message: `${title} updated successfully`,
+        data: res,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async deleteTaskCategory(id: string) {
+
+    try {
+      await this.prisma.category.delete({
+        where: {
+          id
+        }
+      })
+
+      return {
+        message: `category deleted successfully`,
+      };
+    } catch (error) {
+      bad(error);
     }
   }
 
@@ -581,10 +770,49 @@ export class TasksService {
     return task
   }
 
-  async updateTask(id: string, taskData: UpdateTaskDto) {
-    const { assignees, category, uploads, ...rest } = taskData;
+  async getTaskCategory(id: string) {
+    try {
+      const taskCategory = await this.prisma.category.findUnique({
+        where: { id },
+        include: { departments: true }
+      });
 
-    await this.getOneTask(id);
+      if (!taskCategory) {
+        bad(`Task with ID ${id} not found`);
+      }
+      return taskCategory
+    } catch (error) {
+      bad(error)
+    }
+
+  }
+
+  async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
+
+    const { assignees, category, uploads, status, issue, ...rest } = taskData;
+    const findTask = await this.getOneTask(id);
+    if (!findTask) mustHave(findTask, "Task not found", 404)
+
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: userId
+      }
+    })
+
+    if (!user) mustHave(user, "User not found", 404)
+
+    const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
+
+    const ownerId = await this.taskOwner(findTask.id)
+
+    if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
+
+    if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
+      if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
+      if (!findTask.startDate) bad("Cannot approve task without start date")
+      if (!findTask.hasTransfer && !findTask.taskDueDates.length && !findTask.dueDate) bad("Cannot approve task without due date")
+      if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
+    }
 
     const task = await this.prisma.$transaction(async (tx) => {
 
@@ -594,13 +822,12 @@ export class TasksService {
           where: { id },
           data: {
             uploads: {
-              set: [], // optional: clears old uploads if needed
+              // set: [], // optional: clears old uploads if needed
               connect: uploads.map((u: string) => ({ id: u })),
             },
           },
         });
       }
-
 
       // --- Sync Assignees ---
       if (assignees !== undefined) {
@@ -641,9 +868,35 @@ export class TasksService {
             }
           },
         });
-
-
       }
+
+      // --- Handle Task Status
+      const completedStatus = () => {
+        if (status === "COMPLETED") {
+          if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
+        } else return status
+      }
+
+      await tx.task.update({
+        where: {
+          id
+        },
+        data: status === "ISSUES" ? {
+          hasIssues: true,
+          status,
+          taskIssues: {
+            create: {
+              issue: issue,
+              reportedBy: {
+                connect: { id: userId }
+              }
+            }
+          }
+        } : {
+          status: completedStatus()
+        }
+      })
+
 
       // --- Update Task Base Data ---
       const updatedTask = await tx.task.update({
@@ -658,9 +911,103 @@ export class TasksService {
     return task;
   }
 
-  async deleteTask(id: string, userId: string, userRole: string) {
-    const task = await this.getOneTask(id);
+  async transfer(
+    id: string,
+    userId: string,
+    ownerId: string,
+    newDeliveryDate?: Date,
+    note?: string
+  ) {
+    try {
+      const findTask = await this.prisma.task.findUnique({
+        where: { id },
+        include: {
+          assignees: true,
+          createdBy: {
+            include: { departments: true },
+          },
+        },
+      });
 
+      mustHave(findTask, "Task not found", 404);
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+
+      mustHave(user, "User not found", 404);
+
+      const userDepts = user.departments.map((d) => d.id);
+      const taskCreatorDepts = findTask.createdBy.departments.map((d) => d.id);
+
+      const canTransfer = () => {
+        if (user.userRole.includes(Role.ADMIN)) return true;
+
+        const isDeptManagerOrLead =
+          user.userRole.includes(Role.DEPT_MANAGER) ||
+          user.userRole.includes(Role.TEAM_LEAD);
+
+        const sameDept = taskCreatorDepts.some((d) => userDepts.includes(d));
+
+        return isDeptManagerOrLead && sameDept;
+      };
+
+      if (!canTransfer()) {
+        throw new UnauthorizedException("You cannot transfer this task");
+      }
+
+      await this.prisma.taskTransfer.create({
+        data: {
+          user: { connect: { id: ownerId } },
+          task: { connect: { id } },
+          note: note ?? undefined,
+        },
+      });
+
+      await this.prisma.task.update({
+        where: { id },
+        data: {
+          hasTransfer: true,
+        },
+      });
+
+      const alreadyAssigned = findTask.assignees.some(
+        (a) => a.userId === ownerId
+      );
+
+      if (!alreadyAssigned) {
+        await this.prisma.userTask.create({
+          data: {
+            user: { connect: { id: ownerId } },
+            task: { connect: { id } },
+          },
+        });
+      }
+
+      if (newDeliveryDate) {
+        await this.prisma.taskDueDate.create({
+          data: {
+            dueDate: newDeliveryDate,
+            task: { connect: { id } },
+            note: note ?? undefined,
+          },
+        });
+      }
+
+      return await this.prisma.task.findUnique({
+        where: { id },
+        include: {
+          assignees: true,
+        },
+      });
+    } catch (error) {
+      bad(error?.message ?? "Failed to transfer task");
+    }
+  }
+
+  async deleteTask(id: string, userId: string, userRole: string[]) {
+    const task = await this.getOneTask(id);
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;
     if (!isCreator && !this.isManager(userRole)) {
@@ -674,8 +1021,21 @@ export class TasksService {
     return { message: 'Task deleted successfully' };
   }
 
+  async taskOwner(taskId: string) {
+    const task = await this.getOneTask(taskId);
+
+    if (task.hasTransfer) {
+
+      return task.taskTransfers[0].userId
+    } else {
+      return task.createdById
+    }
+  }
+
+
   getTaskInclude() {
     return {
+      department: true,
       createdBy: {
         select: {
           id: true,
@@ -683,6 +1043,7 @@ export class TasksService {
           lastName: true,
           email: true,
           role: true,
+          departments: true,
         },
       },
       approvedBy: {
@@ -708,11 +1069,31 @@ export class TasksService {
       comments: {
         include: {
           uploads: true,
-          user: true
-        }
+          user: true,
+        },
       },
       category: true,
       uploads: true,
+      taskTransfers: {
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      },
+      taskDueDates: {
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      },
+      extensionRequests: {
+        include: { requester: true },
+        orderBy: {
+          createdAt: 'desc' as any,
+        },
+      }
+
     };
   }
 }

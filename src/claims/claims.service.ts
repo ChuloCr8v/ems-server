@@ -15,14 +15,16 @@ export class ClaimsService {
 
     const claimId = "CLM" + Date.now().toString().slice(-4);
 
+    console.log({ createClaimDto })
+
     const claim = await this.prisma.claim.create({
       data: {
         claimId,
         title: createClaimDto.title,
-        claimType: { connect: { id: createClaimDto.claimType } },
         amount: Number(createClaimDto.amount),
         dateOfExpense: new Date(createClaimDto.dateOfExpense),
         description: createClaimDto.description,
+        entitlement: { connect: { id: createClaimDto.entitlement } },
         user: {
           connect: {
             id: userId
@@ -50,34 +52,7 @@ export class ClaimsService {
     return claim
   }
 
-  async addClaimType(title: string, description?: string) {
 
-    if (!title) bad("Claim type is required")
-    console.log(title)
-    try {
-      const existing = await this.prisma.claimType.findFirst({
-        where: {
-          title
-        }
-      })
-
-      console.log(existing)
-      if (existing) bad("Claim type already exists")
-
-      const newClaimType = await this.prisma.claimType.create({
-        data: {
-          title,
-          description: description ?? undefined
-        },
-      });
-
-      return newClaimType;
-    } catch (error) {
-      console.log(error)
-      bad(error.message)
-    }
-
-  }
 
 
   async findAll(
@@ -110,7 +85,12 @@ export class ClaimsService {
           },
         },
         proofUrls: true,
-        claimType: true
+        entitlement: true,
+        comments: {
+          include: {
+            user: true
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
     });
@@ -121,7 +101,7 @@ export class ClaimsService {
 
     if (userRole.includes(Role.ADMIN)) {
       res = claims;
-    } else if (approverDepartmentIds.length) {
+    } else if (userRole.includes(Role.DEPT_MANAGER) && approverDepartmentIds.length) {
       res = claims.filter((claim) =>
         claim.user.departments.some((dept) =>
           approverDepartmentIds.includes(dept.id)
@@ -134,26 +114,6 @@ export class ClaimsService {
     return res;
   }
 
-  async findAllClaimTypes() {
-    try {
-      return await this.prisma.claimType.findMany({
-        orderBy: {
-          createdAt: "desc"
-        }
-      })
-    } catch (error) {
-      bad(error.message)
-    }
-  }
-
-
-  async findOneClaimType(id: string) {
-    try {
-      return await this.prisma.claimType.findUnique({ where: { id } })
-    } catch (error) {
-      bad(error.message)
-    }
-  }
 
 
   async findOne(id: string) {
@@ -169,7 +129,12 @@ export class ClaimsService {
           },
         },
         proofUrls: true,
-        claimType: true
+        entitlement: true,
+        comments: {
+          include: {
+            user: true
+          }
+        }
       },
     });
 
@@ -181,6 +146,8 @@ export class ClaimsService {
   }
 
   async updateClaim(id: string, userRole: Role, updateClaimDto: UpdateClaimDto) {
+    console.log({ updateClaimDto })
+
     const claim = await this.findOne(id);
 
     if (!claim) mustHave(claim, "Claim not found", 404)
@@ -193,7 +160,11 @@ export class ClaimsService {
       where: { id },
       data: {
         ...updateClaimDto,
-        claimType: { connect: { id: updateClaimDto.claimType } },
+        entitlement: {
+          connect: {
+            id: updateClaimDto.entitlement
+          }
+        },
         proofUrls: {
           set: updateClaimDto.proofUrls?.map((id) => ({ id })) || [],
         },
@@ -213,24 +184,7 @@ export class ClaimsService {
     return updatedClaim
   }
 
-  async updateClaimType(id: string, updateClaimTypeDto: { title: string, description: string }) {
-    console.log(id, updateClaimTypeDto)
-    const claim = await this.prisma.claimType.findUnique({ where: { id } });
 
-    if (!claim) mustHave(claim, "Claim Type not found", 404)
-
-    const updatedClaimType = await this.prisma.claimType.update({
-      where: { id },
-      data: {
-        title: updateClaimTypeDto.title,
-        description: updateClaimTypeDto.description
-
-      },
-
-    });
-
-    return updatedClaimType
-  }
 
   async removeClaim(id: string, userId: string, userRole: Role) {
     const claim = await this.findOne(id);
@@ -281,6 +235,40 @@ export class ClaimsService {
       where: { id },
       data: { status: ClaimStatus.REJECTED },
     });
+  }
+
+  async comment(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+    try {
+      const claim = await this.prisma.claim.findUnique({
+        where: {
+          id
+        }
+      })
+
+      if (!claim) mustHave(claim, "Task not found", 404)
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId
+        }
+      })
+
+      if (!user) mustHave(user, "user not found", 404)
+
+      const comment = await this.prisma.comment.create({
+        data: {
+          comment: dto.comment,
+          ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+          claim: { connect: { id } },
+          user: { connect: { id: userId } }
+        }
+      })
+      return {
+        message: "Comment added successfully",
+        data: comment
+      }
+    } catch (error) {
+      bad(error)
+    }
   }
 
   // async mapToResponseDto(claim: any): Promise<ClaimResponseDto> {

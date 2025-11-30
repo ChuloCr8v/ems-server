@@ -27,7 +27,8 @@ export class CreateKpiCategoryDto {
   name: string;
 
   @IsString()
-  type: KpiCategoryType;
+  @IsOptional()
+  type?: KpiCategoryType;
 
   @IsBoolean()
   @IsOptional()

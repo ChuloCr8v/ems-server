@@ -9,6 +9,7 @@ import {
   Body,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
@@ -16,7 +17,7 @@ import { ClaimStatus, Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from 'src/auth/guards/roles.guards';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Controller('claims')
@@ -32,13 +33,7 @@ export class ClaimsController {
     return this.claimsService.addClaim(req.sub, data);
   }
 
-  @Auth(["ADMIN"])
-  @Post("type")
-  async createClaimType(
-    @Body() dto: { title: string, description?: string }
-  ) {
-    return this.claimsService.addClaimType(dto.title, dto.description);
-  }
+
 
   @Get()
   async findAll(
@@ -48,21 +43,6 @@ export class ClaimsController {
     const userId = req.sub;
     const userRole = req.role as Role;
     return this.claimsService.findAll(userId, userRole, { status });
-  }
-
-
-  @Get("types")
-  async findAllTypes(
-  ) {
-    return this.claimsService.findAllClaimTypes();
-  }
-
-
-  @Get("type/:id")
-  async findOneType(
-    @Param('id') id: string
-  ) {
-    return this.claimsService.findOneClaimType(id);
   }
 
   // Get single claim by ID
@@ -81,14 +61,6 @@ export class ClaimsController {
     return this.claimsService.updateClaim(id, userRole, updateClaimDto);
   }
 
-
-  @Patch('update/type/:id')
-  async updateClaimType(
-    @Param('id') id: string,
-    @Body() updateClaimTypeDto: { id: string, title: string, description: string },
-  ) {
-    return this.claimsService.updateClaimType(id, updateClaimTypeDto);
-  }
 
   // Delete claim
   @Delete(':id')
@@ -111,4 +83,16 @@ export class ClaimsController {
     return this.claimsService.updateStatus(id, 'REJECTED', body.notes);
   }
 
+  //Comments
+
+  @Auth()
+  @Post(':id/comment')
+  async commentOnTask(
+    @Param('id') id: string,
+    @Req() req: ReqPayload,
+    @Body() dto: { comment: string, uploads?: string[] },
+  ) {
+    const userId = req.user.id
+    return this.claimsService.comment(id, userId, dto);
+  }
 }
