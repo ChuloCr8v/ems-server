@@ -6,11 +6,12 @@ export const MAIL_SUBJECT = {
     OFFER_ACCEPTANCE: 'Offer Acceptance',
     UPDATE_USER_INFO: 'Update User Information',
     DECLINE_OFFER: 'Declined Offer',
-    WELCOME_EMAIL:  '',
+    WELCOME_EMAIL: '',
     LEAVE_REQUEST: 'New Leave Request',
     LEAVE_APPROVAL: 'Leave Request Approved',
     LEAVE_DECLINE: 'Leave Request Denied',
-    
+    PAYSLIP_QUEUED: "Payslip Generation Started",
+    EMPLOYEE_PAYSLIP_GENERATED: "Payslip Generated",
     INITIATE_OFFBOARDING: 'Offboarding Initiated',
     ADD_CLAIM: 'New Claim Added',
     CLAIM_APPROVED: 'Claim Approved',
@@ -29,13 +30,13 @@ export class ProspectInviteDto {
     token: string;
 
     attachments?: Array<{
-    filename: string;
-    content: string | Buffer;
-    contentType?: string;
-    encoding?: string;
-    cid?: string; // For embedded images
-    path?: string; // If using file paths instead of buffers
-  }>;
+        filename: string;
+        content: string | Buffer;
+        contentType?: string;
+        encoding?: string;
+        cid?: string; // For embedded images
+        path?: string; // If using file paths instead of buffers
+    }>;
 }
 
 
@@ -48,7 +49,7 @@ export class AcceptanceInviteDto {
 }
 
 
-export class DeclinedInviteDto extends AcceptanceInviteDto {}
+export class DeclinedInviteDto extends AcceptanceInviteDto { }
 
 
 export class UpdateProspectInfoDto {
@@ -74,19 +75,19 @@ export class InitiateOffboarding {
 }
 
 export class WelcomeEmailDto {
-  @IsEmail({})
-  email: string;
+    @IsEmail({})
+    email: string;
 
-  @IsString({ message: 'Name must be a string' })
-  name: string;
+    @IsString({ message: 'Name must be a string' })
+    name: string;
 
-  @IsOptional()
-  @IsString({})
-  loginLink?: string;
+    @IsOptional()
+    @IsString({})
+    loginLink?: string;
 
-  @IsOptional()
-  @IsString({ message: 'Temporary password must be a string' })
-  temporaryPassword?: string;
+    @IsOptional()
+    @IsString({ message: 'Temporary password must be a string' })
+    temporaryPassword?: string;
 }
 
 export class LeaveRequest {
@@ -139,4 +140,21 @@ export class ApproveLeaveRequest {
 export class RejectLeaveRequest extends ApproveLeaveRequest {
     @IsString()
     reason: string;
-}   
+}
+
+
+export class PayslipQueued {
+    @IsString()
+    date: string;
+
+    @IsString()
+    month: string;
+
+    @IsString()
+    email: string;
+}
+
+export class EmployeePayslipGenerated extends PayslipQueued {
+    @IsString()
+    name: string
+}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, EmployeePayslipGenerated, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, PayslipQueued, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
 
@@ -151,6 +151,26 @@ export class MailService {
       subject: MAIL_SUBJECT.LEAVE_DECLINE,
       template: 'leaveDenied',
       context: { name, leaveType, startDate, endDate, leaveValue, reason },
+    })
+  }
+
+  async sendPayrollQueueMail(data: PayslipQueued) {
+    const { month, date, email } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PAYSLIP_QUEUED,
+      template: 'payslipQueued',
+      context: { month, date, email },
+    })
+  }
+
+  async sendEmployeePayslipReadyMail(data: EmployeePayslipGenerated) {
+    const { month, date, email, name } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.EMPLOYEE_PAYSLIP_GENERATED,
+      template: 'employeePayslipGenerated',
+      context: { month, date, email, name },
     })
   }
 }

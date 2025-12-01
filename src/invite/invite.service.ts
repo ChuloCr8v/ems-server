@@ -85,7 +85,6 @@ export class InviteService {
     } = input;
     try {
 
-
       if (jobType === JobType.CONTRACT && !duration) {
         throw bad('Duration is required for CONTRACT positions');
       }

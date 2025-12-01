@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
-import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, PayrollComponent, User, } from '@prisma/client';
+import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, PayrollComponent, User, PrismaClient, Prisma, } from '@prisma/client';
 import { CalculateComponentDto } from './dto/payroll.dto';
 import { bad } from 'src/utils/error.utils';
 import { TaxService } from './tax.service';
@@ -12,15 +12,26 @@ import { endOfMonth, startOfMonth } from 'date-fns';
 import { Response } from 'express';
 import { PayslipTemplateService } from './template.service';
 import { getMonthDateRange } from 'src/utils/getMonthDateRange';
+import path, { resolve } from 'path';
+import { PuppeteerService } from 'src/puppeteer/puppeteer.service';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
+import { monthInWords } from 'src/utils/monthInWords';
+import { MailService } from 'src/mail/mail.service';
+
+
+const templates = resolve(__dirname, '../payroll/templates');
 
 @Injectable()
 export class PayrollService {
-    private readonly logger = new Logger(PayrollService.name);
 
     constructor(
+
+        private mail: MailService,
         private readonly prisma: PrismaService,
         private readonly taxService: TaxService,
-        private readonly payslipTemplate: PayslipTemplateService
+        @InjectQueue('payslips') private readonly payslipQueue: Queue,
+
     ) { }
 
     async calculatePayRoll(data: PayrollDto) {
@@ -256,7 +267,6 @@ export class PayrollService {
         return { gross, deductions, net, components };
     }
 
-
     async createCustomComponent(payrollId: string, data: AddComponentDto) {
         return
         // try {
@@ -331,7 +341,7 @@ export class PayrollService {
         }
     }
 
-    async updateStaticComponent(payrollId: string, title: string, amount: number) {
+    async updateStaticComponent() {
         return
         // try {
         //     const payroll = await this.findPayroll(payrollId);
@@ -371,12 +381,12 @@ export class PayrollService {
         // }
     }
 
-    async findAllPayroll(skip = 0, take = 10) {
+    async findAllPayroll() {
         try {
             const [payrolls, total] = await Promise.all([
                 this.prisma.payroll.findMany({
-                    skip,
-                    take,
+                    // skip,
+                    // take,
                     include: {
                         component: true,
                         user: {
@@ -396,7 +406,7 @@ export class PayrollService {
             return {
                 data: payrolls,
                 total,
-                hasMore: skip + take < total,
+                // hasMore: skip + take < total,
             };
         } catch (error) {
             if (error instanceof BadRequestException ||
@@ -511,38 +521,9 @@ export class PayrollService {
         }
     }
 
-    private async generatePayslipPDFOnly(payroll: any): Promise<void> {
-        const browser = await this.launchBrowser();
 
-        try {
-            // Since payroll includes user, we generate PDF for that single user
-            const user = payroll.user;
-            const components = payroll.component;
-
-            const page = await browser.newPage();
-            const html = this.payslipTemplate.generateHTML(payroll, user, components);
-
-            await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-
-            const pdfBuffer = await page.pdf({
-                format: 'A4',
-                printBackground: true,
-                preferCSSPageSize: true,
-                timeout: 30000,
-            });
-
-            this.validatePDFBuffer(pdfBuffer);
-            await this.savePayslip(Buffer.from(pdfBuffer), payroll, user);
-            await page.close();
-        } finally {
-            await browser.close();
-        }
-    }
-
-    private async generateConsolidatedDeductionSummary(payrolls: Payroll[]): Promise<void> {
-        console.log({ payrolls })
+    private async generateConsolidatedDeductionSummary(payrolls: { id: string }[]): Promise<void> {
         const now = new Date();
-        const month = now.getMonth() + 1;
         const year = now.getFullYear();
         const monthInWords = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -559,7 +540,6 @@ export class PayrollService {
             include: { user: true },
         });
 
-        console.log({ comps })
         // === 2. Fetch all earnings (for employer pension calc)
         const earningComponents = await this.prisma.payrollComponent.findMany({
             where: {
@@ -603,7 +583,6 @@ export class PayrollService {
             }
         }
 
-        console.log({ employeeMap })
         // Employee pension + tax deductions
         for (const c of comps) {
             const id = c.user.eId;
@@ -625,13 +604,7 @@ export class PayrollService {
             emp.totalPension = (emp.employeePension || 0) + (emp.employerPension || 0);
         }
 
-        console.log({ employeeMap })
-
-
         const structuredData = Array.from(employeeMap.values());
-
-
-        console.log({ structuredData })
 
         // === 5. Generate Excel file
         const excelBuffer = await this.generateDeductionsExcel({
@@ -652,85 +625,59 @@ export class PayrollService {
         });
     }
 
+    async queuePayslipsForPeriod(userId: string) {
 
+        const user = await this.prisma.user.findUnique({ where: { id: userId } })
 
-    async generatePayslips(): Promise<{ success: boolean; message: string }> {
         try {
-            const { start, end } = getMonthDateRange();
-
-            // Check if payslips already exist for this month
-            const existingPayslip = await this.prisma.payslip.findFirst({
-                where: {
-                    createdAt: {
-                        gte: start,
-                        lte: end,
-                    },
-                },
-            });
-
-            // if (existingPayslip) {
-            //     throw new ConflictException('Payslips have already been generated for this month');
-            // }
-
-            //  Fetch payrolls with related data
             const payrolls = await this.prisma.payroll.findMany({
-                include: {
-                    user: true,
-                    component: true,
+                select: {
+                    id: true,
+                    userId: true,
                 },
+                // take: 1
             });
 
             if (!payrolls.length) {
-                throw new NotFoundException('No payrolls found to generate payslips');
+                return { message: 'No payroll records found' };
             }
 
-            //  Generate all payslip PDFs
-            // Using Promise.all ensures that if one fails, the entire operation fails.
-            await Promise.all(
-                payrolls.map(async (payroll) => {
-                    try {
-                        await this.generatePayslipPDFOnly(payroll);
-                    } catch (err: any) {
-                        console.error(`Failed to generate payslip for user ${payroll.user?.id || "unknown"}`, err);
-                        throw new Error(`Payslip generation failed for user ${payroll.user?.firstName || payroll.user?.id}`);
+            const jobs = payrolls.map((p) =>
+                this.payslipQueue.add(
+                    "generate-payslip",
+                    { payrollId: p.id },
+                    {
+                        attempts: 3,
+                        backoff: {
+                            type: 'exponential',
+                            delay: 3000,
+                        },
+                        removeOnComplete: true,
+                        removeOnFail: false,
                     }
-                })
+                )
             );
 
-            //  Generate consolidated deductions Excel
-            await this.generateConsolidatedDeductionSummary(payrolls);
+            await Promise.all(jobs);
+
+            await this.generateConsolidatedDeductionSummary(payrolls)
+
+            await this.mail.sendPayrollQueueMail({
+                email: user.email,
+                date: new Date().getFullYear().toString(),
+                month: monthInWords
+
+            },);
 
             return {
-                success: true,
-                message: `Successfully generated payslips for ${payrolls.length} employees.`,
+                message: `Payslip generation for ${monthInWords} has started. Check your email for update`,
             };
-        } catch (error: any) {
-            console.error("Error in generatePayslips:", error);
-
-            if (error instanceof ConflictException || error instanceof NotFoundException) {
-                throw error;
-            }
-
-            throw new BadRequestException(
-                `Failed to generate payslips: ${error.message || "Unknown error"}`
-            );
+        } catch (error) {
+            bad(error)
         }
-    }
 
-    // async generatePayslipForUser(userId: string): Promise<{ success: boolean; message: string }> {
-    //     const payroll = await this.prisma.payroll.findFirst({
-    //         where: { userId },
-    //         include: {
-    //             user: true,
-    //             component: true,
-    //         },
-    //     });
-    //     if (!payroll) {
-    //         throw bad("Payroll not found for user");
-    //     }
-    //     await this.generatePayslip(payroll);
-    //     return { success: true, message: `Payslip generated for ${payroll.user.firstName}` };
-    // }
+
+    }
 
     async getPayslips(userId?: string) {
         try {
@@ -833,7 +780,6 @@ export class PayrollService {
     }
 
     //////////////////////////////////////// HELPER FUNCTIONS  /////////////////////////////
-
 
     private calculateComponentAmounts = (salary: number, component: AddComponentDto[]) => {
         return component.map(comp => {
@@ -1046,72 +992,6 @@ export class PayrollService {
         }
     }
 
-    private async launchBrowser() {
-        try {
-            // Use the full puppeteer package instead of puppeteer-core
-            const puppeteer = await import('puppeteer');
-
-            const launchOptions: any = {
-                headless: true, // Use true instead of 'shell' for better compatibility
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor'
-                ],
-                timeout: 30000,
-            };
-
-            // Try to find Chrome executable
-            const possiblePaths = [
-                process.env.CHROME_PATH,
-                '/usr/bin/google-chrome',
-                '/usr/bin/chromium-browser',
-                'C:/Program Files/Google/Chrome/Application/chrome.exe',
-                'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-            ];
-
-            for (const path of possiblePaths) {
-                if (path) {
-                    try {
-                        const fs = require('fs');
-                        if (fs.existsSync(path)) {
-                            launchOptions.executablePath = path;
-                            this.logger.log(`Using Chrome at: ${path}`);
-                            break;
-                        }
-                    } catch (error) {
-                        // Continue to next path
-                    }
-                }
-            }
-
-            this.logger.log('Launching browser with options:', launchOptions);
-            const browser = await puppeteer.launch(launchOptions);
-            this.logger.log('Browser launched successfully');
-            return browser;
-
-        } catch (error) {
-            this.logger.error('Browser launch failed:', error);
-
-            // Fallback: try with different options
-            try {
-                const puppeteer = await import('puppeteer');
-                const browser = await puppeteer.launch({
-                    headless: true,
-                    args: ['--no-sandbox', '--disable-setuid-sandbox']
-                });
-                return browser;
-            } catch (fallbackError) {
-                throw new Error(`All browser launch attempts failed: ${error.message}`);
-            }
-        }
-    }
 
     private validatePDFBuffer(buffer: any): void {
         if (!buffer) {
@@ -1375,57 +1255,8 @@ export class PayrollService {
         }
     }
 
-    private async savePayslip(pdfBuffer: Buffer, payroll: Payroll, user: User): Promise<void> {
-        const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-
-        // Convert Buffer to Uint8Array for Prisma
-        const pdfData = new Uint8Array(pdfBuffer);
-
-        await this.prisma.payslip.create({
-            data: {
-                data: pdfData,
-                name: `${user.firstName} ${user.lastName} Payslip (${date})`,
-                amount: payroll.net,
-                userId: payroll.userId,
-                payrollId: payroll.id,
-                month: new Date().getMonth() + 1,
-                year: new Date().getFullYear(),
-            },
-        });
-    }
 
 
-    private prepareSectionsData(components: PayrollComponent[]): any[] {
-        const earnings = components
-            .filter(component => component.type === SalaryType.EARNING)
-            .map(earning => ({
-                ename: earning.title,
-                evalue: earning.monthlyAmount
-            }));
-
-        const deductions = components
-            .filter(component => component.type === SalaryType.DEDUCTION)
-            .map(deduction => ({
-                dname: deduction.title,
-                dvalue: deduction.monthlyAmount
-            }));
-
-        const sectionsData: any[] = [];
-        const maxLength = Math.max(earnings.length, deductions.length);
-
-        for (let i = 0; i < maxLength; i++) {
-            const earning = earnings[i];
-            const deduction = deductions[i];
-            sectionsData.push({
-                ename: earning?.ename ?? '-',
-                evalue: earning?.evalue ?? 0,
-                dname: deduction?.dname ?? '-',
-                dvalue: deduction?.dvalue ?? 0,
-            });
-        }
-
-        return sectionsData;
-    }
 
 }
 
