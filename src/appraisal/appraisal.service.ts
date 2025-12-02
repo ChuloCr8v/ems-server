@@ -1,653 +1,763 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-// import { bad } from 'src/utils/error.utils';
-import { FillAppraisalDto, GetAppraisalsDto, GetHRAppraisalsDto, SendToDepartmentDto } from './dto/apppraisal.dto';
-import { Prisma } from '@prisma/client';
+import { AppraisalObjectiveRatingDto, FeedbackQuestionDto, FillAppraisalDto, GetAppraisalsDto, GoalsAndAchievementDto } from './dto/apppraisal.dto';
+import { Role } from '@prisma/client';
+import { bad } from 'src/utils/error.utils';
 
 @Injectable()
 export class AppraisalService {
+    private readonly logger = new Logger(AppraisalService.name);
     constructor(private readonly prisma: PrismaService) {}
-     // Manager sends appraisals to department (makes them available for filling)
-    async sendAppraisalToTeam(userId: string, data: SendToDepartmentDto) {
-        const { quarter, year, departmentId } = data;
-        try {
-            return this.prisma.$transaction(async (tx) => {
-                //Verify manager is department head
-                const department = await tx.department.findFirst({
-                    where: {
-                        id: departmentId,
-                        approver: {
-                          some: { role: 'DEPT_MANAGER', userId: userId }  
-                        },
-                    },
-                });
-                if(!department) {
-                    throw new ForbiddenException('Not authorized to send appraisals for this department')
-                }
 
-                //Update all GENERATED appraisals for this department and quater to PENDING
-                const result = await tx.appraisal.updateMany({
-                    where: {
-                        quarter,
-                        year,
-                        appraised: {
-                            departments: { some: { id: departmentId } },
-                        },
-                        status: 'GENERATED'
-                    },
-                    data: { status: 'PENDING'},
-                });
-                return {
-                    message: `Sent ${result.count} appraisals to department team for filling`,
-                    count: result.count,
-                    department: department.name,
-                    quarter,
-                    year
-                }
-            })
-        } catch (error) {
-            if (error instanceof BadRequestException || 
-                    error instanceof NotFoundException || 
-                    error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to create KPI categories:' + error.message);
-                        
-        }
-    }
+    // Manager sends appraisals to department (makes them available for filling)
+    async sendAppraisalToTeam(userId: string, appraisalId: string, data: GetAppraisalsDto) {
+        const { departmentId, quarter, year } = data;
 
- 
-    async fillAppraisal(userId: string, appraisalId: string, data: FillAppraisalDto) {
-        return this.prisma.$transaction(async (tx) => {
-            const appraisal = await tx.appraisal.findUnique({
-                where: { 
-                    id: appraisalId, 
-                    appraisedId: userId 
-                },
-                include: {
-                    kpi: {
-                        include: {
-                            categories: {
-                                include: { objectives: true }
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (!appraisal) {
-                throw new NotFoundException('Appraisal not found');
-            }
-
-             // Employee can only update PENDING or DRAFT appraisals
-                if (!['PENDING', 'DRAFT'].includes(appraisal.status)) {
-                    throw new BadRequestException('Can only update appraisals in PENDING or DRAFT status');
-                }
-
-
-            // Update objectives ratings and comments
-            if (data.objectiveRatings) {
-                for (const ratingUpdate of data.objectiveRatings) {
-                    await tx.objective.updateMany({
-                        where: {
-                            id: ratingUpdate.objectiveId,
-                            category: {
-                                kpi: { appraisalId }
-                            }
-                        },
-                        data: {
-                            rating: ratingUpdate.rating,
-                            comment: ratingUpdate.comment
-                        }
-                    });
-                }
-            }
-
-            // Update goals and achievements
-            if (data.goalsAndAchievements) {
-                await tx.goalsAndAchievement.update({
-                    where: { appraisalId },
-                    data: {
-                        achievements: data.goalsAndAchievements.achievements,
-                        goals: data.goalsAndAchievements.goals
-                    }
-                });
-            }
-
-            // Update feedback responses
-            if (data.feedbackResponses) {
-                for (const response of data.feedbackResponses) {
-                    await tx.feedbackQuestion.updateMany({
-                        where: {
-                            id: response.questionId,
-                            feedback: { appraisalId }
-                        },
-                        data: { response: response.response }
-                    });
-                }
-            }
-
-            // Handle status transitions
-            let newStatus = appraisal.status;
-            let submittedAt = appraisal.submittedAt;
-
-            if (data.submit) {
-                // Validate that all required fields are filled before submission
-                const validationError = await this.validateAppraisalCompletion(appraisalId);
-                if (validationError) {
-                    throw new BadRequestException(validationError);
-                }
-
-                newStatus = 'SUBMITTED';
-                submittedAt = new Date();
-                // Calculate final rating summary when submitting
-                await this.calculateRatingSummary(appraisalId);
-            } else if (appraisal.status === 'PENDING') {
-                // First time saving - transition from PENDING to DRAFT
-                newStatus = 'DRAFT';
-            }
-            // If already DRAFT and not submitting, remain DRAFT
-
-            // Update appraisal status
-            const updatedAppraisal = await tx.appraisal.update({
-                where: { id: appraisalId },
-                data: {
-                    status: newStatus,
-                    submittedAt: submittedAt
-                },
-                include: this.getAppraisalIncludes()
-            });
-
-            const message = data.submit 
-                ? 'Appraisal submitted successfully' 
-                : appraisal.status === 'PENDING' 
-                    ? 'Appraisal started and saved as draft' 
-                    : 'Appraisal saved as draft';
-
-            return {
-                ...updatedAppraisal,
-                message
-            };
-        });
-    }
-
-    //Manager reviews and appraises 
-    async getUserAppraisals(userId: string, userRole: string, filters?: GetAppraisalsDto) {
-        let where: any = {};
-
-        switch (userRole) {
-            case 'USER':
-                where.appraisedId = userId;
-                 // Employees can only see PENDING, DRAFT, SUBMITTED, and APPRAISED appraisals
-                where.status = { in: ['PENDING', 'DRAFT', 'SUBMITTED', 'APPRAISED'] };
-                break;
-
-            case 'DEPT_MANAGER':
-                where.appraiserId = userId;
-                // Managers can only see GENERATED, SUBMITTED and APPRAISED appraisals (not DRAFT)
-                where.status = { in: ['GENERATED', 'SUBMITTED', 'APPRAISED'] };
-                break;
-
-            case 'HR':
-                where.status = 'APPRAISED';
-                break;
-
-            case 'ADMIN':
-                // Admin sees everything
-                break;
-
-            default:
-                throw new ForbiddenException('You are not authorized to view appraisals');
-        }
-
-        // Apply common filters
-        if (filters?.status && userRole !== 'USER' && userRole !== 'DEPT_MANAGER') {
-            where.status = filters.status;
-        }
-
-        if (filters?.quarter) {
-            where.quarter = filters.quarter;
-        }
-
-        if (filters?.year) {
-            where.year = filters.year;
-        }
-
-        // HR/Admin specific filters
-        if ((userRole === 'HR' || userRole === 'ADMIN') && filters) {
-            const hrFilters = filters as GetHRAppraisalsDto;
-            
-            if (hrFilters.departmentId) {
-                where.appraised = { departmentId: hrFilters.departmentId };
-            }
-
-            if (hrFilters.managerId) {
-                where.appraiserId = hrFilters.userId;
-            }
-
-            if (hrFilters.employeeId) {
-                where.appraisedId = hrFilters.userId;
-            }
-        }
-
-        const include = this.getRoleSpecificIncludes(userRole);
-        const appraisals = await this.prisma.appraisal.findMany({
-            where,
-            include,
-            orderBy: this.getRoleSpecificOrderBy(userRole)
-        });
-
-        // For managers, add count of rated objectives
-        if (userRole === 'DEPT_MANAGER') {
-            return await this.addRatedObjectivesCount(appraisals);
-        }
-
-        return appraisals;
-    }
-
-    async getAppraisalById(userId: string, userRole: string, appraisalId: string) {
-        const appraisal = await this.prisma.appraisal.findUnique({
-            where: { id: appraisalId },
-            include: this.getAppraisalIncludes()
-        });
-
-        if (!appraisal) {
-            throw new NotFoundException('Appraisal not found');
-        }
-
-        // Check access based on role
-        switch (userRole) {
-            case 'USER':
-                if (appraisal.appraisedId !== userId) {
-                    throw new ForbiddenException('You can only view your own appraisals');
-                }
-                break;
-
-            case 'DEPT_MANAGER':
-                if (appraisal.appraiserId !== userId) {
-                    throw new ForbiddenException('You can only view appraisals assigned to you');
-                }
-                // Managers can only view SUBMITTED and APPRAISED appraisals
-                if (!['SUBMITTED', 'APPRAISED'].includes(appraisal.status)) {
-                    throw new ForbiddenException('You can only view SUBMITTED or APPRAISED appraisals');
-                }
-                break;
-
-            case 'HR':
-                // HR can only view APPRAISED appraisals
-                if (appraisal.status !== 'APPRAISED') {
-                    throw new ForbiddenException('HR can only view appraisals with APPRAISED status');
-                }
-                break;
-
-            case 'ADMIN':
-                // Admin can view everything
-                break;
-
-            default:
-                throw new ForbiddenException('You are not authorized to view this appraisal');
-        }
-
-        return appraisal;
-    }
-
-
-    // async calculateRatingSummary(appraisalId: string) {
-    //     try {
-    //         const appraisal = await this.prisma.appraisal.findUnique({
-    //             where: { id: appraisalId },
-    //             include: {
-    //                 kpi: {
-    //                     include: {
-    //                         categories: {
-    //                             include: {
-    //                                 objectives: true
-    //                             }
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         });
-
-    //         if (!appraisal) {
-    //             throw new NotFoundException('Appraisal not found');
-    //         }
-
-    //         // Define category mappings
-    //         const categoryMappings = {
-    //             'TECHNICAL SKILL': 'technicalPerformance',
-    //             'TEAM COLLABORATION': 'teamCollaboration',
-    //             'INITIATIVE & LEADERSHIP': 'initiativesLeadership',
-    //             'DEPARTMENTAL KPI': 'departmentalKpi'
-    //         };
-
-    //         const summary = {
-    //             technicalPerformance: 0,
-    //             teamCollaboration: 0,
-    //             initiativesLeadership: 0,
-    //             departmentalKpi: 0,
-    //             overallPerformance: 0
-    //         };
-
-    //         let totalRatedCategories = 0;
-
-    //         // Calculate average rating for each category
-    //         if (appraisal.kpi && appraisal.kpi.length) {
-    //             for (const kpi of appraisal.kpi) {
-    //                 if (!kpi.categories) continue;
-    //                 for (const category of kpi.categories) {
-    //                     const validObjectives = category.objectives.filter(obj => obj.rating !== null && obj.rating !== undefined);
-    //                     if (validObjectives.length > 0) {
-    //                         const average = validObjectives.reduce((sum, obj) => sum + obj.rating, 0) / validObjectives.length;
-    //                         const mappedField = categoryMappings[category.name];
-    //                         if (mappedField) {
-    //                             summary[mappedField] = Math.round(average * 10) / 10;
-    //                             totalRatedCategories++;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         // Calculate overall performance
-    //         if (totalRatedCategories > 0) {
-    //             const total = Object.values(summary).reduce((sum: number, value: number) => sum + value, 0) - summary.overallPerformance;
-    //             summary.overallPerformance = Math.round((total / totalRatedCategories) * 10) / 10;
-    //         }
-
-    //         // Update or create rating summary
-    //         await this.prisma.ratingSummary.upsert({
-    //             where: { appraisalId },
-    //             update: summary,
-    //             create: {
-    //                 ...summary,
-    //                 appraisalId
-    //             }
-    //         });
-
-    //         return summary;
-    //     } catch (error) {
-    //         if (error instanceof BadRequestException || 
-    //                   error instanceof NotFoundException || 
-    //                   error instanceof ConflictException) {
-    //             throw error;
-    //         }
-    //         throw new BadRequestException('Failed to calculate rating summary:' + error.message);
-    //     }
-    // }
-
-    /////////////////////////////////////////////// HELPER METHODS ///////////////////////////////////////////
-
-      private getAppraisalIncludes() {
-        return {
-        appraised: {
-            select: { id: true, firstName: true, lastName: true, email: true, department: true }
-        },
-        appraiser: {
-            select: { id: true, firstName: true, lastName: true, email: true }
-        },
-        kpi: {
+        //Fetch the template appraisal for this department + period
+        const template = await this.prisma.appraisal.findFirst({
+            where: {
+            departmentId,
+            quarter,
+            year,
+            isTemplate: true,
+            },
             include: {
-            categories: {
-                include: {
-                objectives: true,
-                department: true
-                }
-            }
-            }
-        },
-        goalsAndAchievement: true,
-        feedback: {
-            include: { questions: true }
-        },
-        ratingSummary: true
-        };
-      }
-
-      private getRoleSpecificOrderBy(userRole: string): Prisma.AppraisalOrderByWithRelationInput {
-        switch (userRole) {
-            case 'USER':
-                return { createdAt: 'desc' };
-            case 'DEPT_MANAGER':
-                return { updatedAt: 'desc' };
-            case 'HR':
-            case 'ADMIN':
-                return { appraisedAt: 'desc' };
-            default:
-                return { createdAt: 'desc' };
-        }
-}
-
-    private getRoleSpecificIncludes(userRole: string) {
-        const baseInclude = {
-            ratingSummary: true,
             kpi: {
                 include: {
-                    categories: {
+                categories: {
+                    include: { objectives: true },
+                },
+                },
+            },
+            appraisalObj: {
+                include: {
+                    kpiCategory: {
                         include: {
                             objectives: true
                         }
                     }
                 }
             },
-            goalsAndAchievement: true
-        };
+            goalsAndAchievement: true,
+            feedback: { include: { questions: true } },
+            },
+        });
 
-        switch (userRole) {
-            case 'USER':
-                return {
-                    ...baseInclude,
-                    appraiser: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            position: true
-                        }
-                    },
-                    feedback: {
-                        include: {
-                            questions: true
-                        }
-                    },
-                    signatures: true
-                };
+        if (!template) throw new BadRequestException('No template found for this department.');
 
-            case 'DEPT_MANAGER':
-                return {
-                    ...baseInclude,
-                    appraised: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            position: true,
-                            department: {
-                                select: {
-                                    id: true,
-                                    name: true
-                                }
-                            }
-                        }
-                    }
-                    // Remove _count entirely
-                };
+        //Fetch employees in this department
+        const employees = await this.prisma.user.findMany({
+            where: {
+            userRole: { has: 'USER' },
+            departments: { some: { id: departmentId } },
+            },
+        });
 
-            case 'HR':
-            case 'ADMIN':
-                return {
-                    ...baseInclude,
-                    appraised: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            position: true,
-                            department: {
-                                select: {
-                                    id: true,
-                                    name: true
-                                }
-                            }
-                        }
-                    },
-                    appraiser: {
-                        select: {
-                            id: true,
-                            firstName: true,
-                            lastName: true,
-                            email: true,
-                            position: true
-                        }
-                    },
-                    feedback: {
-                        include: {
-                            questions: true
-                        }
-                    },
-                    signatures: true
-                };
+        if (employees.length === 0) throw new BadRequestException('No employees in this department.');
 
-            default:
-                return baseInclude;
+        const createdAppraisals = [];
+
+        //Loop through department employees
+        for (const employee of employees) {
+            const existing = await this.prisma.appraisal.findFirst({
+            where: { quarter, year, appraisedId: employee.id },
+            });
+            if (existing) continue; // avoid duplicates
+
+            //Create appraisal for employee
+            const employeeAppraisal = await this.prisma.appraisal.create({
+            data: {
+                quarter,
+                year,
+                departmentId,
+                appraiserId: userId,
+                appraisedId: employee.id,
+                templateId: template.id,
+                status: 'PENDING',
+                isTemplate: false,
+                autoGenerated: false,
+                period: template.period,
+                goalsAndAchievement: {
+                create: { achievements: [], goals: [] },
+                },
+                feedback: {
+                create: {
+                    questions: {
+                    create: template.feedback?.questions.map((q) => ({
+                        question: q.question,
+                    })) || [],
+                    },
+                },
+                },
+            },
+            });
+
+            //Create employee-specific objective ratings (empty initially)
+            for (const kpi of template.kpi) {
+            for (const category of kpi.categories) {
+                for (const objective of category.objectives) {
+                await this.prisma.appraisalObjective.create({
+                    data: {
+                        appraisal: { connect: { id: employeeAppraisal.id } },
+                        objective: { connect: { id: objective.id } },
+                        kpiCategory: { connect: { id: objective.categoryId } }
+                    },
+                 });
+                }
+              }
+            }
+
+            createdAppraisals.push(employeeAppraisal);
         }
+
+        //Return summary
+        return {
+            success: true,
+            message: `Appraisals sent to ${createdAppraisals.length} team member(s).`,
+            data: createdAppraisals,
+        };
     }
 
-    private async calculateRatingSummary(appraisalId: string) {
+    async saveAppraisalDraft(userId: string, appraisalId: string, data: FillAppraisalDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                departments: { include: { approver: true, } }
+            }
+        })
         const appraisal = await this.prisma.appraisal.findUnique({
             where: { id: appraisalId },
+            include: { department: true } 
+        })
+        if(this.userHasRole(user, Role.USER)) {
+            if(appraisal.appraisedId !== userId) {
+            throw bad('Not authorized to fill this appraisal')
+            }
+            return this.saveUserDraft(userId, appraisalId, data);
+        } else if(this.userHasRole(user, Role.DEPT_MANAGER)) {
+            const isManager = this.isManagerOfUser(userId, appraisal.appraisedId);
+            if(!isManager) {
+                throw bad('You are not authorized to appraise this user')
+            }
+            if(appraisal.status !== 'SUBMITTED' && appraisal.status !== 'MANAGER_DRAFT') {
+                throw bad('Cannot save draft for an appraisal with status: ' + appraisal.status + 
+                '. Appraisal must be submitted by employee first.');
+            }
+            return this.saveManagerDraft(userId, appraisalId, data);
+        } else {
+            throw bad('Invalid role for this operation')
+        }
+    }
+
+    async submitAppraisal(userId: string, appraisalId: string, data: FillAppraisalDto) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
             include: {
-                kpi: {
+                departments: { include: { approver: true, }, },
+            }
+        });
+        const appraisal = await this.prisma.appraisal.findUnique({
+            where: { id: appraisalId },
+            include: { department: true }
+        });
+        if(this.userHasRole(user, Role.USER)) {
+            if(appraisal.appraisedId !== userId) {
+                throw bad('Not authorized to fill this appraisal')
+            }
+            return this.submitUserAppraisal(userId, appraisalId, data);
+        } else if(this.userHasRole(user, Role.DEPT_MANAGER)) {
+            const isManager = this.isManagerOfUser(userId, appraisal.appraisedId);
+            if(!isManager) {
+                throw bad('You are not authorized to appraise this user')
+            }
+            if(appraisal.status !== 'SUBMITTED' && appraisal.status !== 'MANAGER_DRAFT') {
+                throw bad('Cannot appraise an appraisal with status: ' + appraisal.status + 
+                '. Appraisal must be submitted by employee first.');
+            }
+            return this.appraiseSubmission(userId, appraisalId, data);
+        } else {
+            throw bad('Invalid role for this operation')
+        }
+    }
+
+    private async appraiseSubmission(userId:string, appraisalId: string, data: FillAppraisalDto) {
+        const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
+
+        const { objectiveRatings, goalsAndAchievements, managerComment } = data;
+
+        //Update appraisal in transaction
+        await this.prisma.$transaction(async (tx) => {
+            //Update Kpi Objectives
+            if(objectiveRatings?.length > 0) {
+                await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
+            }   
+            //Update Goals & Achievements
+            if(goalsAndAchievements) {
+                await this.updateGoalsAndAchievements(tx, appraisalId, goalsAndAchievements);
+            }
+
+            //Calculate Appraisal Rating Summary
+            await this.calculateRatingSummary(appraisalId);
+
+            //Update Appraisal as Appraised
+            await tx.appraisal.update({
+                where: { id: appraisalId },
+                data: {
+                    status: 'APPRAISED',
+                    managerComment: managerComment,
+                    appraisedAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            });
+        });
+
+        const updatedAppraisal = await this.getOneAppraisal(appraisalId);
+        return updatedAppraisal
+    }
+
+   private async submitUserAppraisal(userId: string, appraisalId: string, data: FillAppraisalDto){
+        const appraisal = await this.validateUserAppraisal(userId, appraisalId);
+
+        const { objectiveRatings, feedback, goalsAndAchievements } = data;
+        await this.prisma.$transaction(async (tx) => {
+            //Update Kpi Objective Ratings
+            if(objectiveRatings?.length > 0) {
+                await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
+            }
+            //Update Goals & Achievements
+            if(goalsAndAchievements) {
+                await this.updateGoalsAndAchievements(tx, appraisalId, goalsAndAchievements);
+            }
+            //Update Feedback
+            if(feedback?.length > 0) {
+                await this.updateFeedbackResponses(tx, feedback);
+            }
+
+            //Calculate ratings and Update Status
+            await this.calculateRatingSummary(appraisalId);
+
+            await tx.appraisal.update({
+                where: { id: appraisalId },
+                data: {
+                    status: 'SUBMITTED',
+                    submittedAt: new Date(),
+                    updatedAt: new Date(),
+                },
+            });
+        });
+        const updatedAppraisal = await this.getOneAppraisal(appraisalId);
+        return updatedAppraisal;
+    }
+
+    private async saveManagerDraft(userId: string, appraisalId: string, data: FillAppraisalDto) {
+        //Find appraisal and validate manager authorization
+        const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
+
+        const { objectiveRatings, goalsAndAchievements, managerComment } = data;
+
+        //Update appraisalin transaction
+        await this.prisma.$transaction(async (tx) => {
+            //Update Kpi Objectives
+            if(objectiveRatings?.length > 0) {
+                await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
+            }
+
+            //Update Goals & Achievements
+            if(goalsAndAchievements) {
+                await this.updateGoalsAndAchievements(tx, appraisalId, goalsAndAchievements);
+            }
+
+            //Update Appraisal as Manager draft
+            await tx.appraisal.update({
+                where: { id: appraisalId },
+                data: {
+                    status: 'MANAGER_DRAFT',
+                    managerComment: managerComment,
+                },
+            });
+        });
+
+        const updatedAppraisal = await this.getOneAppraisal(appraisalId);
+
+        return updatedAppraisal;
+    }
+
+    private async saveUserDraft(userId: string, appraisalId: string, data: FillAppraisalDto) {
+        const appraisal = await this.validateUserAppraisal(userId, appraisalId);
+
+        const { objectiveRatings, goalsAndAchievements, feedback } = data;
+        await this.prisma.$transaction(async (tx) => {
+            //Update Kpi Objective Ratings
+            if(objectiveRatings?.length > 0) {
+                await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
+            }
+            //Update Goals & Achievements
+            if(goalsAndAchievements) {
+                await this.updateGoalsAndAchievements(tx, appraisalId, goalsAndAchievements);
+            }
+            //Update Feedback
+            if(feedback?.length > 0) {
+                await this.updateFeedbackResponses(tx, feedback);
+            }
+            //Update Appraisal Status
+            await tx.appraisal.update({
+                where: { id: appraisalId },
+                data: {
+                    status: 'DRAFT',
+                    updatedAt: new Date(),
+                },
+            });
+        });
+        const updatedAppraisal = await this.getOneAppraisal(appraisalId);
+        return updatedAppraisal;
+    }
+
+    async getAppraisalForUser(userId: string, filters?: GetAppraisalsDto) {
+        // Ensure user roles are loaded
+            const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { appraisals: { select: { id: true } }, }
+            });
+            if (!user) throw new NotFoundException('User not found');
+
+        const userRoles = user.userRole || [];
+
+        const isAdmin = userRoles.includes(Role.ADMIN);
+        const isHR = userRoles.includes(Role.HR);
+        const isManager = userRoles.includes(Role.DEPT_MANAGER);
+        const isUser = userRoles.includes(Role.USER);
+        const where: any = {};
+
+        // Optional filters
+        if (filters?.quarter) where.quarter = filters.quarter;
+        if (filters?.year) where.year = Number(filters.year);
+        if (filters?.status) where.status = filters.status;
+
+        // Common include for all queries
+        const appraisalInclude = {
+            appraised: { 
+                    select: {
+                                id: true, 
+                                firstName: true, 
+                                lastName: true, 
+                                email: true, 
+                                role: true, 
+                                eId: true, 
+                           } 
+                       },
+            appraiser: { 
+                    select: {
+                                id: true, 
+                                firstName: true, 
+                                lastName: true, 
+                                email: true, 
+                                role: true, 
+                                eId: true, 
+                        } 
+            },
+            department: true,
+            kpi: {
+            include: {
+                categories: {
+                include: {
+                    objectives: {
+                    include: { appraisalObj: true },
+                    },
+                },
+                },
+            },
+            },
+            appraisalObj: true,
+            goalsAndAchievement: true,
+            feedback: { include: { questions: true } },
+            summary: {
+            include: {
+                kpiCategory: { select: { id: true, name: true } },
+            },
+            },
+        };
+
+        /**
+         * ADMIN or HR → can view all appraisals
+         */
+        if (isAdmin || isHR) {
+            return await this.prisma.appraisal.findMany({
+            where,
+            include: appraisalInclude,
+            });
+        }
+
+        /**
+         * MANAGER → can view appraisals of their team
+         */
+        if (isManager) {
+            const departments = await this.prisma.department.findMany({
+            where: { user: { some: { id: user.id } } },
+            select: { id: true },
+            });
+
+            const departmentIds = departments.map((d) => d.id);
+
+            return await this.prisma.appraisal.findMany({
+            where: {
+                ...where,
+                departmentId: { in: departmentIds },
+                appraiserId: user.id,
+            },
+            include: appraisalInclude,
+            });
+        }
+        /**
+         * USER → can view:
+         *  - their own appraisals
+         *  - manager’s sent team appraisals (pending)
+         */
+        if (isUser) {
+            const userDepartments = await this.prisma.department.findMany({
+            where: { user: { some: { id: user.id } } },
+            select: { id: true },
+            });
+
+            const departmentIds = userDepartments.map((d) => d.id);
+
+            // Get all appraisal IDs for this user to exclude when needed
+            const userAppraisalIds = user.appraisals.map((a) => a.id);
+
+            return await this.prisma.appraisal.findMany({
+            where: {
+                ...where,
+                OR: [
+                { appraisedId: user.id },
+                {
+                    departmentId: { in: departmentIds },
+                    status: 'PENDING',
+                    appraisedId: null,
+                },
+                ],
+            },
+            include: {
+                ...appraisalInclude,
+                appraisalObj: {
                     include: {
-                        categories: {
-                            include: { objectives: true }
-                        }
+                        objective: true,
+                        kpiCategory: true
                     }
                 }
-            }
-        });
+            },
+            });
+        }
 
-        if (!appraisal?.kpi?.[0]) return; // Check if first KPI exists
+        throw new ForbiddenException('Unauthorized role');
+    }
 
-        const kpi = appraisal.kpi[0]; // Get the first KPI
-        const summary: any = {};
-        let totalOverall = 0;
-        let categoryCount = 0;
-
-        for (const category of kpi.categories) {
-            const validRatings = category.objectives.filter(obj => obj.rating !== null);
-            
-            if (validRatings.length > 0) {
-                const categoryAverage = validRatings.reduce((sum, obj) => sum + (obj.rating || 0), 0) / validRatings.length;
-                
-                // Map category names to summary fields
-                const summaryField = this.mapCategoryToSummaryField(category.name);
-                if (summaryField) {
-                    summary[summaryField] = Math.round(categoryAverage * 10) / 10;
-                    totalOverall += categoryAverage;
-                    categoryCount++;
+    async getOneAppraisal(id: string) {
+        try {
+            return await this.prisma.appraisal.findUnique({
+                where: { id },
+                include: {
+                    appraised: { 
+                    select: {
+                                id: true, 
+                                firstName: true, 
+                                lastName: true, 
+                                email: true, 
+                                role: true, 
+                                eId: true, 
+                           } 
+                       },
+                    appraiser: { 
+                    select: {
+                                id: true, 
+                                firstName: true, 
+                                lastName: true, 
+                                email: true, 
+                                role: true, 
+                                eId: true, 
+                           } 
+                       },
+                    department: true,
+                    appraisalObj: true,
+                    kpi: {
+                    include: {
+                        categories: {
+                        include: {
+                            objectives: {
+                            include: { appraisalObj: true },
+                            },
+                        },
+                        },
+                    },
+                    },
+                    goalsAndAchievement: true,
+                    feedback: { include: { questions: true } },
+                    summary: {
+                    include: {
+                        kpiCategory: { select: { id: true, name: true } },
+                    },
+                  },
                 }
+            })
+        } catch (error) {
+             if (
+                error instanceof BadRequestException ||
+                error instanceof NotFoundException ||
+                error instanceof ConflictException
+            ) {
+                console.log(error) ;
             }
+            throw new BadRequestException('Failed to delete KPI Category: ' + error.message);
         }
+    }
 
-        if (categoryCount > 0) {
-            summary.overallPerformance = Math.round((totalOverall / categoryCount) * 10) / 10;
-        }
+    /**
+     * Calculate overall rating summary for an appraisal
+     * based on its AppraisalObjectives.
+     */
 
-        await this.prisma.ratingSummary.upsert({
+    async calculateRatingSummary(appraisalId: string) {
+        try {
+            // Fetch all KPI categories (both global and departmental) for this appraisal
+            const kpi = await this.prisma.kpi.findUnique({
             where: { appraisalId },
-            update: summary,
-            create: { appraisalId, ...summary }
-        });
-    }
+            include: {
+                categories: {
+                include: {
+                    objectives: true,
+                },
+                },
+            },
+            });
 
-    private mapCategoryToSummaryField(categoryName: string): string | null {
-        const mapping: { [key: string]: string } = {
-            'TECHNICAL SKILL': 'technicalPerformance',
-            'TEAM COLLABORATION': 'teamCollaboration',
-            'INITIATIVE & LEADERSHIP': 'initiativesLeadership',
-            'DEPARTMENT KPI': 'departmentalKpi'
-        };
-        return mapping[categoryName] || null;
-    }
-
-    private async addRatedObjectivesCount(appraisals: any[]) {
-    const appraisalsWithCounts = await Promise.all(
-        appraisals.map(async (appraisal) => {
-            let ratedObjectivesCount = 0;
-            let totalObjectivesCount = 0;
-            
-            // Fix: appraisal.kpi is an array
-            const kpi = appraisal.kpi?.[0];
-            if (kpi?.categories) {
-                for (const category of kpi.categories) {
-                    const ratedInCategory = category.objectives.filter(obj => obj.rating !== null).length;
-                    ratedObjectivesCount += ratedInCategory;
-                    totalObjectivesCount += category.objectives.length;
-                }
+            if (!kpi || kpi.categories.length === 0) {
+            return { categories: [], overallAverage: null };
             }
+
+            const categorySummaries: {
+            categoryId: string;
+            categoryName: string;
+            averageRating: number | null;
+            }[] = [];
+
+            const allRatings: number[] = [];
+
+            // --- Compute per-category averages ---
+            for (const category of kpi.categories) {
+            const ratings = category.objectives
+                .filter((obj) => obj.rating != null)
+                .map((obj) => obj.rating as number);
+
+            const avg =
+                ratings.length > 0
+                ? parseFloat(
+                    (
+                        ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+                    ).toFixed(2)
+                    )
+                : null;
+
+            if (ratings.length > 0) {
+                allRatings.push(...ratings);
+            }
+
+            categorySummaries.push({
+                categoryId: category.id,
+                categoryName: category.name,
+                averageRating: avg,
+            });
+
+            // Persist each category summary
+            await this.prisma.ratingSummary.upsert({
+                where: {
+                appraisalId_kpiCategoryId: {
+                    appraisalId,
+                    kpiCategoryId: category.id,
+                },
+                },
+                update: { averageRating: avg },
+                create: {
+                appraisalId,
+                kpiCategoryId: category.id,
+                averageRating: avg,
+                },
+            });
+            }
+
+            // --- Compute overall average ---
+            const overallAverage =
+            allRatings.length > 0
+                ? parseFloat(
+                    (
+                    allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length
+                    ).toFixed(2)
+                )
+                : null;
+
+            // Update overall average on the appraisal
+            await this.prisma.appraisal.update({
+            where: { id: appraisalId },
+            data: { averageRating: overallAverage },
+            });
 
             return {
-                ...appraisal,
-                ratedObjectivesCount,
-                totalObjectivesCount
+            overallAverage,
+            categories: categorySummaries,
             };
-        })
-    );
+        } catch (error) {
+            if (
+            error instanceof BadRequestException ||
+            error instanceof NotFoundException ||
+            error instanceof ConflictException
+            ) {
+            throw error;
+            }
+            throw new BadRequestException(
+            'Failed to calculate rating summary: ' + error.message
+            );
+        }
+    }
 
-    return appraisalsWithCounts;
- }
 
-    private async validateAppraisalCompletion(appraisalId: string): Promise<string | null> {
+    /////////////////////////////////////////////// HELPER METHODS ///////////////////////////////////////////
+
+    private async updateObjectiveRatings(
+        tx: any, 
+        appraisal: any, 
+        objectiveRatings: AppraisalObjectiveRatingDto[]
+    ) {
+        const validObjectiveIds = new Set(appraisal.appraisalObj.map(obj => obj.id));
+        const updates = objectiveRatings
+            .filter(obj => validObjectiveIds.has(obj.appraisalObjId))
+            .map(obj => 
+                tx.appraisalObjective.update({
+                    where: { id: obj.appraisalObjId },
+                    data: {
+                        rating: obj.rating ?? null,
+                        comment: obj.comment ?? null,
+                    },
+                })
+            );
+
+        await Promise.all(updates);
+    }
+
+    private async updateGoalsAndAchievements(
+        tx: any,
+        appraisalId: string,
+        goalsAndAchievements: GoalsAndAchievementDto
+    ) {
+        await tx.goalsAndAchievement.updateMany({
+            where: { appraisalId },
+            data: {
+                goals: goalsAndAchievements.goals ?? [],
+                achievements: goalsAndAchievements.achievements ?? [],
+            },
+        });
+    }
+
+    private async updateFeedbackResponses(tx: any, feedback: FeedbackQuestionDto[]) {
+        const updates = feedback.map(item =>
+            tx.feedbackQuestion.update({
+                where: { id: item.questionId },
+                data: { response: item.response },
+            })
+        );
+
+       await Promise.all(updates);
+    }
+
+
+    async findAppraisalFeedbackQuestion(appraisalId: string) {
+        const appraisal = await this.prisma.appraisal.findUnique({
+            where: { id: appraisalId },
+            include: { feedback: true}
+        });
+        return this.prisma.feedbackQuestion.findMany({
+            where: { feedbackId: appraisal.feedback.id }
+        });
+    }
+
+    async getAppraisalRatingSummary(appraisalId: string) {
+        return this.prisma.ratingSummary.findMany({
+            where: { appraisalId },
+            include: { kpiCategory: true },
+        });
+    }
+
+    private async validateUserAppraisal(userId: string, appraisalId: string) {
         const appraisal = await this.prisma.appraisal.findUnique({
             where: { id: appraisalId },
             include: {
-                kpi: {
-                    include: {
-                        categories: {
-                            include: {
-                                objectives: true
-                            }
-                        }
-                    }
-                },
+                appraised: { include: { departments: true } },
+                appraisalObj: true,
                 goalsAndAchievement: true,
-                feedback: {
-                    include: {
-                        questions: true
-                    }
-                }
-            }
+            },
         });
-
-        if (!appraisal) {
-            return 'Appraisal not found';
+        if(!appraisal) {
+            throw bad('Appraisal Not Found');
         }
 
-        // Appraisal.kpi is an array, so we need to access the first element or handle multiple
-        const kpi = appraisal.kpi?.[0]; // Get the first KPI
-        const allObjectives = kpi?.categories.flatMap(cat => cat.objectives) || [];
-        const unratedObjectives = allObjectives.filter(obj => obj.rating === null);
-        
-        if (unratedObjectives.length > 0) {
-            return `Please rate all KPI objectives. ${unratedObjectives.length} objective(s) remaining.`;
+        if (appraisal.appraisedId !== userId) {
+            throw new ForbiddenException('You are not authorized to access this appraisal');
         }
 
-        // Check if goals and achievements are filled
-        if (!appraisal.goalsAndAchievement?.achievements?.length || 
-            !appraisal.goalsAndAchievement?.goals?.length) {
-            return 'Please fill in both achievements and goals sections.';
+        //Validate appraisal status
+        if(['SUBMITTED', 'APPRAISED'].includes(appraisal.status)) {
+            throw bad('This appraisal can no longer be modified');
         }
-
-        // Check if feedback questions are answered
-        const unansweredFeedback = appraisal.feedback?.questions.filter(q => !q.response);
-        if (unansweredFeedback?.length > 0) {
-            return `Please answer all feedback questions. ${unansweredFeedback.length} question(s) remaining.`;
-        }
-
-        return null; // No validation errors
+        return appraisal;
     }
+
+    private async validateManagerAppraisal(userId: string, appraisalId: string) {
+        const appraisal = await this.prisma.appraisal.findUnique({
+            where: { id: appraisalId },
+            include: {
+                appraised: { include: { departments: true } },
+                appraisalObj: true,
+                goalsAndAchievement: true,
+            },
+        });
+        if(!appraisal) {
+            throw bad('Appraisal Not Found');
+        }
+
+        //Check if manager is authorized to appraise this appraisal
+        const isAuthorized = await this.isManagerOfUser(userId, appraisal.appraisedId);
+        if(!isAuthorized) {
+            throw bad('You are not authorized to appraise this user');
+        }
+
+        //Validate appraisal status - only SUBMITTED or MANAGER_DRAFT appraisals can be appraised
+        if(!['SUBMITTED', 'MANAGER_DRAFT'].includes(appraisal.status)) {
+            throw bad( `Cannot appraise an appraisal with status: ${appraisal.status}. ` +
+                        'Appraisal must be submitted by employee first.');
+        }
+        return appraisal;
+    }
+
+    private async isManagerOfUser(userId: string, appraisedId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { departments: { include: { approver: true } } },
+        })
+        if(this.userHasRole(user, Role.DEPT_MANAGER)) {
+            //Check if appraised user is in any of the manager's departments
+            const managedDeptIds = user.departments.map(dept => dept.id);
+            const appraisedUser = await this.prisma.user.findUnique({
+                where: { id: appraisedId },
+                include: { departments: true }
+            });
+            const appraisedDeptIds = appraisedUser.departments.map(dept => dept.id);
+            const commonDepts = managedDeptIds.filter(id => appraisedDeptIds.includes(id));
+            return commonDepts.length > 0;
+        }
+    }
+
+     private userHasRole(userObj: any, role: Role) {
+            if (!userObj) return false;
+            // userObj.userRole may be an array of Role or a single Role string
+            const roles = (userObj.userRole ?? userObj.role) as any;
+            if (Array.isArray(roles)) return roles.includes(role);
+            return roles === role;
+        }
+
 }
