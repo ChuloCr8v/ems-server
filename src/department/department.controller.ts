@@ -18,8 +18,7 @@ export class DepartmentController {
     return res.status(200).json({ message: `A New Department Has Been Created`, department });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Auth([Role.ADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get()
   async getAllDepartments(
   ) {
@@ -33,19 +32,18 @@ export class DepartmentController {
     return await this.departmentService.getTeam(req.user.id);
   }
 
-  @Auth([Role.ADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get(':id')
-  async getOneDepartment(@Req() req: ReqPayload) {
-    return await this.departmentService.getOneDepartment(req.user.id);
+  async getOneDepartment(@Param("id") id: string) {
+    return await this.departmentService.getOneDepartment(id);
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Put(':id')
   async updateDepartment(@Param('id') id: string, @Body() update: Partial<DepartmentDto>, @Res() res: Response) {
     const department = await this.departmentService.updateDepartment(id, update);
     return res.status(200).json({ message: `Department Has Been Updated`, department });
   }
-
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Put('add-team/:deptId')

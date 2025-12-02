@@ -6,7 +6,10 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DepartmentDto } from './dto/department.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { Role, User } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
+
+type Tx = Prisma.TransactionClient;
+
 
 @Injectable()
 export class DepartmentService {
@@ -20,19 +23,34 @@ export class DepartmentService {
         });
         mustHave(creator, 'Creator Not Found', 404);
 
-        let deptHead: User | null = null;
+        if (
+            input.departmentHead &&
+            input.teamLead &&
+            input.departmentHead === input.teamLead
+        ) {
+            bad('Department Head and Team Lead cannot be the same user', 400);
+        }
+
         if (input.departmentHead) {
-            deptHead = await this.prisma.user.findUnique({
+            const deptHead = await this.prisma.user.findUnique({
                 where: { id: input.departmentHead },
             });
             mustHave(deptHead, 'Department Head Not Found', 404);
         }
 
+        if (input.teamLead) {
+            const teamLead = await this.prisma.user.findUnique({
+                where: { id: input.teamLead },
+            });
+            mustHave(teamLead, 'Team Lead Not Found', 404);
+        }
+
         const existingDepartment = await this.prisma.department.findFirst({
             where: { name: input.name },
         });
-        if (existingDepartment)
+        if (existingDepartment) {
             bad('Department with this name already exists', 400);
+        }
 
         try {
             const department = await this.prisma.$transaction(async (prisma) => {
@@ -43,41 +61,30 @@ export class DepartmentService {
                     },
                 });
 
-                if (deptHead) {
-                    await prisma.approver.deleteMany({
-                        where: {
-                            userId: deptHead.id,
-                            departmentId: newDept.id,
-                            role: Role.DEPT_MANAGER,
-                        },
+                if (input.departmentHead) {
+                    await this.assignDepartmentRole(prisma, {
+                        userId: input.departmentHead,
+                        departmentId: newDept.id,
+                        role: Role.DEPT_MANAGER,
+                        notFoundMessage: 'Department Head Not Found',
                     });
+                }
 
-                    await prisma.approver.create({
-                        data: {
-                            userId: deptHead.id,
-                            departmentId: newDept.id,
-                            role: Role.DEPT_MANAGER,
-                            isActive: true,
-                        },
-                    });
-
-                    await prisma.user.update({   // ✅ use txn client, not this.prisma
-                        where: { id: deptHead.id },
-                        data: {
-                            departments: {
-                                connect: [{ id: newDept.id }],
-                            },
-                        },
+                if (input.teamLead) {
+                    await this.assignDepartmentRole(prisma, {
+                        userId: input.teamLead,
+                        departmentId: newDept.id,
+                        role: Role.TEAM_LEAD,
+                        notFoundMessage: 'Team Lead Not Found',
                     });
                 }
 
                 return newDept;
             });
 
-
             return department;
         } catch (error: any) {
-            console.log(error);
+            console.error(error);
             throw new InternalServerErrorException(
                 `Failed to create department: ${error.message}`,
             );
@@ -85,54 +92,69 @@ export class DepartmentService {
     }
 
     async updateDepartment(id: string, update: Partial<DepartmentDto>) {
-        const { name, departmentHead } = update;
+        const { name, departmentHead, teamLead } = update;
 
         const department = await this.__findOneDepartment(id);
         if (!department) throw new NotFoundException('Department Not Found');
+
+        if (departmentHead && teamLead && departmentHead === teamLead) {
+            bad('Department Head and Team Lead cannot be the same user', 400);
+        }
 
         try {
             const updatedDepartment = await this.prisma.$transaction(async (prisma) => {
                 const newDept = await prisma.department.update({
                     where: { id },
                     data: {
-                        name,
+                        ...(typeof name === 'string' ? { name } : {}),
                     },
                 });
 
                 if (departmentHead) {
-                    const deptHeadUser = await prisma.user.findUnique({
-                        where: { id: departmentHead },
-                        include: { departments: true },
-                    });
-                    if (!deptHeadUser)
-                        throw new NotFoundException('Department Head User Not Found');
+                    const oldHead = department.approver.find(a => a.role === Role.DEPT_MANAGER).user.id;
+                    const newHead = departmentHead;
 
-                    await prisma.approver.deleteMany({
-                        where: { departmentId: newDept.id, role: Role.DEPT_MANAGER },
-                    });
-
-                    await prisma.approver.create({
-                        data: {
-                            userId: deptHeadUser.id,
-                            departmentId: newDept.id,
-                            role: Role.DEPT_MANAGER,
-                            isActive: true,
-                        },
+                    await this.assignDepartmentRole(prisma, {
+                        userId: newHead,
+                        departmentId: newDept.id,
+                        role: Role.DEPT_MANAGER,
+                        notFoundMessage: 'Department Manager Not Found',
                     });
 
-                    const alreadyInDept = deptHeadUser.departments.some(
-                        (d) => d.id === newDept.id,
-                    );
-
-                    if (!alreadyInDept) {
-                        await prisma.user.update({
-                            where: { id: departmentHead },
-                            data: {
-                                departments: {
-                                    connect: [{ id: newDept.id }],
-                                },
+                    if (oldHead && oldHead !== newHead) {
+                        await prisma.approver.deleteMany({
+                            where: {
+                                userId: oldHead,
+                                departmentId: newDept.id,
+                                role: Role.DEPT_MANAGER,
                             },
                         });
+
+                        await this.cleanupUserRole(prisma, oldHead, Role.DEPT_MANAGER);
+                    }
+                }
+
+                if (teamLead) {
+                    const oldLead = department.approver.find(a => a.role === Role.TEAM_LEAD)?.user.id;;
+                    const newLead = teamLead;
+
+                    await this.assignDepartmentRole(prisma, {
+                        userId: newLead,
+                        departmentId: newDept.id,
+                        role: Role.TEAM_LEAD,
+                        notFoundMessage: 'Team Lead Not Found',
+                    });
+
+                    if (oldLead && oldLead !== newLead) {
+                        await prisma.approver.deleteMany({
+                            where: {
+                                userId: oldLead,
+                                departmentId: newDept.id,
+                                role: Role.TEAM_LEAD,
+                            },
+                        });
+
+                        await this.cleanupUserRole(prisma, oldLead, Role.TEAM_LEAD);
                     }
                 }
 
@@ -145,7 +167,6 @@ export class DepartmentService {
             bad(`Failed to update department: ${error.message}`);
         }
     }
-
 
     async addTeamMembers(deptId: string, userIds: string[]) {
         if (!deptId) bad("Dept id must be provided");
@@ -372,6 +393,107 @@ export class DepartmentService {
 
     ///////////////////////// Helper Functions ////////////////////
     async __findOneDepartment(id: string) {
-        return await this.prisma.department.findUnique({ where: { id } });
+        return await this.prisma.department.findUnique({
+            where: { id },
+            include: {
+                approver:
+                {
+                    include: {
+                        user: true,
+                    }
+                },
+            },
+        });
     }
+
+
+    async assignDepartmentRole(
+        prisma: Tx,
+        params: {
+            userId: string;
+            departmentId: string;
+            role: Role;
+            notFoundMessage: string;
+        },
+    ) {
+        const { userId, departmentId, role, notFoundMessage } = params;
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { departments: true },
+        });
+
+        if (!user) {
+            throw new NotFoundException(notFoundMessage);
+        }
+
+        // Remove any existing approver entries for this dept/role (idempotent)
+        await prisma.approver.deleteMany({
+            where: { departmentId, role },
+        });
+
+        // Create new approver entry
+        await prisma.approver.create({
+            data: {
+                userId,
+                departmentId,
+                role,
+                isActive: true,
+            },
+        });
+
+        const existingRoles = user.userRole ?? [];
+        const hasRole = existingRoles.includes(role);
+        const newRoles = hasRole ? existingRoles : [...existingRoles, role];
+
+        const alreadyInDept = user.departments.some((d) => d.id === departmentId);
+
+        await prisma.user.update({
+            where: { id: userId },
+            data: {
+                userRole: {
+                    set: newRoles,
+                },
+                ...(alreadyInDept
+                    ? {}
+                    : {
+                        departments: {
+                            connect: [{ id: departmentId }],
+                        },
+                    }),
+            },
+        });
+    }
+
+    private async cleanupUserRole(
+        tx: Prisma.TransactionClient,
+        userId: string,
+        role: Role
+    ) {
+        const stillHasApproval = await tx.approver.findFirst({
+            where: {
+                userId,
+                role,
+            },
+        });
+
+        if (stillHasApproval) return;
+
+        const user = await tx.user.findUnique({
+            where: { id: userId },
+        });
+
+        const existingRoles = user?.userRole ?? [];
+        const newRoles = existingRoles.filter((r) => r !== role);
+
+        await tx.user.update({
+            where: { id: userId },
+            data: {
+                userRole: {
+                    set: newRoles,
+                },
+            },
+        });
+    }
+
 }

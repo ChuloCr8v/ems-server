@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, EmergencyContact, GuarantorContact, JobType, Prisma, Role, Status, User } from '@prisma/client';
-import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { JobType, Prisma, Role, Status } from '@prisma/client';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
@@ -12,7 +12,6 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly mail: MailService,
         private eventEmitter: EventEmitter2
     ) { }
 
@@ -23,6 +22,7 @@ export class UserService {
                     id: sub
                 },
                 include: {
+                    departments: true,
                     approver: {
                         include: {
                             department: true
@@ -294,9 +294,12 @@ export class UserService {
             await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency, data.nextOfKin);
         }
 
-        if ("departments" in user && user.departments?.length) {
+        if (data.departments.length > 0) {
+            console.log({ "data": data })
+
             updateData.departments = {
-                connect: user.departments.map((d) => ({ id: d.id })),
+                set: [],
+                connect: data.departments.map((d) => ({ id: d })),
             };
         }
 
@@ -356,16 +359,20 @@ export class UserService {
         });
     }
 
-    async getUser(id: string) {
+    async getUser(id: string, requesterId: string) {
         try {
 
-            const user = await this.__findUserById(id)
+            const requester = await this.__findUserById(requesterId)
+            mustHave(requester, "Requester not found", 404)
 
+            const user = await this.__findUserById(id)
             if (!user) mustHave(user, "User not found", 404)
-            return user
+            if (requester.userRole?.includes(Role.ADMIN) || requester.userRole?.includes(Role.ASSET_MANAGER)) return user
+            if (user.id === requesterId) return user
+
+            return bad("You do not have permission to view this user")
 
         } catch (error) {
-            console.log(error)
             bad(error)
         }
 
