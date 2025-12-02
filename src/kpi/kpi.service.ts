@@ -6,7 +6,7 @@ import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class KpiService {
-    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) {}
+    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) { }
 
     // Admin Methods - Global KPIs
     async createCategory(user: any, data: CreateKpiDto) {
@@ -85,8 +85,8 @@ export class KpiService {
                 );
                 return created;
             } catch (error) {
-                if (error instanceof BadRequestException || 
-                    error instanceof NotFoundException || 
+                if (error instanceof BadRequestException ||
+                    error instanceof NotFoundException ||
                     error instanceof ConflictException) {
                     throw error;
                 }
@@ -125,10 +125,10 @@ export class KpiService {
         } else if (user && !user.userRole && user.id) {
             dbUser = await this.prisma.user.findUnique({ where: { id: user.id } });
         }
-        
+
         const category = await this.prisma.kpiCategory.findUnique({
             where: { id: categoryId },
-            include: { 
+            include: {
                 department: true,
                 objectives: true
             }
@@ -175,7 +175,7 @@ export class KpiService {
         // DEPT_MANAGER can only update their department's categories
         if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
             const manager = await this.prisma.approver.findFirst({
-                where: { 
+                where: {
                     userId: dbUser.id,
                     role: 'DEPT_MANAGER',
                     isActive: true,
@@ -218,75 +218,67 @@ export class KpiService {
         throw new BadRequestException('Unauthorized to update categories');
     }
 
-   async removeCategory(user: any, categoryId: string) {
-  // Ensure we have a valid user object from DB
-  let dbUser = user;
-  if (typeof user === 'string' || (user && !user.userRole && user.id)) {
-    dbUser = await this.prisma.user.findUnique({ where: { id: user.id || user } });
-  }
-
-  const category = await this.prisma.kpiCategory.findUnique({
-    where: { id: categoryId },
-    include: { department: true },
-  });
-
-  if (!category) {
-    throw new NotFoundException('Category not found');
-  }
-
-  // ===== ADMIN BLOCK =====
-  if (this.userHasRole(dbUser, Role.ADMIN)) {
-    if (!category.isGlobal) {
-      throw new BadRequestException('Admins can only delete global categories');
-    }
-
-    try {
-      await this.prisma.kpiCategory.delete({
-        where: { id: categoryId },
-      });
-      return true;
-    } catch (error) {
-        console.error('DELETE ERROR:', error);
-        throw new BadRequestException('Failed to delete category: ' + error.message);
+    async removeCategory(user: any, categoryId: string) {
+        // Ensure we have a valid user object from DB
+        let dbUser = user;
+        if (typeof user === 'string' || (user && !user.userRole && user.id)) {
+            dbUser = await this.prisma.user.findUnique({ where: { id: user.id || user } });
         }
-  }
 
-  // ===== DEPT_MANAGER BLOCK =====
-  if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
-    const manager = await this.prisma.approver.findFirst({
-      where: {
-        userId: dbUser.id,
-        role: 'DEPT_MANAGER',
-        isActive: true,
-        departmentId: category.departmentId,
-      },
-    });
+        const category = await this.prisma.kpiCategory.findUnique({
+            where: { id: categoryId },
+            include: { department: true },
+        });
 
-    if (!manager) {
-      throw new BadRequestException('Not authorized to delete this category');
+        if (!category) {
+            throw new NotFoundException('Category not found');
+        }
+
+        // ===== ADMIN BLOCK =====
+        if (this.userHasRole(dbUser, Role.ADMIN)) {
+            if (!category.isGlobal) {
+                throw new BadRequestException('Admins can only delete global categories');
+            }
+
+            try {
+                await this.prisma.kpiCategory.delete({
+                    where: { id: categoryId }
+                });
+                return true;
+            } catch (error) {
+                console.log(error)
+                throw new BadRequestException('Failed to delete category');
+            }
+        }
+
+        // ===== DEPT_MANAGER BLOCK =====
+        if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
+            const manager = await this.prisma.approver.findFirst({
+                where: {
+                    userId: dbUser.id,
+                    role: 'DEPT_MANAGER',
+                    isActive: true,
+                    departmentId: category.departmentId,
+                },
+            });
+
+            if (!manager) {
+                throw new BadRequestException('Not authorized to delete this category');
+            }
+
+            try {
+                await this.prisma.kpiCategory.delete({
+                    where: { id: categoryId }
+                });
+                return true;
+            } catch (error) {
+                console.log(error)
+                throw new BadRequestException('Failed to delete department category');
+            }
+        }
+
+        throw new BadRequestException('Unauthorized to delete categories');
     }
-
-    try {
-      await this.prisma.kpiCategory.delete({
-        where: { id: categoryId },
-      });
-      return true;
-    } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to delete KPI Category: ' + error.message);
-    }
-  }
-
-  // ===== UNAUTHORIZED USERS =====
-  throw new BadRequestException('Unauthorized to delete categories');
-}
-
 
     //////////////////////////////// Helper Methods //////////////////////////
     private userHasRole(userObj: any, role: Role) {

@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
+import { ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth } from 'src/auth/decorators/auth.decorator';
 
 @Controller('payroll')
 export class PayrollController {
@@ -57,10 +59,12 @@ export class PayrollController {
     return res.status(200).json({ message: `Custom Component Has Been Removed`, component });
   }
 
-
+  @Auth(["ADMIN", "HR", "SUPERADMIN"])
   @Post('generate')
-  async generatePayslip() {
-    return this.payroll.generatePayslips();
+  async generatePayslipsForPeriod(
+    @Req() req: ReqPayload
+  ) {
+    return this.payroll.queuePayslipsForPeriod(req.user.id);
   }
 
   // @Post('generate/:userId')

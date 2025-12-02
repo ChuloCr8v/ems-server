@@ -33,6 +33,7 @@ import { AppraisalModule } from './appraisal/appraisal.module';
 import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
+import { PuppeteerModule } from './puppeteer/puppeteer.module';
 
 @Module({
   imports: [
@@ -58,8 +59,10 @@ import { ScheduleModule } from '@nestjs/schedule/dist';
     AppraisalModule,
     KpiModule,
     ReportModule,
+    PuppeteerModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+
   ],
   controllers: [AppController, UploadsController, NotificationController, CategoryController],
   providers: [AppService, UploadsService, NotificationService, CategoryService],

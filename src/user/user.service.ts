@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, EmergencyContact, GuarantorContact, JobType, Prisma, Role, Status, User } from '@prisma/client';
-import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { JobType, Prisma, Role, Status } from '@prisma/client';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
@@ -12,7 +12,6 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly mail: MailService,
         private eventEmitter: EventEmitter2
     ) { }
 
