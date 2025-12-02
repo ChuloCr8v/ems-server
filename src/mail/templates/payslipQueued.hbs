@@ -10,14 +10,16 @@
       rel='stylesheet'
     />
 
-    <style>
+    <style
+    >
       body {
-        margin: 0;
-        padding: 0;
+        {{! margin: 0;
+        padding: 0; }}
         font-family: 'Raleway', sans-serif;
         background-color: #ffffff;
-        min-height: 100vh;
+        {{! min-height: 100vh; }}
         display: flex;
+        flex-direction: column,
         justify-content: center;
         align-items: center;
       }
@@ -176,7 +178,7 @@
 
       .cheeers {
         font-weight: 400;
-        font-size: 12px;
+        font-size: 14px;
         color: #5e5e5e;
         display: block;
       }
@@ -187,8 +189,8 @@
     <div class='wrapper'>
       <div class='header'>
         <img
-          src='../assets/Zoracom.png'
-          alt='Zoracom Logo'
+          src='https://ems.miro.zoracom.com/logo.png'
+          alt='Zoracom Limited'
           class='zoracom-logo'
         />
 
@@ -208,10 +210,6 @@
       <div class='content-wrapper'>
         <div class='content'>
           <h1>Payslip Generation Started</h1>
-
-          <p class='greeting'>
-            Hello
-          </p>
 
           <p class='message'>
             Your request to generate payslips for
@@ -233,7 +231,8 @@
         <div class='footer-content'>
           <p class='fcontent1'>
             Questions or concerns? Contact us at
-            <a href='hrteam@zoracom.com'>hrteam@zoracom.com</a>.<br />
+            <a href='hrteam@zoracom.com' class='email'>
+              hrteam@zoracom.com</a>.<br />
             Don’t want to receive emails from Zoracom?
             <a href='#'>Unsubscribe</a>.
           </p>

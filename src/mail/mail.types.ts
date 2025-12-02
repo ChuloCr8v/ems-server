@@ -11,7 +11,8 @@ export const MAIL_SUBJECT = {
     LEAVE_APPROVAL: 'Leave Request Approved',
     LEAVE_DECLINE: 'Leave Request Denied',
     PAYSLIP_QUEUED: "Payslip Generation Started",
-    EMPLOYEE_PAYSLIP_GENERATED: "Payslip Generated",
+    EMPLOYEE_PAYSLIP_GENERATED: "Your Monthly Payslip is Available",
+    PAYSLIPS_GENERATED: "Monthly Payslips Generated",
     INITIATE_OFFBOARDING: 'Offboarding Initiated',
     ADD_CLAIM: 'New Claim Added',
     CLAIM_APPROVED: 'Claim Approved',
@@ -154,7 +155,38 @@ export class PayslipQueued {
     email: string;
 }
 
+export class AttachmentType {
+    @IsString()
+    filename: string;
+
+
+    content: Uint8Array<ArrayBuffer>;
+
+    @IsString()
+    contentType: string;
+}
+
 export class EmployeePayslipGenerated extends PayslipQueued {
     @IsString()
     name: string
+
+    @IsString()
+    dashboardUrl: string
+
+    attachment: AttachmentType;
+}
+
+export class PayslipsGenerated {
+    @IsString()
+    email: string
+
+    @IsString()
+    date: string
+
+    @IsString()
+    month: string
+
+    @IsString()
+    dashboardUrl: string
+
 }

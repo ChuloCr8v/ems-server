@@ -64,7 +64,7 @@ export class PayslipQueueProcessor extends WorkerHost {
             month: 'long',
         });
 
-        const pdfData = new Uint8Array(pdfBuffer); // ✔ Prisma compatible
+        const pdfData = new Uint8Array(pdfBuffer);
 
         await this.prisma.payslip.create({
             data: {
@@ -78,15 +78,21 @@ export class PayslipQueueProcessor extends WorkerHost {
             },
         });
 
-        if (user.email === "bonaventure@zoracom.com") {
-            await this.mail.sendEmployeePayslipReadyMail({
-                month: monthInWords + " " + new Date().getFullYear().toString(),
-                date: new Date().getFullYear().toString(),
-                email: user.email,
-                name: user.firstName
 
-            })
-        }
+        await this.mail.sendEmployeePayslipReadyMail({
+            month: monthInWords + " " + new Date().getFullYear().toString(),
+            date: new Date().getFullYear().toString(),
+            email: user.email,
+            name: user.firstName,
+            dashboardUrl: "https://ems.miro.zoracom.com",
+            attachment: {
+                filename: `${user.firstName} ${user.lastName} Payslip (${date}).pdf`,
+                content: pdfData,
+                contentType: "application/pdf"
+            }
+
+        })
+
     }
 
     @OnWorkerEvent('completed')

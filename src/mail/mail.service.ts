@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, EmployeePayslipGenerated, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, PayslipQueued, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import { AcceptanceInviteDto, ApproveLeaveRequest, DeclinedInviteDto, EmployeePayslipGenerated, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, PayslipQueued, PayslipsGenerated, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
 
@@ -165,12 +165,32 @@ export class MailService {
   }
 
   async sendEmployeePayslipReadyMail(data: EmployeePayslipGenerated) {
-    const { month, date, email, name } = data;
+    const { month, date, email, name, dashboardUrl, attachment } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.EMPLOYEE_PAYSLIP_GENERATED,
       template: 'employeePayslipGenerated',
-      context: { month, date, email, name },
+      context: { month, date, email, name, dashboardUrl },
+      attachments: attachment
+        ? [
+          {
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType,
+          },
+        ]
+        : [],
+    })
+  }
+
+  async sendPayslipsGenerated(data: PayslipsGenerated) {
+    const { email, month, date, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PAYSLIPS_GENERATED,
+      template: 'payslipsGenerated',
+      context: { month, date, email, dashboardUrl },
+
     })
   }
 }
