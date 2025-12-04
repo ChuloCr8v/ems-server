@@ -4,7 +4,7 @@ import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('leave')
 export class LeaveController {
@@ -13,7 +13,7 @@ export class LeaveController {
   @Post(":userId")
   async createLeaveRequest(
     @Param('userId') userId: string,
-    @Body() data: CreateLeaveRequestDto, 
+    @Body() data: CreateLeaveRequestDto,
     @Res() res: Response,
   ) {
     const request = await this.leave.createLeaveRequest(userId, data);
@@ -37,13 +37,13 @@ export class LeaveController {
     return this.leave.listUserLeaveRequests(userId);
   }
 
-  // @Auth()
-  @Get('balance/:userId/:typeId')
+  @Auth()
+  @Get('balance/:typeId')
   async getLeaveBalance(
-    @Param('userId') userId: string, 
+    @Req() req: ReqPayload,
     @Param('typeId') typeId: string
   ) {
-    return this.leave.checkLeaveBalance(userId, typeId);
+    return this.leave.checkLeaveBalance(req.user.id, typeId);
   }
 
   @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER])

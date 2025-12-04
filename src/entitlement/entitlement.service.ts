@@ -93,7 +93,16 @@ export class EntitlementService {
             if (!employee) mustHave(employee, "Account not found", 404)
 
             const leaveEntitlements = employee.level?.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
-            return leaveEntitlements
+
+            const isMale = employee.gender?.trim().toLowerCase().startsWith("m");
+
+            const finalReturn = isMale
+                ? leaveEntitlements.filter(e =>
+                    !e.entitlement.name.toLowerCase().includes("maternity")
+                )
+                : leaveEntitlements;
+
+            return finalReturn
         } catch (error) {
             bad(error)
         }
