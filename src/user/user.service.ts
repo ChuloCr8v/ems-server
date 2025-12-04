@@ -23,6 +23,11 @@ export class UserService {
                 },
                 include: {
                     departments: true,
+                    level: {
+                        include: {
+                            entitlements: true
+                        }
+                    },
                     approver: {
                         include: {
                             department: true

@@ -104,6 +104,7 @@ export class LeaveService {
     }
 
     async getAvailableLeaveTypes(userId: string) {
+
         try {
             const employee = await this.findEmployee(userId);
 
