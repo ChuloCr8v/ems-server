@@ -83,23 +83,5 @@ export class PayrollController {
     return this.payroll.downloadDeductionsExcel(id, res);
   }
 
-  //   @Get('test-simple/:userId')
-  // async testSimplePayslip(@Param('userId') userId: string, @Res() res: Response) {
-  //     try {
-  //         const PDFDocument = await import('pdfkit');
-  //         const doc = new PDFDocument();
 
-  //         res.setHeader('Content-Type', 'application/pdf');
-  //         res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
-
-  //         doc.pipe(res);
-  //         doc.fontSize(25).text('TEST PAYSLIP', 100, 100);
-  //         doc.fontSize(12).text('This is a test PDF generated directly without Puppeteer', 100, 150);
-  //         doc.end();
-
-  //     } catch (error) {
-  //         // this.logger.error('Simple PDF test failed:', error);
-  //         throw error;
-  //     }
-  // }
 }

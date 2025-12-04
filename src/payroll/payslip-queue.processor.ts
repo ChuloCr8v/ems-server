@@ -85,11 +85,7 @@ export class PayslipQueueProcessor extends WorkerHost {
             email: user.email,
             name: user.firstName,
             dashboardUrl: "https://ems.miro.zoracom.com",
-            attachment: {
-                filename: `${user.firstName} ${user.lastName} Payslip (${date}).pdf`,
-                content: pdfData,
-                contentType: "application/pdf"
-            }
+            attachment: undefined
 
         })
 

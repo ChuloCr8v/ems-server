@@ -31,7 +31,7 @@ export class PayslipTemplateService {
       month: 'long',
     });
 
-    const netToWords = this.toWords.convert(payroll.net);
+    const netToWords = this.toWords.convert(payroll.net / 12);
 
     const earnings = components.filter((c) => c.type === 'EARNING');
     const deductions = components.filter((c) => c.type === 'DEDUCTION');
