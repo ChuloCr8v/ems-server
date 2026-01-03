@@ -38,7 +38,7 @@
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/websockets": "^10.4.20",
-    "@prisma/client": "^6.13.0",
+    "@prisma/client": "^6.19.1",
     "@types/xlsx": "^0.0.36",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.11.0",

@@ -195,7 +195,7 @@ model Upload {
   offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
   payment           Payment?          @relation(fields: [paymentId], references: [id])
   prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  request           LeaveRequest?     @relation(fields: [requestId], references: [id])
+  request           LeaveRequest?     @relation(fields: [requestId], references: [id], onDelete: Cascade)
   Task              Task?             @relation(fields: [taskId], references: [id])
   userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
   prospectDocuments User[]            @relation("ProspectDocuments")
@@ -289,6 +289,9 @@ model Comment {
 
   claimId String?
   claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+
+  leaveId String?       @db.Uuid
+  leave   LeaveRequest? @relation(fields: [leaveId], references: [id], onDelete: SetNull)
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -447,11 +450,12 @@ model LeaveRequest {
   updatedAt         DateTime       @updatedAt
   approvals         Approval[]
   cancelRequest     CancelRequest?
-  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
+  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id], onDelete: Cascade)
   type              Entitlement    @relation(fields: [typeId], references: [id])
   user              User           @relation("user", fields: [userId], references: [id])
   response          Response[]
   uploads           Upload[]
+  comments          Comment[]
 }
 
 model CancelRequest {
@@ -486,7 +490,7 @@ model Approval {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   approver       User?          @relation(fields: [approverId], references: [id], onDelete: SetNull)
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
 
   @@unique([leaveRequestId, phase])
 }
@@ -499,7 +503,7 @@ model Response {
   userId    String        @db.Uuid
   requestId String?       @db.Uuid
   note      String
-  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

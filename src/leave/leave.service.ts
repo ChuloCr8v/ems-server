@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { Approver, Prisma, PrismaClient, Role, User } from '@prisma/client';
+import { Approver, LeaveStatus, Prisma, PrismaClient, Role, User } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
@@ -215,6 +215,39 @@ export class LeaveService {
             return leave ?? [];
         } catch (error) {
             bad('Failed to fetch leave requests:' + error.message);
+        }
+    }
+
+
+    async getLeaveRequest(id: string) {
+        try {
+            const req = await this.prisma.leaveRequest.findUnique({
+                where: { id },
+                include: {
+                    user: true,
+                    type: true,
+                    uploads: true,
+                    approvals: {
+                        include: {
+                            approver: true
+                        },
+                        orderBy: {
+                            phase: "asc"
+                        }
+                    },
+                    comments: {
+                        include: {
+                            user: true
+                        }
+                    }
+                }
+            })
+
+            if (req) mustHave(req, "Request not found", 404)
+
+            return req
+        } catch (error) {
+            bad(error)
         }
     }
 
@@ -798,5 +831,74 @@ export class LeaveService {
         });
 
         return true;
+    }
+
+    async deleteLeaveRequest(leaveRequestId: string, userId: string) {
+        try {
+            const leaveReq = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id: leaveRequestId
+                },
+
+            })
+
+            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
+
+            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't delete an approved request")
+
+            await this.prisma.leaveRequest.delete({
+                where: {
+                    id: leaveRequestId
+                }
+            })
+
+            return true
+
+        } catch (error) {
+            bad(error)
+        }
+
+    }
+
+    async comment(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+        try {
+            const leave = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id
+                }
+            })
+
+            if (!leave) mustHave(leave, "Request not found", 404)
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user) mustHave(user, "user not found", 404)
+
+            const comment = await this.prisma.comment.create({
+                data: {
+                    comment: dto.comment,
+                    ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+                    leave: { connect: { id } },
+                    user: { connect: { id: userId } }
+                }
+            })
+            return {
+                message: "Comment added successfully",
+                data: comment
+            }
+        } catch (error) {
+            bad(error)
+        }
     }
 }
