@@ -111,7 +111,7 @@ export class DepartmentService {
                 });
 
                 if (departmentHead) {
-                    const oldHead = department.approver.find(a => a.role === Role.DEPT_MANAGER).user.id;
+                    const oldHead = department.approver.find(a => a.role === Role.DEPT_MANAGER)?.user.id;
                     const newHead = departmentHead;
 
                     await this.assignDepartmentRole(prisma, {

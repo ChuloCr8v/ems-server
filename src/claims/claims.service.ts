@@ -15,8 +15,6 @@ export class ClaimsService {
 
     const claimId = "CLM" + Date.now().toString().slice(-4);
 
-    console.log({ createClaimDto })
-
     const claim = await this.prisma.claim.create({
       data: {
         claimId,

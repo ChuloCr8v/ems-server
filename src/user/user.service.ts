@@ -299,9 +299,7 @@ export class UserService {
             await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency, data.nextOfKin);
         }
 
-        if (data.departments.length > 0) {
-            console.log({ "data": data })
-
+        if (data.departments?.length > 0) {
             updateData.departments = {
                 set: [],
                 connect: data.departments.map((d) => ({ id: d })),

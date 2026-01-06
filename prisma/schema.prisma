@@ -554,7 +554,7 @@ model Payslip {
   data      Bytes
   userId    String   @db.Uuid
   createdAt DateTime @default(now())
-  month     Int
+  month     String
   payrollId String   @db.Uuid
   year      Int
   amount    Float

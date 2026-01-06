@@ -1,9 +1,6 @@
 import {
   Injectable,
-  UnauthorizedException,
   InternalServerErrorException,
-  HttpException,
-  HttpStatus,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -12,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { AzureAuthDto, IAuthUser } from './dto/auth.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
+import { normalizeEmail } from 'src/utils/normalizeEmail.util';
 
 @Injectable()
 export class AuthService {
@@ -40,24 +38,25 @@ export class AuthService {
       const decoded = decode(token, { complete: true });
 
       if (!decoded || typeof decoded.payload === 'string') {
-        throw new UnauthorizedException('Invalid token');
+        bad('Invalid token');
       }
 
-      const { iss, aud } = decoded.payload as any;
+      const { iss, aud } = decoded.payload;
       if (iss !== this.graphParams.iss || aud !== this.graphParams.aud) {
-        throw new UnauthorizedException('Invalid token issuer or audience');
+        bad('Invalid token issuer or audience');
       }
       const response = await axios
         .get(this.graphParams.endpoint, {
           headers: { Authorization: `Bearer ${token}` },
         })
         .catch(() => {
-          throw new UnauthorizedException('Failed to fetch user info from Microsoft');
+          bad('Failed to fetch user info from Microsoft');
         });
 
-      const email = response.data?.mail;
+      const email = normalizeEmail(response.data?.mail);
+
       if (!email) {
-        throw new UnauthorizedException('Email not found in Microsoft account');
+        bad('Email not found in Microsoft account');
       }
 
       const user = await this.prisma.user.findUnique({
@@ -71,7 +70,7 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User does not exist in the system');
+        bad('User does not exist in the system');
       }
 
       const payload = { sub: user.id, email: user.email, role: user.userRole };
@@ -80,7 +79,7 @@ export class AuthService {
         user,
       };
     } catch (error) {
-      throw new UnauthorizedException('Authentication failed: ' + error.message);
+      bad('Authentication failed: ' + error.message);
     }
 
   }
@@ -135,7 +134,7 @@ export class AuthService {
       };
 
     } catch (error) {
- console.log(error)
+      console.log(error)
       bad(error)
     }
   }

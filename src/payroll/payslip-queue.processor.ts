@@ -73,21 +73,21 @@ export class PayslipQueueProcessor extends WorkerHost {
                 amount: payroll.net,
                 userId: payroll.userId,
                 payrollId: payroll.id,
-                month: new Date().getMonth() + 1,
+                month: "february",
                 year: new Date().getFullYear(),
             },
         });
 
 
-        await this.mail.sendEmployeePayslipReadyMail({
-            month: monthInWords + " " + new Date().getFullYear().toString(),
-            date: new Date().getFullYear().toString(),
-            email: user.email,
-            name: user.firstName,
-            dashboardUrl: "https://ems.miro.zoracom.com",
-            attachment: undefined
+        // await this.mail.sendEmployeePayslipReadyMail({
+        //     month: monthInWords + " " + new Date().getFullYear().toString(),
+        //     date: new Date().getFullYear().toString(),
+        //     email: user.email,
+        //     name: user.firstName,
+        //     dashboardUrl: "https://ems.miro.zoracom.com",
+        //     attachment: undefined
 
-        })
+        // })
 
     }
 

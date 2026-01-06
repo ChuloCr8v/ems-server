@@ -403,9 +403,7 @@ export class LeaveService {
             });
 
             // Send notification outside transaction
-            // setTimeout(() => {
-            //     this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
-            // }, 0);
+            this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
         }
 
         return firstApproval;
@@ -493,13 +491,13 @@ export class LeaveService {
 
                 }
 
-                setTimeout(() => {
-                    this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                    // this.event.emit(
-                    //     'leave_approved',
-                    //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                    // );
-                }, 0);
+                // setTimeout(() => {
+                await this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
+                // this.event.emit(
+                //     'leave_approved',
+                //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
+                // );
+                // }, 0);
 
                 return {
                     approval: null,
@@ -598,6 +596,115 @@ export class LeaveService {
             throw new BadRequestException('Failed to get approval history:' + error.message);
         }
 
+    }
+
+
+
+    async deleteLeaveRequest(leaveRequestId: string, userId: string) {
+        try {
+            const leaveReq = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id: leaveRequestId
+                },
+
+            })
+
+            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
+
+            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't delete an approved request")
+
+            await this.prisma.leaveRequest.delete({
+                where: {
+                    id: leaveRequestId
+                }
+            })
+
+            return true
+
+        } catch (error) {
+            bad(error)
+        }
+
+    }
+
+    async cancelLeaveRequest(leaveRequestId: string, userId: string) {
+        try {
+            const leaveReq = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id: leaveRequestId
+                },
+
+            })
+
+            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
+
+            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't cancel an approved request")
+
+            await this.prisma.leaveRequest.update({
+                where: {
+                    id: leaveRequestId
+                },
+                data: {
+                    status: "CANCELLED",
+                    currentApprovalId: null,
+                }
+            })
+
+            return true
+
+        } catch (error) {
+            bad(error)
+        }
+
+    }
+
+    async comment(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+        try {
+            const leave = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id
+                }
+            })
+
+            if (!leave) mustHave(leave, "Request not found", 404)
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user) mustHave(user, "user not found", 404)
+
+            const comment = await this.prisma.comment.create({
+                data: {
+                    comment: dto.comment,
+                    ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+                    leave: { connect: { id } },
+                    user: { connect: { id: userId } }
+                }
+            })
+            return {
+                message: "Comment added successfully",
+                data: comment
+            }
+        } catch (error) {
+            bad(error)
+        }
     }
 
 
@@ -731,8 +838,7 @@ export class LeaveService {
             });
 
             if (!leaveRequest || !leaveRequest.user) {
-                console.error('Leave request or user not found');
-                return false;
+                bad('Leave request or user not found');
             }
 
             // Get the current approval (first pending approval)
@@ -759,7 +865,8 @@ export class LeaveService {
             });
 
             await this.mail.sendLeaveRequestMail({
-                email: currentApproval.approver.email,
+                // email: currentApproval.approver.email,
+                email: "nkematu5@gmail.com",
                 name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
                 leaveType: leaveRequest.type.name,
                 startDate: leaveRequest.startDate,
@@ -791,7 +898,8 @@ export class LeaveService {
 
         const duration = this.calculateLeaveDuration(approval.startDate, approval.endDate);
         await this.mail.sendLeaveApprovalMail({
-            email: approval.user.email,
+            // email: approval.user.email,
+            email: "nkematu5@gmail.com",
             name: `${approval.user.firstName} ${approval.user.lastName}`,
             leaveType: approval.type.name,
             startDate: approval.startDate,
@@ -821,7 +929,8 @@ export class LeaveService {
         const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
 
         await this.mail.sendLeaveRejectMail({
-            email: leaveRequest.user.email,
+            // email: leaveRequest.user.email,
+            email: "nkematu5@gmail.com",
             name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
             leaveType: leaveRequest.type.name,
             leaveValue: duration,
@@ -833,72 +942,4 @@ export class LeaveService {
         return true;
     }
 
-    async deleteLeaveRequest(leaveRequestId: string, userId: string) {
-        try {
-            const leaveReq = await this.prisma.leaveRequest.findUnique({
-                where: {
-                    id: leaveRequestId
-                },
-
-            })
-
-            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
-            const user = await this.prisma.user.findUnique({
-                where: {
-                    id: userId
-                }
-            })
-
-            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
-
-            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't delete an approved request")
-
-            await this.prisma.leaveRequest.delete({
-                where: {
-                    id: leaveRequestId
-                }
-            })
-
-            return true
-
-        } catch (error) {
-            bad(error)
-        }
-
-    }
-
-    async comment(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
-        try {
-            const leave = await this.prisma.leaveRequest.findUnique({
-                where: {
-                    id
-                }
-            })
-
-            if (!leave) mustHave(leave, "Request not found", 404)
-
-            const user = await this.prisma.user.findUnique({
-                where: {
-                    id: userId
-                }
-            })
-
-            if (!user) mustHave(user, "user not found", 404)
-
-            const comment = await this.prisma.comment.create({
-                data: {
-                    comment: dto.comment,
-                    ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
-                    leave: { connect: { id } },
-                    user: { connect: { id: userId } }
-                }
-            })
-            return {
-                message: "Comment added successfully",
-                data: comment
-            }
-        } catch (error) {
-            bad(error)
-        }
-    }
 }

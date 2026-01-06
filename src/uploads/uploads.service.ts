@@ -13,6 +13,17 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { generateUploadKey } from 'src/utils/uploadkey-generator';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 
+const IMAGE_MIME_TYPES = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+];
+
+function isSupportedImage(file: Express.Multer.File) {
+    return IMAGE_MIME_TYPES.includes(file.mimetype);
+}
+
+
 @Injectable()
 export class UploadsService {
     private s3Client = new S3Client({
@@ -86,13 +97,19 @@ export class UploadsService {
             where: { id: user.sub },
         });
 
-        mustHave(dbUser, `No user found with email ${dbUser.email}`, 404);
+        mustHave(dbUser, `No user found`, 404);
 
         const key = await this.upload(file);
 
+        let cloudinaryUpload: {
+            secure_url?: string;
+            public_id?: string;
+        } | null = null;
+
         try {
-            const cloudinaryUpload = await this.cloudinaryService.uploadImage(file);
-            console.log(id)
+            if (isSupportedImage(file)) {
+                cloudinaryUpload = await this.cloudinaryService.uploadImage(file);
+            }
 
             await this.prisma.upload.create({
                 data: {
@@ -103,19 +120,18 @@ export class UploadsService {
                     name: file.originalname,
                     type: file.mimetype,
                     size: file.size,
-                    uri: cloudinaryUpload.secure_url,
-                    publicId: cloudinaryUpload.public_id,
-                    secureUrl: cloudinaryUpload.secure_url,
+                    uri: cloudinaryUpload?.secure_url ?? null,
+                    secureUrl: cloudinaryUpload?.secure_url ?? null,
+                    publicId: cloudinaryUpload?.public_id ?? null,
                 },
             });
 
             return {
-                message: "Upload successful",
-                uri: cloudinaryUpload.secure_url,
-                publicId: cloudinaryUpload.public_id,
-                id
+                message: 'Upload successful',
+                uri: cloudinaryUpload?.secure_url ?? null,
+                publicId: cloudinaryUpload?.public_id ?? null,
+                id,
             };
-
         } catch (error) {
             await this.s3Client.send(
                 new DeleteObjectsCommand({
@@ -123,10 +139,11 @@ export class UploadsService {
                     Delete: { Objects: [{ Key: key }] },
                 }),
             );
-            console.log(error)
-            throw bad("Upload failed. Changes rolled back.", 500);
+
+            throw bad('Upload failed. Changes rolled back.', 500);
         }
     }
+
 
 
     async downloadFileFromS3(id: string) {

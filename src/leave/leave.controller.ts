@@ -48,10 +48,10 @@ export class LeaveController {
   @Auth()
   @Get('balance/:typeId')
   async getLeaveBalance(
-    @AuthUser() req: ReqPayload,
+    @AuthUser() req: IAuthUser,
     @Param('typeId') typeId: string
   ) {
-    return this.leave.checkLeaveBalance(req.user.id, typeId);
+    return this.leave.checkLeaveBalance(req.sub, typeId);
   }
 
   @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER])
@@ -78,8 +78,15 @@ export class LeaveController {
   @Delete('delete/:leaveRequestId')
   async deleteLeaveRequest(@Param('leaveRequestId') leaveRequestId: string,
     @AuthUser() req: IAuthUser) {
-    console.log({ user: req.sub })
     return this.leave.deleteLeaveRequest(leaveRequestId, req.sub);
+  }
+
+
+  @Auth()
+  @Patch('cancel/:leaveRequestId')
+  async cancelLeavequest(@Param('leaveRequestId') leaveRequestId: string,
+    @AuthUser() req: IAuthUser) {
+    return this.leave.cancelLeaveRequest(leaveRequestId, req.sub);
   }
 
 

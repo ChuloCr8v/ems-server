@@ -63,6 +63,7 @@ export class ClaimsController {
 
 
   // Delete claim
+  @Auth()
   @Delete(':id')
   async remove(@Param('id') id: string, @AuthUser() req: IAuthUser) {
     const userId = req.sub;
@@ -71,12 +72,13 @@ export class ClaimsController {
   }
 
   // Update claim status (Managers/Admins only)
+  @Auth([Role.DEPT_MANAGER, Role.ADMIN, Role.SUPERADMIN])
   @Patch(':id/approve')
-  @Roles(Role.DEPT_MANAGER, Role.ADMIN)
   async approveClaim(@Param('id') id: string, @Body() body: { notes?: string }) {
     return this.claimsService.updateStatus(id, 'APPROVED', body.notes);
   }
 
+  @Auth()
   @Patch(':id/reject')
   @Roles(Role.DEPT_MANAGER, Role.ADMIN)
   async rejectClaim(@Param('id') id: string, @Body() body: { notes?: string }) {

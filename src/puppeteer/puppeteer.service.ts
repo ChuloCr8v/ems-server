@@ -55,7 +55,7 @@ export class PuppeteerService implements OnModuleDestroy {
   // Core helper used by the queue processor
   async renderPdfFromHtml(html: string): Promise<Buffer> {
     const browser = await this.getBrowser(true);
-    const context = await (browser as any).createBrowserContext();
+    const context = await (browser).createBrowserContext();
     const page: Page = await context.newPage();
 
     try {
