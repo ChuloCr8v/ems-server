@@ -2,11 +2,11 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { Approver, LeaveStatus, Prisma, PrismaClient, Role, User } from '@prisma/client';
+import { LeaveStatus, Prisma, PrismaClient, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
 import { ApproverService } from 'src/approver/approver.service';
+import { LeaveApprovedEvent, LeaveDeclinedEvent, LeaveRequestedEvent } from 'src/events/leave.event';
 
 @Injectable()
 export class LeaveService {
@@ -15,6 +15,7 @@ export class LeaveService {
         private readonly event: EventEmitter2,
         private readonly mail: MailService,
         private readonly approver: ApproverService,
+        private eventEmitter: EventEmitter2,
     ) { }
 
     async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
@@ -94,6 +95,11 @@ export class LeaveService {
                 request.id,
                 userId,
                 tx
+            );
+
+            this.eventEmitter.emit(
+                'leaveRequest.created',
+                new LeaveRequestedEvent(employee.id, [firstApproval.approverId], request.id),
             );
 
             return {
@@ -464,13 +470,13 @@ export class LeaveService {
                         data: { currentApprovalId: nextApproval.id },
                     });
 
-                    // Notify next approver
-                    setTimeout(() => {
-                        // this.event.emit(
-                        //     'leave.requested',
-                        //     new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
-                        // );
-                    }, 0);
+                    // // Notify next approver
+                    // setTimeout(() => {
+                    //     this.event.emit(
+                    //         'leave.approved',
+                    //         new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
+                    //     );
+                    // }, 0);
 
                     return {
                         approval: nextApproval,
@@ -493,10 +499,11 @@ export class LeaveService {
 
                 // setTimeout(() => {
                 await this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                // this.event.emit(
-                //     'leave_approved',
-                //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                // );
+
+                this.event.emit(
+                    'leave.approved',
+                    new LeaveApprovedEvent(approval.leaveRequest.userId, [approval.leaveRequest.userId], approval.leaveRequestId, approverId)
+                );
                 // }, 0);
 
                 return {
@@ -554,20 +561,22 @@ export class LeaveService {
                     }
                 });
 
+                this.event.emit(
+                    'leave.declined',
+                    new LeaveDeclinedEvent(approval.leaveRequest.userId, [approval.leaveRequest.userId], approval.leaveRequestId, approverId)
+                );
+
                 // Notify employee of rejection
-                setTimeout(() => {
-                    this.sendRejectionMail(approval.leaveRequestId, note).catch(console.error);
-                }, 0);
+                // setTimeout(() => {
+                this.sendRejectionMail(approval.leaveRequestId, note).catch(console.error);
+                // }, 0);
+
+
 
                 return approval;
             });
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to reject leave request:' + error.message);
+            bad(error)
         }
     }
 

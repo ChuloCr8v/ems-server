@@ -9,18 +9,24 @@ datasource db {
 }
 
 model Notification {
-  id          String    @id @default(uuid())
-  recipientId String?   @db.Uuid
-  actorId     String?   @db.Uuid
-  prospectId  String?   @db.Uuid
+  id          String  @id @default(uuid())
+  recipientId String? @db.Uuid
+  actorId     String? @db.Uuid
+  prospectId  String? @db.Uuid
   type        String
+  title       String?
   message     String
-  read        Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  actor       User?     @relation("NotificationActor", fields: [actorId], references: [id])
-  prospect    Prospect? @relation(fields: [prospectId], references: [id])
-  recipient   User?     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  read        Boolean @default(false)
+
+  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+  recipient User?     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  actionType NotificationActionType?
+  actionData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -91,24 +97,27 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([email])
+  @@index([id])
   @@index([eId])
   @@index([firstName, lastName])
   @@index([levelId])
 }
 
 model Department {
-  id             String            @id @default(uuid()) @db.Uuid
-  name           String            @unique
-  createdById    String?           @unique @db.Uuid
-  status         DepartmentStatus? @default(ACTIVE)
+  id             String                  @id @default(uuid()) @db.Uuid
+  name           String                  @unique
+  createdById    String?                 @unique @db.Uuid
+  status         DepartmentStatus?       @default(ACTIVE)
   approver       Approver[]
-  createdBy      User?             @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects      Prospect[]        @relation("DepartmentToProspect")
+  createdBy      User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects      Prospect[]              @relation("DepartmentToProspect")
   taskCategories Category[]
-  user           User[]            @relation("DepartmentToUser")
+  user           User[]                  @relation("DepartmentToUser")
   kpiCategories  KpiCategory[]
   appraisals     Appraisal[]
   tasks          Task[]
+  entitlements   DepartmentEntitlement[]
+  entitlementId  String?                 @db.Uuid()
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -412,9 +421,11 @@ model Entitlement {
   name String          @unique
   unit EntitlementUnit
 
-  type    EntitlementType?
-  request LeaveRequest[]
-  levels  LevelEntitlement[]
+  type        EntitlementType
+  request     LeaveRequest[]
+  levels      LevelEntitlement[]
+  departments DepartmentEntitlement[]
+  scope       EntitlementScope?
 
   claims Claim[]
 
@@ -433,6 +444,19 @@ model LevelEntitlement {
   level         Level       @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
   @@unique([levelId, entitlementId])
+}
+
+model DepartmentEntitlement {
+  id            String      @id @default(uuid()) @db.Uuid
+  departmentId  String      @db.Uuid
+  entitlementId String      @db.Uuid
+  value         Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  entitlement   Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, entitlementId])
 }
 
 model LeaveRequest {
@@ -895,6 +919,21 @@ enum ApproverRole {
   CISO
 }
 
+enum NotificationActionType {
+  INVITE_ACCEPTED
+  EMPLOYEE_ADDED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_DECLINED
+  TASK_ASSIGNED
+  TASK_CREATED
+  CLAIM_CREATED
+  CLAIM_APPROVED
+  CLAIM_REJECTED
+  TASK_UPDATED
+  PAYSLIP_GENERATED
+}
+
 enum ApprovalStatus {
   PENDING
   APPROVED
@@ -1080,4 +1119,9 @@ enum CategoryType {
 enum EntitlementType {
   CLAIMS
   LEAVE
+}
+
+enum EntitlementScope {
+  LEVEL
+  DEPARTMENT
 }

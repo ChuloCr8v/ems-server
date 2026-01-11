@@ -8,6 +8,7 @@ export const MAIL_SUBJECT = {
     DECLINE_OFFER: 'Declined Offer',
     WELCOME_EMAIL: '',
     LEAVE_REQUEST: 'New Leave Request',
+    NEW_CLAIM: 'New Claim Added',
     LEAVE_APPROVAL: 'Leave Request Approved',
     LEAVE_DECLINE: 'Leave Request Denied',
     PAYSLIP_QUEUED: "Payslip Generation Started",
@@ -116,6 +117,34 @@ export class LeaveRequest {
     endDate: Date
 }
 
+export class ClaimRequest {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    approverName: string;
+
+    @IsString()
+    claimTitle: string;
+
+    @IsString()
+    type: string;
+
+    @IsString()
+    amount: string;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    date: Date;
+
+    @IsString()
+    description: string;
+
+}
+
 export class ApproveLeaveRequest {
     @IsEmail()
     email: string;
@@ -189,4 +218,32 @@ export class PayslipsGenerated {
     @IsString()
     dashboardUrl: string
 
+}
+
+export class ClaimApprovalDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    claimTitle: string;
+
+    @IsString()
+    amount: string;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    date: Date;
+
+    @IsOptional()
+    @IsString()
+    approverName?: string;
+}
+
+export class ClaimRejectionDto extends ClaimApprovalDto {
+    @IsOptional()
+    @IsString()
+    reason?: string;
 }

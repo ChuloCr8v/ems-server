@@ -22,8 +22,19 @@ export class LeaveRequestedEvent implements LeaveRequestedPayload {
 export class LeaveApprovedEvent implements LeaveApprovedPayload {
     constructor(
         public readonly employeeId: string,
-        // public readonly recipientIds: string[],
+        public readonly recipientIds: string[],
         public readonly leaveRequestId: string,
         public readonly approverId: string,
-    ) {}
-}  
+    ) { }
+}
+
+
+export class LeaveDeclinedEvent {
+    constructor(
+        public readonly employeeId: string,
+        public readonly recipientIds: string[],
+        public readonly leaveRequestId: string,
+        public readonly approverId: string,
+    ) { }
+}
+

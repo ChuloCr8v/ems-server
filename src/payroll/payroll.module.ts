@@ -13,8 +13,10 @@ import { MailService } from 'src/mail/mail.service';
   imports: [
     BullModule.forRoot({
       connection: {
-        host: process.env.REDIS_HOST || '127.0.0.1',
-        port: Number(process.env.REDIS_PORT || 6379),
+        host: process.env.REDIS_HOST || 'redis-12629.c276.us-east-1-2.ec2.cloud.redislabs.com',
+        port: Number(process.env.REDIS_PORT || 12629),
+        username: process.env.REDIS_USERNAME || 'default',
+        password: process.env.REDIS_PASSWORD || 'Vav5cErC2eBx3ITlvbopTJgEREx5g5lj',
       },
     }),
     BullModule.registerQueue({

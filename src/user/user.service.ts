@@ -215,7 +215,7 @@ export class UserService {
             const recipients = await this.prisma.user.findMany({
                 where: {
                     userRole: {
-                        hasSome: [Role.ADMIN, Role.FACILITY],
+                        hasSome: [Role.ADMIN, Role.FACILITY, Role.SUPERADMIN],
                     },
                 },
             });
