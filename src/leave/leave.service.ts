@@ -874,8 +874,7 @@ export class LeaveService {
             });
 
             await this.mail.sendLeaveRequestMail({
-                // email: currentApproval.approver.email,
-                email: "nkematu5@gmail.com",
+                email: currentApproval.approver.email,
                 name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
                 leaveType: leaveRequest.type.name,
                 startDate: leaveRequest.startDate,
@@ -907,8 +906,7 @@ export class LeaveService {
 
         const duration = this.calculateLeaveDuration(approval.startDate, approval.endDate);
         await this.mail.sendLeaveApprovalMail({
-            // email: approval.user.email,
-            email: "nkematu5@gmail.com",
+            email: approval.user.email,
             name: `${approval.user.firstName} ${approval.user.lastName}`,
             leaveType: approval.type.name,
             startDate: approval.startDate,
@@ -938,8 +936,7 @@ export class LeaveService {
         const duration = this.calculateLeaveDuration(leaveRequest.startDate, leaveRequest.endDate);
 
         await this.mail.sendLeaveRejectMail({
-            // email: leaveRequest.user.email,
-            email: "nkematu5@gmail.com",
+            email: leaveRequest.user.email,
             name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
             leaveType: leaveRequest.type.name,
             leaveValue: duration,
