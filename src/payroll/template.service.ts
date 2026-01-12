@@ -60,9 +60,9 @@ export class PayslipTemplateService {
       .replace(/{{department}}/g, user.departments?.[0]?.name || 'N/A')
       .replace(/{{netPay}}/g, this.formatNumber(netMonthly))
       .replace(/{{netPayMonthly}}/g, this.formatNumber(netMonthly))
-      .replace(/{{tableRows}}/g, tableRows)
-      .replace(/{{grossEarnings}}/g, this.formatNumber(totalEarnings))
-      .replace(/{{totalDeductions}}/g, this.formatNumber(totalDeductions))
+      .replace(/{{earningsTable}}/g, tableRows)
+      .replace(/{{grossTotal}}/g, this.formatNumber(totalEarnings))
+      .replace(/{{deductionsTotal}}/g, this.formatNumber(totalDeductions))
       .replace(/{{netToWords}}/g, netToWords);
 
 
@@ -82,9 +82,6 @@ export class PayslipTemplateService {
     deductions: PayrollComponent[],
   ): string {
     const max = Math.max(earnings.length, deductions.length);
-
-
-    console.log({ earnings, deductions })
 
     return Array.from({ length: max }, (_, i) => {
       const e = earnings[i];

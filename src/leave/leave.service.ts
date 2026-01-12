@@ -2,11 +2,11 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { Approver, Prisma, PrismaClient, Role, User } from '@prisma/client';
+import { LeaveStatus, Prisma, PrismaClient, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
 import { ApproverService } from 'src/approver/approver.service';
+import { LeaveApprovedEvent, LeaveDeclinedEvent, LeaveRequestedEvent } from 'src/events/leave.event';
 
 @Injectable()
 export class LeaveService {
@@ -15,6 +15,7 @@ export class LeaveService {
         private readonly event: EventEmitter2,
         private readonly mail: MailService,
         private readonly approver: ApproverService,
+        private eventEmitter: EventEmitter2,
     ) { }
 
     async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
@@ -94,6 +95,11 @@ export class LeaveService {
                 request.id,
                 userId,
                 tx
+            );
+
+            this.eventEmitter.emit(
+                'leaveRequest.created',
+                new LeaveRequestedEvent(employee.id, [firstApproval.approverId], request.id),
             );
 
             return {
@@ -215,6 +221,39 @@ export class LeaveService {
             return leave ?? [];
         } catch (error) {
             bad('Failed to fetch leave requests:' + error.message);
+        }
+    }
+
+
+    async getLeaveRequest(id: string) {
+        try {
+            const req = await this.prisma.leaveRequest.findUnique({
+                where: { id },
+                include: {
+                    user: true,
+                    type: true,
+                    uploads: true,
+                    approvals: {
+                        include: {
+                            approver: true
+                        },
+                        orderBy: {
+                            phase: "asc"
+                        }
+                    },
+                    comments: {
+                        include: {
+                            user: true
+                        }
+                    }
+                }
+            })
+
+            if (req) mustHave(req, "Request not found", 404)
+
+            return req
+        } catch (error) {
+            bad(error)
         }
     }
 
@@ -370,9 +409,7 @@ export class LeaveService {
             });
 
             // Send notification outside transaction
-            // setTimeout(() => {
-            //     this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
-            // }, 0);
+            this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
         }
 
         return firstApproval;
@@ -433,13 +470,13 @@ export class LeaveService {
                         data: { currentApprovalId: nextApproval.id },
                     });
 
-                    // Notify next approver
-                    setTimeout(() => {
-                        // this.event.emit(
-                        //     'leave.requested',
-                        //     new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
-                        // );
-                    }, 0);
+                    // // Notify next approver
+                    // setTimeout(() => {
+                    //     this.event.emit(
+                    //         'leave.approved',
+                    //         new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
+                    //     );
+                    // }, 0);
 
                     return {
                         approval: nextApproval,
@@ -460,13 +497,14 @@ export class LeaveService {
 
                 }
 
-                setTimeout(() => {
-                    this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
-                    // this.event.emit(
-                    //     'leave_approved',
-                    //     new LeaveApprovedEvent(approval.leaveRequestId, approverId)
-                    // );
-                }, 0);
+                // setTimeout(() => {
+                await this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
+
+                this.event.emit(
+                    'leave.approved',
+                    new LeaveApprovedEvent(approval.leaveRequest.userId, [approval.leaveRequest.userId], approval.leaveRequestId, approverId)
+                );
+                // }, 0);
 
                 return {
                     approval: null,
@@ -523,20 +561,22 @@ export class LeaveService {
                     }
                 });
 
+                this.event.emit(
+                    'leave.declined',
+                    new LeaveDeclinedEvent(approval.leaveRequest.userId, [approval.leaveRequest.userId], approval.leaveRequestId, approverId)
+                );
+
                 // Notify employee of rejection
-                setTimeout(() => {
-                    this.sendRejectionMail(approval.leaveRequestId, note).catch(console.error);
-                }, 0);
+                // setTimeout(() => {
+                this.sendRejectionMail(approval.leaveRequestId, note).catch(console.error);
+                // }, 0);
+
+
 
                 return approval;
             });
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to reject leave request:' + error.message);
+            bad(error)
         }
     }
 
@@ -565,6 +605,115 @@ export class LeaveService {
             throw new BadRequestException('Failed to get approval history:' + error.message);
         }
 
+    }
+
+
+
+    async deleteLeaveRequest(leaveRequestId: string, userId: string) {
+        try {
+            const leaveReq = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id: leaveRequestId
+                },
+
+            })
+
+            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
+
+            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't delete an approved request")
+
+            await this.prisma.leaveRequest.delete({
+                where: {
+                    id: leaveRequestId
+                }
+            })
+
+            return true
+
+        } catch (error) {
+            bad(error)
+        }
+
+    }
+
+    async cancelLeaveRequest(leaveRequestId: string, userId: string) {
+        try {
+            const leaveReq = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id: leaveRequestId
+                },
+
+            })
+
+            if (!leaveReq) mustHave(leaveReq, "Request not found", 404)
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user || user.id !== leaveReq.userId) mustHave(user, "Unauthorized", 404)
+
+            if (leaveReq.status === LeaveStatus.APPROVED) bad("You can't cancel an approved request")
+
+            await this.prisma.leaveRequest.update({
+                where: {
+                    id: leaveRequestId
+                },
+                data: {
+                    status: "CANCELLED",
+                    currentApprovalId: null,
+                }
+            })
+
+            return true
+
+        } catch (error) {
+            bad(error)
+        }
+
+    }
+
+    async comment(id: string, userId: string, dto: { comment: string, uploads?: string[] }) {
+        try {
+            const leave = await this.prisma.leaveRequest.findUnique({
+                where: {
+                    id
+                }
+            })
+
+            if (!leave) mustHave(leave, "Request not found", 404)
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user) mustHave(user, "user not found", 404)
+
+            const comment = await this.prisma.comment.create({
+                data: {
+                    comment: dto.comment,
+                    ...(dto.uploads ? { uploads: { connect: dto.uploads.map(u => ({ id: u })) } } : {}),
+                    leave: { connect: { id } },
+                    user: { connect: { id: userId } }
+                }
+            })
+            return {
+                message: "Comment added successfully",
+                data: comment
+            }
+        } catch (error) {
+            bad(error)
+        }
     }
 
 
@@ -698,8 +847,7 @@ export class LeaveService {
             });
 
             if (!leaveRequest || !leaveRequest.user) {
-                console.error('Leave request or user not found');
-                return false;
+                bad('Leave request or user not found');
             }
 
             // Get the current approval (first pending approval)
@@ -799,4 +947,5 @@ export class LeaveService {
 
         return true;
     }
+
 }

@@ -2,8 +2,8 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res } from
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
-import { ReqPayload } from 'src/auth/dto/auth.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Controller('payroll')
 export class PayrollController {
@@ -16,6 +16,11 @@ export class PayrollController {
   @Get('payslips')
   async listPayslips() {
     return this.payroll.listPayslips();
+  }
+
+  @Get('payslips/user')
+  async listUserPayslips(@AuthUser() req: IAuthUser) {
+    return this.payroll.listUserPayslips(req.sub);
   }
 
   @Put("calculate")

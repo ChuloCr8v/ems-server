@@ -1,4 +1,4 @@
-import { EntitlementType, EntitlementUnit } from "@prisma/client";
+import { EntitlementScope, EntitlementType, EntitlementUnit } from "@prisma/client";
 import {
     IsArray,
     IsEnum,
@@ -25,17 +25,37 @@ export class EntitlementDto {
     })
     type: EntitlementType;
 
+
+    @IsEnum(EntitlementScope, {
+        message: "Entitlement scope must be a valid Entitlement Type",
+    })
+    scope: EntitlementScope;
+
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => EntitlementLevelDto)
     @IsOptional()
     levels?: EntitlementLevelDto[];
-}
 
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => EntitlementDepartmentDto)
+    @IsOptional()
+    departments?: EntitlementDepartmentDto[];
+}
 export class EntitlementLevelDto {
     @IsString()
     @IsNotEmpty()
     levelId: string;
+
+    @IsNumber()
+    @IsNotEmpty()
+    value: number;
+}
+export class EntitlementDepartmentDto {
+    @IsString()
+    @IsNotEmpty()
+    departmentId: string;
 
     @IsNumber()
     @IsNotEmpty()

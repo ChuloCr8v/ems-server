@@ -4,18 +4,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ClaimStatus, Prisma, Role } from '@prisma/client';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
+import { MailService } from 'src/mail/mail.service';
+import { promises } from 'dns';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ClaimApprovedEvent, ClaimCreatedEvent, ClaimRejectedEvent } from 'src/events/claim.event';
 
 @Injectable()
 export class ClaimsService {
   constructor(
     private prisma: PrismaService,
+    private mail: MailService,
+    private event: EventEmitter2,
   ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
 
     const claimId = "CLM" + Date.now().toString().slice(-4);
-
-    console.log({ createClaimDto })
 
     const claim = await this.prisma.claim.create({
       data: {
@@ -48,6 +52,33 @@ export class ClaimsService {
         },
       },
     });
+
+    const emailReciepients = await this.prisma.user.findMany({
+      where: {
+        userRole: {
+          hasSome: ["ADMIN", "SUPERADMIN"]
+        }
+      }
+    })
+
+
+    if (emailReciepients.length) {
+
+      this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
+
+      await Promise.all(
+        emailReciepients.map(e => this.mail.sendNewClaimMail({
+          email: e.email,
+          approverName: e.firstName + " " + e.lastName,
+          name: `${claim.user.firstName} ${claim.user.lastName}`,
+          claimTitle: createClaimDto.title,
+          type: createClaimDto.entitlement,
+          amount: createClaimDto.amount.toLocaleString(),
+          date: createClaimDto.dateOfExpense,
+          description: createClaimDto.description || 'No description provided',
+        }))
+      )
+    }
 
     return claim
   }
@@ -200,21 +231,59 @@ export class ClaimsService {
     return { message: 'Claim deleted successfully' };
   }
 
-  async updateStatus(id: string, status: 'APPROVED' | 'REJECTED', notes?: string) {
+  async updateStatus(id: string, status: 'APPROVED' | 'REJECTED', approverId: string, notes?: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
 
     if (!claim) {
       throw new NotFoundException('Claim not found');
     }
 
-    return this.prisma.claim.update({
+    const updatedClaim = await this.prisma.claim.update({
       where: { id },
       data: {
         status,
         notes,
         updatedAt: new Date(),
       },
+      include: {
+        user: true
+      }
     });
+
+    if (status === 'APPROVED') {
+      const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+      const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+
+      this.event.emit('claim.approved', new ClaimApprovedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId));
+
+      await this.mail.sendClaimApprovalMail({
+        email: updatedClaim.user.email,
+        name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+        claimTitle: updatedClaim.title,
+        amount: updatedClaim.amount.toLocaleString(),
+        date: updatedClaim.dateOfExpense,
+        approverName
+      });
+    }
+
+    if (status === 'REJECTED') {
+      const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+      const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+
+      this.event.emit('claim.rejected', new ClaimRejectedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId, notes));
+
+      await this.mail.sendClaimRejectionMail({
+        email: updatedClaim.user.email,
+        name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+        claimTitle: updatedClaim.title,
+        amount: updatedClaim.amount.toLocaleString(),
+        date: updatedClaim.dateOfExpense,
+        approverName,
+        reason: notes
+      });
+    }
+
+    return updatedClaim;
   }
 
   async approveClaim(id: string) {
