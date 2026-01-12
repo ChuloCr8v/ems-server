@@ -20,21 +20,23 @@ export class EntitlementService {
                     name,
                     unit,
                     type: dto.type,
-                    levels: dto.levels ? {
+                    levels: dto.levels?.length > 0 ? {
                         create: dto.levels?.map((level) => ({
                             levelId: level.levelId,
                             value: level.value,
                         })),
                     } : undefined,
+                    departments: dto.departments?.length > 0 ? {
+                        create: dto.departments?.map((department) => ({
+                            departmentId: department.departmentId,
+                            value: department.value,
+                        })),
+                    } : undefined,
+
                 },
             });
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to create entitlement');
+            bad(error)
         }
     }
 
@@ -50,15 +52,15 @@ export class EntitlementService {
                             level: true
                         }
                     },
+                    departments: {
+                        include: {
+                            department: true
+                        }
+                    }
                 }
             });
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to fetch entitlements');
+            bad(error)
         }
     }
 
@@ -66,12 +68,7 @@ export class EntitlementService {
         try {
             return await this.__findEntitlementById(id);
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to fetch entitlement');
+            bad(error)
         }
     }
 
@@ -85,7 +82,16 @@ export class EntitlementService {
                         include: {
                             entitlements: {
                                 include: { entitlement: true }
-                            }
+                            },
+
+                        }
+                    },
+                    departments: {
+                        include: {
+                            entitlements: {
+                                include: { entitlement: true }
+                            },
+
                         }
                     }
                 }
@@ -109,7 +115,7 @@ export class EntitlementService {
     }
 
     async updateEntitlement(id: string, dto: UpdateEntitlementDto) {
-        const { name, unit, levels } = dto;
+        const { name, unit, levels, departments, scope } = dto;
         try {
             await this.__findEntitlementById(id);
             const update = await this.prisma.entitlement.update({
@@ -117,11 +123,20 @@ export class EntitlementService {
                 data: {
                     name,
                     unit,
+                    scope,
                     levels: levels ? {
                         deleteMany: {},
                         create: levels?.map((level) => ({
                             levelId: level.levelId,
                             value: level.value,
+                        })),
+                    } : undefined,
+                    departments: departments ? {
+                        deleteMany: {},
+                        create: departments?.map((department) => ({
+                            departmentId: department.departmentId,
+                            value: department.value,
+
                         })),
                     } : undefined,
                 },
@@ -140,12 +155,7 @@ export class EntitlementService {
             });
             return entitlement;
         } catch (error) {
-            if (error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to delete entitlement');
+            bad(error)
         }
     }
 
@@ -154,7 +164,17 @@ export class EntitlementService {
     /////////////////////////////////// HELPER FUNCTION //////////////////////////////
     async __findEntitlementById(id: string) {
         const entitlement = await this.prisma.entitlement.findUnique({
-            where: { id }, include: { levels: true },
+            where: { id }, include: {
+                levels: {
+                    include: {
+                        level: true
+                    }
+                }, departments: {
+                    include: {
+                        department: true
+                    }
+                }
+            },
         });
         if (!entitlement) {
             throw bad("Entitlement Not Found");

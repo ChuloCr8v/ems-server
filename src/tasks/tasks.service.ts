@@ -1,17 +1,18 @@
 // tasks.service.ts
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalStatus, CategoryType, Prisma, Role, Task, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
-import { create } from 'domain';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent } from 'src/events/task.event';
 
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly event: EventEmitter2,) { }
 
   private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
@@ -22,7 +23,7 @@ export class TasksService {
   }
 
   private isManager(role: string[]): boolean {
-    const managerRoles = ["ADMIN", "DEPT_MANAGER"]
+    const managerRoles = ["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"]
     return role?.some(r => managerRoles.includes(r))
   }
 
@@ -84,13 +85,10 @@ export class TasksService {
         }
       })
 
-      if (!taskCreator) mustHave(taskCreator, "Unathorized", 401)
+      if (!taskCreator) mustHave(taskCreator, "Unauthorized", 401)
 
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
-
-
-
 
       if (isManager) {
         if (!assignees)
@@ -143,7 +141,7 @@ export class TasksService {
 
       if (assignees && assignees.length > 0) {
         createData.assignees = {
-          create: assignees.map(userId => ({ userId })),
+          create: !isManager ? [...assignees, createdById].map(userId => ({ userId })) : assignees.map(userId => ({ userId })),
         };
       }
 
@@ -155,12 +153,7 @@ export class TasksService {
         }
       }))?.departments[0].id
 
-      console.log(taskDepts)
 
-      //Add creator as assignee if not manager
-      createData.assignees = {
-        create: { userId: createdById },
-      }
 
       const task = await this.prisma.task.create({
         data: {
@@ -185,13 +178,47 @@ export class TasksService {
         // include: this.getTaskInclude(),
       });
 
+
+      if (assignees?.length) {
+        this.event.emit("task.assigned", new TaskAssignedEvent(createdById, assignees.map(a => a), task.id))
+      }
+
+      if (!isManager) {
+        // Find Dept Managers and Team Leads for the department
+        const approvers = await this.prisma.user.findMany({
+          where: {
+            departments: {
+              some: {
+                id: taskDepts
+              }
+            },
+            userRole: {
+              hasSome: [Role.DEPT_MANAGER, Role.TEAM_LEAD]
+            },
+            id: {
+              not: createdById
+            }
+          },
+          select: { id: true }
+        });
+
+        if (approvers.length > 0) {
+          const approverIds = approvers.map(a => a.id);
+          console.log({ approverIds });
+          this.event.emit('task.created', new TaskCreatedEvent(
+            createdById,
+            approverIds,
+            task.id,
+            task.title
+          ));
+        }
+      }
+
+
+
       return task;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-      console.error('Error creating task:', error);
-      throw new InternalServerErrorException('Error creating task');
+      bad(error)
     }
   }
 
@@ -907,6 +934,22 @@ export class TasksService {
 
       return updatedTask;
     });
+
+    if (status && status !== findTask.status) {
+      const allRecipients = new Set<string>();
+      if (task.createdById !== userId) allRecipients.add(task.createdById);
+      task.assignees.forEach(a => {
+        if (a.user.id !== userId) allRecipients.add(a.user.id);
+      });
+
+      this.event.emit('task.updated', new TaskUpdatedEvent(
+        userId,
+        Array.from(allRecipients),
+        task.id,
+        task.title,
+        status
+      ));
+    }
 
     return task;
   }
