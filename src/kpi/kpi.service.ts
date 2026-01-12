@@ -7,7 +7,7 @@ import { bad } from 'src/utils/error.utils';
 
 @Injectable()
 export class KpiService {
-    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) {}
+    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) { }
 
     // Admin Methods - Global KPIs
     async createCategory(userId: string, data: CreateKpiDto) {
@@ -95,8 +95,8 @@ export class KpiService {
                 );
                 return created;
             } catch (error) {
-                if (error instanceof BadRequestException || 
-                    error instanceof NotFoundException || 
+                if (error instanceof BadRequestException ||
+                    error instanceof NotFoundException ||
                     error instanceof ConflictException) {
                     throw error;
                 }
@@ -135,7 +135,7 @@ export class KpiService {
         }
         const category = await this.prisma.kpiCategory.findUnique({
             where: { id: categoryId },
-            include: { 
+            include: {
                 department: true,
                 objectives: true
             }
@@ -236,6 +236,9 @@ export class KpiService {
             include: { department: true },
         });
 
+        if (!category) {
+            throw new NotFoundException('Category not found');
+        }
         if (!category) {
             throw new NotFoundException('Category not found');
         }

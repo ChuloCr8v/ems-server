@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssetStatus, EmergencyContact, GuarantorContact, JobType, Prisma, Role, Status, User } from '@prisma/client';
-import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { JobType, Prisma, Role, Status } from '@prisma/client';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
 import { EmploymentApprovedEvent } from 'src/events/employment.event';
@@ -12,7 +12,6 @@ export class UserService {
 
     constructor(
         private readonly prisma: PrismaService,
-        private readonly mail: MailService,
         private eventEmitter: EventEmitter2
     ) { }
 
@@ -23,7 +22,12 @@ export class UserService {
                     id: sub
                 },
                 include: {
-                    approver: true
+                    departments: true,
+                    approver: {
+                        include: {
+                            department: true
+                        }
+                    }
                 }
             })
 
@@ -267,6 +271,7 @@ export class UserService {
                 ...(data.dateOfBirth && { dateOfBirth: data.dateOfBirth }),
                 ...(data.workPhone && { workPhone: data.workPhone }),
                 ...(data.eId && { eId: data.eId }),
+                ...(data.status && { status: data.status }),
                 ...(data.levelId && {
                     level: { connect: { id: data.levelId } },
                 }),
@@ -289,9 +294,12 @@ export class UserService {
             await this.updateContacts(this.prisma, user.id, data.guarantor, data.emergency, data.nextOfKin);
         }
 
-        if ("departments" in user && user.departments?.length) {
+        if (data.departments.length > 0) {
+            console.log({ "data": data })
+
             updateData.departments = {
-                connect: user.departments.map((d) => ({ id: d.id })),
+                set: [],
+                connect: data.departments.map((d) => ({ id: d })),
             };
         }
 
@@ -339,6 +347,11 @@ export class UserService {
                 bank: true,
                 comment: true,
                 invite: true,
+                payroll: {
+                    include: {
+                        user: true
+                    }
+                }
             },
             orderBy: {
                 createdAt: "desc"
@@ -346,16 +359,20 @@ export class UserService {
         });
     }
 
-    async getUser(id: string) {
+    async getUser(id: string, requesterId: string) {
         try {
 
-            const user = await this.__findUserById(id)
+            const requester = await this.__findUserById(requesterId)
+            mustHave(requester, "Requester not found", 404)
 
+            const user = await this.__findUserById(id)
             if (!user) mustHave(user, "User not found", 404)
-            return user
+            if (requester.userRole?.includes(Role.ADMIN) || requester.userRole?.includes(Role.ASSET_MANAGER)) return user
+            if (user.id === requesterId) return user
+
+            return bad("You do not have permission to view this user")
 
         } catch (error) {
-            console.log(error)
             bad(error)
         }
 
@@ -506,37 +523,37 @@ export class UserService {
             };
             return user;
         } catch (error) {
-            bad("Unable to find user")
+            bad(error)
         }
     }
 
-    async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
-        if (!uploads?.length) {
-            this.logger.debug('No files to upload');
-            return;
-        }
-        return await this.prisma.$transaction(async (tx) => {
-            //First delete the uploads that are being replaced
-            const filenames = uploads.map(u => u.originalname);
-            await tx.upload.deleteMany({
-                where: {
-                    userId,
-                    name: { in: filenames }
-                }
-            });
+    // async handleUserUploads(userId: string, uploads: Express.Multer.File[]) {
+    //     if (!uploads?.length) {
+    //         this.logger.debug('No files to upload');
+    //         return;
+    //     }
+    //     return await this.prisma.$transaction(async (tx) => {
+    //         //First delete the uploads that are being replaced
+    //         const filenames = uploads.map(u => u.originalname);
+    //         await tx.upload.deleteMany({
+    //             where: {
+    //                 userId,
+    //                 name: { in: filenames }
+    //             }
+    //         });
 
-            //Add all the new uploads
-            await tx.upload.createMany({
-                data: uploads.map(upload => ({
-                    name: upload.originalname,
-                    size: upload.size,
-                    type: upload.mimetype,
-                    bytes: upload.buffer,
-                    userId
-                }))
-            });
-        });
-    }
+    //         //Add all the new uploads
+    //         await tx.upload.createMany({
+    //             data: uploads.map(upload => ({
+    //                 name: upload.originalname,
+    //                 size: upload.size,
+    //                 type: upload.mimetype,
+    //                 bytes: upload.buffer,
+    //                 userId
+    //             }))
+    //         });
+    //     });
+    // }
 
     async findByEmail(email: string) {
         return this.prisma.user.findUnique({
@@ -555,7 +572,7 @@ export class UserService {
         const [existingEmails, existingWorkPhones, existingPhones, existingEids] =
             await Promise.all([
                 this.prisma.user.findMany({
-                    where: { email: { in: emails }, },
+                    where: { email: { in: emails } },
                     select: { email: true, firstName: true, lastName: true },
                 }),
                 this.prisma.user.findMany({
@@ -579,17 +596,18 @@ export class UserService {
             input: AddEmployeeDto;
         }[] = [];
 
-
-        console.log(data)
+        const departmentKey = isBulk ? "name" : "id";
 
         for (const e of data) {
             try {
+                // Basic validation
                 if (!e.firstName || !e.lastName) throw new Error("First name and last name are required");
                 if (!e.gender) throw new Error("Gender is required");
                 if (!e.department?.length) throw new Error("Department is required");
                 if (e.jobType === "CONTRACT" && !e.duration)
                     throw new Error("Duration is required for contract employees");
 
+                // Duplicate checks
                 if (e.email) {
                     const found = existingEmails.find((u) => u.email.toLowerCase() === e.email.toLowerCase());
                     if (found) throw new Error(`Email ${e.email} already belongs to ${found.firstName} ${found.lastName}`);
@@ -607,13 +625,15 @@ export class UserService {
                     if (found) throw new Error(`Employee ID ${e.eId} already belongs to ${found.firstName} ${found.lastName}`);
                 }
 
+                // Department validation
                 const departments = await this.prisma.department.findMany({
-                    where: { name: { in: e.department } },
+                    where: { [departmentKey]: { in: e.department } },
                 });
                 if (departments.length !== e.department.length) {
                     throw new Error(`Some departments not found: expected ${e.department.length}, found ${departments.length}`);
                 }
 
+                // Prepare employee data
                 const employeeData = {
                     firstName: e.firstName,
                     lastName: e.lastName,
@@ -627,26 +647,35 @@ export class UserService {
                     eId: e.eId,
                     departments: { connect: departments.map((d) => ({ id: d.id })) },
                     ...(e.level ? { level: { connect: { id: e.level } } } : {}),
-                    jobType: JobType.FULL_TIME,
+                    jobType: e.jobType ?? JobType.FULL_TIME,
                     duration: e.jobType === "CONTRACT" ? e.duration?.toString() : null,
                     status: Status.ACTIVE,
                 };
 
                 const created = await this.prisma.user.create({ data: employeeData });
-
                 results.push({ success: true, data: created, input: e });
             } catch (err: any) {
+                if (!isBulk) {
+                    bad(err.message || "Failed to add employee");
+                }
+
+                // Otherwise record the failure
                 results.push({ success: false, error: err.message || "Unknown error", input: e });
             }
         }
 
+        const created = results.filter(r => r.success).map(r => r.data);
+        const failed = results.filter(r => !r.success).map(r => ({ error: r.error, input: r.input }));
+
         return {
             success: true,
-            created: results.filter(r => r.success).map(r => r.data),
-            failed: results.filter(r => !r.success).map(r => ({ error: r.error, input: r.input })),
-            message: `Processed ${data.length} employees: ${results.filter(r => r.success).length} created, ${results.filter(r => !r.success).length} failed.`,
+            hasErrors: failed.length > 0,
+            created,
+            failed,
+            message: `Processed ${data.length} employees: ${created.length} created, ${failed.length} failed.`,
         };
     }
+
 
     async deleteUser(ids: string[]) {
         try {

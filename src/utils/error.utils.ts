@@ -10,6 +10,7 @@ import {
 type Err = 400 | 401 | 403 | 404 | 409 | 500;
 
 export function bad(message: string, err: Err = 400): never {
+  console.log(message)
   switch (err) {
     case 401: throw new UnauthorizedException(message);
     case 403: throw new ForbiddenException(message);

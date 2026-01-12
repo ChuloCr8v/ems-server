@@ -10,6 +10,10 @@ export class DepartmentDto {
     departmentHead?: string
 
     @IsString()
+    @IsOptional()
+    teamLead?: string
+
+    @IsString()
     @IsNotEmpty()
     createdBy: string
 }

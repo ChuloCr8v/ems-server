@@ -85,7 +85,6 @@ export class InviteService {
     } = input;
     try {
 
-
       if (jobType === JobType.CONTRACT && !duration) {
         throw bad('Duration is required for CONTRACT positions');
       }
@@ -161,7 +160,7 @@ export class InviteService {
             },
             data: {
               upload: {
-                connect: { id: uploadData.publicId}
+                connect: { id: uploadData.id }
               }
             }
           })

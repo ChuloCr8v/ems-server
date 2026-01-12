@@ -37,7 +37,7 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 export class AssetsController {
   constructor(private readonly assetsService: AssetService) { }
 
-  // @Auth([Role.ADMIN, Role.FACILITY])
+  @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
   @ApiOperation({ summary: 'Create a new asset' })
   @ApiConsumes('multipart/form-data')
@@ -52,6 +52,7 @@ export class AssetsController {
     return this.assetsService.createAsset(createAssetDto);
   }
 
+  @Auth([Role.ADMIN, Role.FACILITY])
   @Put("update/:id")
   @ApiOperation({ summary: 'Update an asset' })
   @ApiConsumes('multipart/form-data')
@@ -94,6 +95,7 @@ export class AssetsController {
     res.sendFile(filePath);
   }
 
+  @Auth([Role.ADMIN, Role.FACILITY])
   @Get()
   @ApiOperation({ summary: 'Get all assets' })
   @ApiOkResponse({ description: 'List of all assets' })

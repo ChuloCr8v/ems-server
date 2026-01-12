@@ -7,6 +7,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 20,
+        monthlyAmount: 0,
+        annualAmount: 0
     },
 
     {
@@ -15,6 +17,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 20,
+        monthlyAmount: 0,
+        annualAmount: 0
     },
 
     {
@@ -23,6 +27,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 20,
+        monthlyAmount: 0,
+        annualAmount: 0
     },
     {
         title: 'Entertainment',
@@ -30,6 +36,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 15,
+        monthlyAmount: 0,
+        annualAmount: 0
     },
 
     {
@@ -38,6 +46,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 15,
+        monthlyAmount: 0,
+        annualAmount: 0
     },
 
     {
@@ -46,6 +56,8 @@ export const STATIC_EARNING_COMPONENTS = [
         category: ComponentCategory.STATIC_EARNING,
         calculations: SalaryCalculationType.PERCENTAGE,
         amount: 10,
+        monthlyAmount: 0,
+        annualAmount: 0
     }
 ];
 
