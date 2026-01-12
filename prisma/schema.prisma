@@ -421,7 +421,7 @@ model Entitlement {
   name String          @unique
   unit EntitlementUnit
 
-  type        EntitlementType
+  type        EntitlementType?
   request     LeaveRequest[]
   levels      LevelEntitlement[]
   departments DepartmentEntitlement[]
