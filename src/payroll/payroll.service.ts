@@ -2,23 +2,20 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
-import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, PayrollComponent, User, PrismaClient, Prisma, Report, Payslip, } from '@prisma/client';
+import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, User, Payslip, Role, } from '@prisma/client';
 import { CalculateComponentDto } from './dto/payroll.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { TaxService } from './tax.service';
 import * as ExcelJS from 'exceljs';
-import { Logger } from '@nestjs/common';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { Response } from 'express';
 import { PayslipTemplateService } from './template.service';
-import { getMonthDateRange } from 'src/utils/getMonthDateRange';
-import path, { resolve } from 'path';
+import { resolve } from 'path';
 import { PuppeteerService } from 'src/puppeteer/puppeteer.service';
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
 import { monthInWords } from 'src/utils/monthInWords';
 import { MailService } from 'src/mail/mail.service';
-import { monthToWords } from 'src/utils/monthToWords.utils';
+import { PayslipGeneratedEvent } from 'src/events/payroll.event';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 
 const templates = resolve(__dirname, '../payroll/templates');
@@ -26,13 +23,15 @@ const templates = resolve(__dirname, '../payroll/templates');
 @Injectable()
 export class PayrollService {
 
+
     constructor(
 
         private mail: MailService,
         private readonly prisma: PrismaService,
         private readonly taxService: TaxService,
-        @InjectQueue('payslips') private readonly payslipQueue: Queue,
-
+        private readonly event: EventEmitter2,
+        private readonly payslipTemplate: PayslipTemplateService,
+        private readonly puppeteerService: PuppeteerService,
     ) { }
 
     async calculatePayRoll(data: PayrollDto) {
@@ -451,12 +450,12 @@ export class PayrollService {
 
             const allComponents = [...earningComponents, ...deductionComponents];
 
-            const updatedPayroll = await this.prisma.$transaction(async (tx) => {
-                await tx.payrollComponent.deleteMany({
+            await this.prisma.$transaction([
+                this.prisma.payrollComponent.deleteMany({
                     where: { payrollId },
-                });
+                }),
 
-                const newPayroll = await tx.payroll.update({
+                this.prisma.payroll.update({
                     where: { id: payrollId },
                     data: {
                         salary: update.salary ?? payroll.salary,
@@ -467,31 +466,33 @@ export class PayrollService {
                         pension: deductions?.pension ?? 0,
                         taxableIncome: taxableAmount ?? 0,
                         taxStatus: TaxStatus.CALCULATED,
-                        component: {
-                            create: allComponents.map((a) => ({
-                                ...a,
-                                user: { connect: { id: payroll.userId } },
-                            })),
-                        },
                     },
-                    include: {
-                        component: true,
-                        user: {
-                            select: {
-                                id: true,
-                                eId: true,
-                                firstName: true,
-                                lastName: true,
-                                jobType: true,
-                            },
-                        },
-                    },
-                });
+                }),
 
-                return newPayroll;
+                this.prisma.payrollComponent.createMany({
+                    data: allComponents.map((c) => ({
+                        ...c,
+                        payrollId,
+                        userId: payroll.userId,
+                    })),
+                }),
+            ]);
+
+            return this.prisma.payroll.findUnique({
+                where: { id: payrollId },
+                include: {
+                    component: true,
+                    user: {
+                        select: {
+                            id: true,
+                            eId: true,
+                            firstName: true,
+                            lastName: true,
+                            jobType: true,
+                        },
+                    },
+                },
             });
-
-            return updatedPayroll;
         } catch (error) {
             if (
                 error instanceof BadRequestException ||
@@ -500,12 +501,12 @@ export class PayrollService {
             ) {
                 throw error;
             }
+
             console.error("Payroll update failed:", error);
             throw new BadRequestException(
                 "Failed to update payroll: " + error.message,
             );
         }
-
     }
 
     async listDeductions() {
@@ -627,6 +628,7 @@ export class PayrollService {
     }
 
     async queuePayslipsForPeriod(userId: string) {
+        console.log("Queueing payslips for user:", userId);
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
         const month = monthInWords + " " + new Date().getFullYear();
@@ -641,34 +643,42 @@ export class PayrollService {
 
         try {
             const payrolls = await this.prisma.payroll.findMany({
-                select: {
-                    id: true,
-                    userId: true
+                // where: { userId },
+                include: {
+                    user: true
                 }
             });
+
+            console.log("Payrolls:", payrolls.length);
 
             if (!payrolls.length) {
                 return { message: "No payroll records found" };
             }
 
-            // Queue payslip generation jobs
-            const jobs = payrolls.map((p) =>
-                this.payslipQueue.add(
-                    "generate-payslip",
-                    { payrollId: p.id },
-                    {
-                        attempts: 3,
-                        backoff: {
-                            type: "exponential",
-                            delay: 3000
-                        },
-                        removeOnComplete: true,
-                        removeOnFail: false
-                    }
-                )
-            );
 
-            await Promise.all(jobs);
+            await Promise.allSettled(
+                payrolls.map(p => {
+                    console.log("Generating payslip for payroll:", p.id);
+
+                    // 1. Fetch payroll
+                    const payroll = this.prisma.payroll.findUnique({
+                        where: { id: p.id },
+                        include: {
+                            user: { include: { departments: true } },
+                            component: true,
+                        },
+                    });
+
+                    if (!payroll) {
+                        throw new Error(`Payroll not found: ${p.id}`);
+                    }
+
+                    // 4. Save
+                    this.savePayslip(p, p.user);
+
+                    return { status: 'done', p };
+                })
+            )
 
             // Send final payslip generation completed mail
             // await this.mail.sendPayslipsGenerated({
@@ -689,6 +699,45 @@ export class PayrollService {
         }
     }
 
+
+    private async savePayslip(
+        payroll: Payroll,
+        user: User
+    ): Promise<void> {
+
+        const date = new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+        });
+
+        // const pdfData = new Uint8Array(pdfBuffer);
+
+        const currentMonth = new Date().toLocaleString('default', { month: 'long' }).toLowerCase();
+        const year = new Date().getFullYear();
+
+        await this.prisma.payslip.create({
+            data: {
+                // data: pdfData,
+                name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+                amount: payroll.net,
+                userId: payroll.userId,
+                payrollId: payroll.id,
+                month: currentMonth,
+                year: year,
+            },
+        });
+
+        this.event.emit('payroll.generated', new PayslipGeneratedEvent(
+            user.id,
+            payroll.id,
+            currentMonth,
+            year
+        ));
+    }
+
+    async savePayslipPDF() {
+
+    }
 
     async listUserPayslips(userId?: string) {
         try {
@@ -721,9 +770,9 @@ export class PayrollService {
                         }
                     }
                 },
-                omit: {
-                    data: true
-                },
+                // omit: {
+                //     data: true
+                // },
                 orderBy: { createdAt: 'desc' }
             })
 
@@ -738,8 +787,19 @@ export class PayrollService {
         }
     }
 
-    async listPayslips() {
+    async listPayslips(userId: string) {
+
         try {
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId,
+                }
+            })
+
+            if (!user) mustHave(user, "Unauthorized", 404)
+
+
             const groupByMonth = (payslips: Payslip[]) => {
                 const grouped = payslips.reduce((acc, payslip) => {
                     const month = payslip.month
@@ -770,15 +830,13 @@ export class PayrollService {
                         }
                     }
                 },
-                omit: {
-                    data: true
-                },
                 orderBy: {
                     createdAt: "desc"
                 }
             })
 
-            return Object.values(groupByMonth(allPayslips as []));
+            const filterByRole = (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.SUPERADMIN) || user.userRole.includes(Role.HR)) ? allPayslips : allPayslips.filter(payslip => payslip.userId === user.id)
+            return Object.values(groupByMonth(filterByRole));
 
         } catch (error) {
             console.log(error)
@@ -787,26 +845,47 @@ export class PayrollService {
     }
 
     async downloadPayslip(payslipId: string, res: Response): Promise<void> {
+
         const payslip = await this.prisma.payslip.findUnique({
             where: { id: payslipId },
-            include: { user: true },
+            include: {
+                user: {
+                    include: {
+                        departments: true
+                    }
+                },
+                payroll: {
+                    include: {
+                        component: true,
+                        user: {
+                            include: {
+                                departments: true
+                            }
+                        }
+                    }
+                }
+            },
         });
 
         if (!payslip) throw new NotFoundException('Payslip not found');
 
-        // Convert Uint8Array to Buffer
-        const pdfBuffer = Buffer.from(payslip.data);
+        const html = this.payslipTemplate.generateHTML(
+            payslip.payroll,
+            payslip.payroll.component,
+        );
 
-        // Validate the PDF
+        const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
+
+        const pdfBuffer = Buffer.from(pdfData);
+
         this.validatePDFBuffer(pdfBuffer);
 
-        // Set response headers
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', pdfBuffer.length);
         res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
 
-        // Send the PDF buffer
         res.send(pdfBuffer);
+
     }
 
     async downloadDeductionsExcel(deductionId: string, res: Response): Promise<void> {

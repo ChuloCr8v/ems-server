@@ -41,7 +41,7 @@ export class ClaimsController {
     @Query('status') status?: ClaimStatus,
   ) {
     const userId = req.sub;
-    const userRole = req.role as Role;
+    const userRole = req.role;
     return this.claimsService.findAll(userId, userRole, { status });
   }
 
@@ -57,7 +57,7 @@ export class ClaimsController {
     @AuthUser() req: IAuthUser,
     @Body() updateClaimDto: UpdateClaimDto,
   ) {
-    const userRole = req.role as Role;
+    const userRole = req.role;
     return this.claimsService.updateClaim(id, userRole, updateClaimDto);
   }
 
@@ -67,7 +67,7 @@ export class ClaimsController {
   @Delete(':id')
   async remove(@Param('id') id: string, @AuthUser() req: IAuthUser) {
     const userId = req.sub;
-    const userRole = req.role as Role;
+    const userRole = req.role
     return this.claimsService.removeClaim(id, userId, userRole);
   }
 

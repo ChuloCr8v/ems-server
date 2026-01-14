@@ -1050,6 +1050,7 @@ export class TasksService {
   }
 
   async deleteTask(id: string, userId: string, userRole: string[]) {
+    console.log({ userRole });
     const task = await this.getOneTask(id);
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;

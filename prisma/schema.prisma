@@ -573,22 +573,40 @@ model PayrollComponent {
 }
 
 model Payslip {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String  @id @default(uuid()) @db.Uuid
   name      String
-  data      Bytes
-  userId    String   @db.Uuid
-  createdAt DateTime @default(now())
+  // data      Bytes
+  userId    String  @db.Uuid
   month     String
-  payrollId String   @db.Uuid
+  payrollId String  @db.Uuid
   year      Int
   amount    Float
-  payroll   Payroll  @relation(fields: [payrollId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // pdf       Bytes?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([userId])
   @@index([payrollId])
   @@index([month, year])
 }
+
+// model PayslipPdf {
+//   id String @id @default(uuid()) @db.Uuid
+
+//   createdAt DateTime  @default(now())
+//   updatedAt DateTime? @updatedAt
+
+//   payslip   Payslip? @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+//   payslipId String   @unique @db.Uuid
+
+//   data Bytes
+
+//   @@index([id])
+// }
 
 model Deductions {
   id   String @id @default(uuid()) @db.Uuid
@@ -690,12 +708,12 @@ model Task {
   isReported Boolean @default(false)
 
   // Relations
-  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
-  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id], onDelete: Cascade)
   createdById String @db.Uuid
 
   departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   comments Comment[]
 
@@ -787,8 +805,8 @@ model UserTask {
   assignedAt DateTime @default(now())
   userId     String   @db.Uuid
   taskId     String   @db.Uuid
-  task       Task     @relation(fields: [taskId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
 }
@@ -963,6 +981,7 @@ enum Status {
   DECLINED
   ISSUE_REPORTED
   ACTIVE
+  INACTIVE
   CONFIRMED
   COMPLETED
   IN_PROGRESS
