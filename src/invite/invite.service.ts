@@ -61,12 +61,7 @@ export class InviteService {
       return true;
     } catch (error) {
       console.log(error)
-      if (error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to send invite');
+      bad(error)
     }
   }
 
