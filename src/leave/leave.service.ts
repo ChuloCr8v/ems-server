@@ -158,6 +158,13 @@ export class LeaveService {
             if (!user) mustHave(user, "User not found", 404);
 
             const leaveRequests = await this.prisma.leaveRequest.findMany({
+                where: {
+                    approvals: {
+                        some: {
+                            approverId: userId
+                        }
+                    }
+                },
                 include: {
                     user: {
                         include: { approver: true }

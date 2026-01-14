@@ -4,18 +4,24 @@ import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto
 import { Response } from 'express';
 import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('payroll')
 export class PayrollController {
-  constructor(private readonly payroll: PayrollService) { }
+  constructor(private readonly payroll: PayrollService,
+    private readonly prisma: PrismaService,
+  ) { }
   @Post()
   async createPayroll(@Body() data: PayrollDto) {
     return await this.payroll.createPayroll(data);
   }
 
+  @Auth()
   @Get('payslips')
-  async listPayslips() {
-    return this.payroll.listPayslips();
+  async listPayslips(
+    @AuthUser() req: IAuthUser
+  ) {
+    return this.payroll.listPayslips(req.sub);
   }
 
   @Get('payslips/user')
@@ -79,8 +85,9 @@ export class PayrollController {
 
   @Get('download/:payslipId')
   async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
-    const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res)
-    return res.send(pdfBuffer);
+    return this.payroll.downloadPayslip(payslipId, res)
+    // const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res)
+    // return res.send(pdfBuffer);
   }
 
   @Get('deductions/download/:id')
@@ -88,5 +95,11 @@ export class PayrollController {
     return this.payroll.downloadDeductionsExcel(id, res);
   }
 
+
+  @Delete('delete/payslip')
+  async delete() {
+    await this.prisma.payslip.deleteMany()
+    return { message: "successful" }
+  }
 
 }

@@ -7,13 +7,12 @@ import {
   Put,
   Res,
   UseInterceptors,
-  UploadedFiles,
   Patch,
   Delete,
   Req,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { AddEmployeeDto, ApproveUserDto, UpdateUserDto, UpdateUserInfo } from './dto/user.dto';
+import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { Response } from 'express';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
@@ -83,6 +82,13 @@ export class UserController {
     @Body() dto: AddEmployeeDto[],
   ) {
     return this.userService.addEmployee(dto);
+  }
+
+
+  @Auth(["ADMIN", "HR", "SUPERADMIN"])
+  @Patch("status/:id")
+  async updateUserStatus(@Param("id") id: string) {
+    return this.userService.updateUserStatus(id)
   }
 
   @Auth(["ADMIN"])
