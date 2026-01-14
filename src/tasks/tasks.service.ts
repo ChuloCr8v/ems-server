@@ -7,7 +7,18 @@ import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent } from 'src/events/task.event';
+import {
+  TaskCreatedEvent,
+  TaskAssignedEvent,
+  TaskApprovedEvent,
+  TaskRejectedEvent,
+  TaskReassignedEvent,
+  TaskUpdatedEvent,
+  TaskStatusChangeEvent,
+  TaskAssigneeChangeEvent,
+  TaskPriorityChangeEvent,
+  TaskDueDateChangeEvent
+} from 'src/events/tasks.event';
 
 
 @Injectable()
@@ -153,6 +164,7 @@ export class TasksService {
         }
       }))?.departments[0].id
 
+      // console.log(taskDepts)
 
 
       const task = await this.prisma.task.create({
@@ -178,9 +190,33 @@ export class TasksService {
         // include: this.getTaskInclude(),
       });
 
+      // const recipientIds = assignees || [createdById];
+      // this.event.emit('task.created', new TaskCreatedEvent(
+      //   createdById,
+      //   recipientIds,
+      //   assignees || [],
+      //   task.taskId,
+      //   task.title,
+      //   task.priority,
+      //   task.description,
+      //   task.dueDate,
+      // ));
+
+      // //Emit task assigned event if there are assignees
+      // if (assignees && assignees.length > 0) {
+      //   this.event.emit('task.assigned', new TaskAssignedEvent(
+      //     createdById,
+      //     assignees,
+      //     task.taskId,
+      //     task.title,
+      //     task.priority,
+      //     task.dueDate
+      //   ))
+      // }
+
 
       if (assignees?.length) {
-        this.event.emit("task.assigned", new TaskAssignedEvent(createdById, assignees.map(a => a), task.id))
+        this.event.emit("task.assigned", new TaskAssignedEvent(createdById, assignees.map(a => a), task.id, task.title, task.priority, task.dueDate))
       }
 
       if (!isManager) {
@@ -208,13 +244,12 @@ export class TasksService {
           this.event.emit('task.created', new TaskCreatedEvent(
             createdById,
             approverIds,
+            assignees || [],
             task.id,
             task.title
           ));
         }
       }
-
-
 
       return task;
     } catch (error) {
@@ -391,6 +426,15 @@ export class TasksService {
       },
       // include: this.getTaskInclude(),
     });
+
+    //Emit task rejected event
+    this.event.emit('task.rejected', new TaskRejectedEvent(
+      rejectedById,
+      task.createdById,
+      task.taskId,
+      task.title,
+      rejectionReason
+    ));
 
     return this.mapToTaskResponseDto(updatedTask);
   }
@@ -818,7 +862,15 @@ export class TasksService {
 
     const { assignees, category, uploads, status, issue, ...rest } = taskData;
     const findTask = await this.getOneTask(id);
-    if (!findTask) mustHave(findTask, "Task not found", 404)
+    if (!findTask) mustHave(findTask, "Task not found", 404);
+
+    //Store previous state for event emission
+    const previousState = {
+      status: findTask.status,
+      assignees: findTask.assignees.map(a => a.userId),
+      priority: findTask.priority,
+      dueDate: findTask.dueDate,
+    }
 
     const user = await this.prisma.user.findUnique({
       where: {
@@ -935,6 +987,24 @@ export class TasksService {
       return updatedTask;
     });
 
+    //Emit notification events based on what changed
+    await this.emitUpdateEvents({
+      userId,
+      taskId: id,
+      taskTitle: task.title,
+      oldTask: findTask,
+      newTask: task,
+      oldAssignees: previousState.assignees,
+      newAssignees: assignees,
+      oldStatus: previousState.status,
+      newStatus: status,
+      oldPriority: previousState.priority,
+      newPriority: rest.priority,
+      oldDueDate: previousState.dueDate,
+      newDueDate: rest.dueDate,
+      issueDescription: issue,
+    });
+
     if (status && status !== findTask.status) {
       const allRecipients = new Set<string>();
       if (task.createdById !== userId) allRecipients.add(task.createdById);
@@ -1038,6 +1108,20 @@ export class TasksService {
         });
       }
 
+      //Get current owner before transfer
+      const previousOwnerId = await this.taskOwner(id);
+
+      //Emit task reassigned event
+      this.event.emit('task.reassigned', new TaskReassignedEvent(
+        userId,
+        ownerId,
+        previousOwnerId,
+        findTask.taskId,
+        findTask.title,
+        note,
+        newDeliveryDate
+      ))
+
       return await this.prisma.task.findUnique({
         where: { id },
         include: {
@@ -1138,5 +1222,168 @@ export class TasksService {
       }
 
     };
+  }
+
+  ///////////////////////////////////// HELPERS /////////////////////////////
+
+  private async emitUpdateEvents(params: {
+    userId: string;
+    taskId: string;
+    taskTitle: string;
+    oldTask: any;
+    newTask: any;
+    oldAssignees?: string[];
+    newAssignees?: string[];
+    oldStatus?: string;
+    newStatus?: string;
+    newPriority?: string;
+    oldPriority?: string;
+    oldDueDate?: Date;
+    newDueDate?: Date;
+    issueDescription?: string;
+  }) {
+    const {
+      userId,
+      taskId,
+      taskTitle,
+      oldTask,
+      newTask,
+      oldAssignees = [],
+      newAssignees = [],
+      oldStatus,
+      newStatus,
+      newPriority,
+      oldPriority,
+      oldDueDate,
+      newDueDate,
+      issueDescription
+    } = params;
+
+    //Get all reciepients (assignees + creators)
+    const recipientIds = [...new Set([
+      ...newTask.assignees.map(a => a.userId),
+      newTask.createdById
+    ])];
+
+    // General task updated event
+    if (this.hasSignificantChanges(params)) {
+      this.event.emit('task.updated', new TaskUpdatedEvent(
+        userId,
+        recipientIds,
+        taskId,
+        taskTitle,
+        this.generateUpdateSummary(params)
+      ));
+
+    }
+
+    // Status change update
+    if (oldStatus && newStatus && oldStatus !== newStatus) {
+      this.event.emit('task.statusChanged', new TaskStatusChangeEvent(
+        userId,
+        taskId,
+        taskTitle,
+        oldStatus,
+        newStatus,
+        newTask.assignees.map(a => a.id),
+        newTask.createdById,
+        issueDescription
+      ));
+
+      // Special Handling for specific status
+      if (newStatus === 'COMPLETED') {
+        this.event.emit('task.completed', new TaskApprovedEvent(
+          userId,
+          newTask.createdById,
+          newTask.assignees.map(a => a.id),
+          taskId,
+          taskTitle
+        ));
+      }
+
+      if (newStatus === 'ISSUES') {
+        this.event.emit('task.issues.reported', new TaskStatusChangeEvent(
+          userId,
+          taskId,
+          taskTitle,
+          oldStatus,
+          newStatus,
+          newTask.assignees.map(a => a.id),
+          newTask.createdById,
+          issueDescription
+        ));
+      }
+    }
+
+    // Handle assignee changes
+    if (newAssignees && oldAssignees) {
+      const addedAssigneeIds = newAssignees.filter(id => !oldAssignees.includes(id));
+      const removedAssigneeIds = oldAssignees.filter(id => !newAssignees.includes(id));
+
+      if (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0) {
+        this.event.emit('task.assignee.changed', new TaskAssigneeChangeEvent(
+          userId,
+          taskId,
+          taskTitle,
+          addedAssigneeIds,
+          removedAssigneeIds,
+          newAssignees,
+          newTask.createdById
+        ));
+
+        // If new assignees were added, also emit task.assigned event
+        if (addedAssigneeIds.length > 0) {
+          this.event.emit('task.assigned', new TaskAssignedEvent(
+            userId,
+            addedAssigneeIds,
+            taskId,
+            taskTitle,
+            newTask.priority,
+            newTask.dueDate
+          ));
+        }
+      }
+    }
+
+    // Handle priority changes
+    if (oldPriority && newPriority && oldPriority !== newPriority) {
+      this.event.emit('task.priority.changed', new TaskPriorityChangeEvent(
+        userId,
+        taskId,
+        taskTitle,
+        oldPriority,
+        newPriority,
+        newTask.assignees.map(a => a.id),
+        newTask.createdById
+      ));
+    }
+
+    // Handle due date changes
+    if ((oldDueDate?.getTime?.() !== newDueDate?.getTime?.())) {
+      this.event.emit('task.duedate.changed', new TaskDueDateChangeEvent(
+        userId,
+        taskId,
+        taskTitle,
+        oldDueDate,
+        newDueDate,
+        newTask.assignees.map(a => a.id),
+        newTask.createdById
+      ));
+    }
+  }
+
+  private hasSignificantChanges(params: any): boolean {
+    const significantFields = ['title', 'description', 'category'];
+    return significantFields.some(field =>
+      params.oldTask[field] !== params.newTask[field]
+    );
+  }
+
+  private generateUpdateSummary(params: any): string {
+    const changes: string[] = [];
+    if (params.oldStatus !== params.newStatus) changes.push(`Status changed to ${params.newStatus}`);
+    if (params.oldPriority !== params.newPriority) changes.push(`Priority changed to ${params.newPriority}`);
+    if (params.oldDueDate !== params.newDueDate) changes.push('Due date updated');
+    return changes.length > 0 ? changes.join(', ') : 'Task details were updated';
   }
 }

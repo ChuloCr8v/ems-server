@@ -9,6 +9,11 @@ import { NotificationActionType } from '@prisma/client';
 import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent } from 'src/events/task.event';
 import { ClaimApprovedEvent, ClaimCreatedEvent, ClaimRejectedEvent } from 'src/events/claim.event';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
+// import { TaskApprovedPayload, TaskAssignedPayload, TaskAssigneeChangePayload, TaskCreatePayload, TaskDueDateChangePayload, TaskPriorityChangePayload, TaskReassignedPayload, TaskRejectedPayload, TaskStatusChangePayload, TaskUpdatedPayload } from 'src/events/tasks.event';
+// import { MailService } from 'src/mail/mail.service';
+import { MailService } from 'src/mail/mail.service';
+import { AppraisalCreatedEvent, AppraisalSubmittedEvent, AppraisalReviewedEvent } from 'src/events/appraisal.event';
+import { AppraisalMailDto } from 'src/mail/mail.types';
 
 @Injectable()
 export class NotificationListener {
@@ -16,6 +21,7 @@ export class NotificationListener {
         private notificationService: NotificationService,
         private gateway: NotificationGateway,
         private prisma: PrismaService,
+        private mailService: MailService,
     ) { }
 
     @OnEvent('employment.accepted')
@@ -99,9 +105,15 @@ export class NotificationListener {
     }
 
     //Manager or HR approves leave
-    @OnEvent('leave.approved')
+    @OnEvent('leave_approved')
     async handleApprovedLeave(event: LeaveApprovedEvent) {
-
+        const approver = await this.prisma.user.findUnique({
+            where: { id: event.approverId },
+            // include: { requests: { include: { user: true, } } },
+        });
+        const employee = await this.prisma.user.findUnique({
+            where: { id: event.employeeId },
+        });
 
         const recipientIds = Array.isArray(event.employeeId) ? event.employeeId : [event.employeeId];
         const notifications = recipientIds.map((recipientId) => ({
@@ -240,7 +252,7 @@ export class NotificationListener {
     @OnEvent('task.assigned')
     async handleTaskAssignment(event: TaskAssignedEvent) {
 
-        const recipientIds = Array.isArray(event.recipientIds) ? event.recipientIds : [event.recipientIds];
+        const recipientIds = event.recipientIds;
 
         const notifications = recipientIds.map((recipientId) => ({
             recipientId,
@@ -250,7 +262,7 @@ export class NotificationListener {
             message: `You have been assigned a new task. Please check your task board for details and deadlines.`,
             actionType: NotificationActionType.TASK_ASSIGNED,
             actionData: {
-                requestId: event.requestId
+                taskId: event.requestId
             }
         }));
 
@@ -351,5 +363,102 @@ export class NotificationListener {
             title: 'Payslip Available',
             message: `Your payslip for ${event.month} ${event.year} has been generated and is now available for download.`,
         });
+    }
+
+    @OnEvent('appraisal.created')
+    async handleAppraisalCreated(event: AppraisalCreatedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.managerId,
+            type: 'APPRAISAL_CREATED',
+            title: 'New Appraisal',
+            message: `A new appraisal has been created for you. Please log in to complete it.`,
+            actionType: NotificationActionType.APPRAISAL_CREATED, 
+            actionData: { appraisalId: event.appraisalId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'APPRAISAL_CREATED',
+                title: 'New Appraisal',
+                message: `A new appraisal has been created for you. Please log in to complete it.`,
+            });
+        }
+
+        const mailData: AppraisalMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendAppraisalCreatedMail(mailData);
+    }
+
+    @OnEvent('appraisal.submitted')
+    async handleAppraisalSubmitted(event: AppraisalSubmittedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+        const manager = await this.prisma.user.findUnique({ where: { id: event.managerId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.employeeId,
+            type: 'APPRAISAL_SUBMITTED',
+            title: 'Appraisal Submitted',
+            message: `${employee.firstName} ${employee.lastName} has submitted their appraisal for your review.`,
+            actionType: NotificationActionType.APPRAISAL_SUBMITTED,
+            actionData: { appraisalId: event.appraisalId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'APPRAISAL_SUBMITTED',
+                title: 'Appraisal Submitted',
+                message: `${employee.firstName} ${employee.lastName} has submitted their appraisal for your review.`,
+            });
+        }
+
+        const mailData: AppraisalMailDto = {
+            email: manager.email,
+            name: manager.firstName,
+            employeeName: `${employee.firstName} ${employee.lastName}`,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendAppraisalSubmittedMail(mailData);
+    }
+
+    @OnEvent('appraisal.reviewed')
+    async handleAppraisalReviewed(event: AppraisalReviewedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.managerId,
+            type: 'APPRAISAL_REVIEWED',
+            title: 'Appraisal Reviewed',
+            message: `Your appraisal has been reviewed by your manager. Please check the results.`,
+            actionType: NotificationActionType.APPRAISAL_REVIEWED,
+            actionData: { appraisalId: event.appraisalId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'APPRAISAL_REVIEWED',
+                title: 'Appraisal Reviewed',
+                message: `Your appraisal has been reviewed by your manager. Please check the results.`,
+            });
+        }
+
+        const mailData: AppraisalMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendAppraisalReviewedMail(mailData);
     }
 }

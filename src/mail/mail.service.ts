@@ -1,6 +1,29 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { AcceptanceInviteDto, ApproveLeaveRequest, ClaimApprovalDto, ClaimRejectionDto, ClaimRequest, DeclinedInviteDto, EmployeePayslipGenerated, InitiateOffboarding, LeaveRequest, MAIL_SUBJECT, PayslipQueued, PayslipsGenerated, ProspectInviteDto, RejectLeaveRequest, UpdateProspectInfoDto, WelcomeEmailDto } from './mail.types';
+import {
+  AcceptanceInviteDto,
+  ApproveLeaveRequest,
+  ClaimApprovalDto, ClaimRejectionDto, ClaimRequest, DeclinedInviteDto,
+  EmployeePayslipGenerated,
+  InitiateOffboarding,
+  LeaveRequest,
+  MAIL_SUBJECT,
+  PayslipQueued,
+  PayslipsGenerated,
+  ProspectInviteDto,
+  RejectLeaveRequest,
+  TaskApprovedDto,
+  TaskAssignedDto,
+  TaskCreatedDto,
+  TaskReassignedDto,
+  TaskRejectedDto,
+  TaskStatusChangedDto,
+  TaskUpdatedDto,
+  UpdateProspectInfoDto,
+  WelcomeEmailDto,
+  TaskDueDateChangeDto,
+  AppraisalMailDto
+} from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
 
@@ -226,5 +249,118 @@ export class MailService {
       context: { month, date, email, dashboardUrl },
 
     })
+  }
+
+  // Task Email Methods
+  //Notification
+  async sendTaskCreatedMail(data: TaskCreatedDto) {
+    const { email, name, taskId, taskTitle, taskDescription, priority, dueDate, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_CREATED,
+      template: 'taskCreated',
+      context: { name, taskId, taskTitle, taskDescription, priority, dueDate, dashboardUrl },
+    });
+  }
+
+  async sendTaskAssignedMail(data: TaskAssignedDto) {
+    const { email, name, assignedBy, taskId, taskTitle, priority, dueDate, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_ASSIGNED,
+      template: 'taskAssigned',
+      context: { name, assignedBy, taskId, taskTitle, priority, dueDate, dashboardUrl },
+    });
+  }
+
+  //Notification
+  async sendTaskUpdatedMail(data: TaskUpdatedDto) {
+    const { email, name, updatedBy, taskId, taskTitle, updateDetails, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_UPDATED,
+      template: 'taskUpdated',
+      context: { name, updatedBy, taskId, taskTitle, updateDetails, dashboardUrl },
+    });
+  }
+
+  async sendTaskStatusChangeMail(data: TaskStatusChangedDto) {
+    const { email, name, changedBy, taskId, taskTitle, oldStatus, newStatus, reason, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_STATUS_CHANGED,
+      template: 'taskStatusChanged',
+      context: { name, changedBy, taskId, taskTitle, oldStatus, newStatus, reason, dashboardUrl },
+    });
+  }
+
+  async sendTaskApprovedMail(data: TaskApprovedDto) {
+    const { email, name, approvedBy, taskId, taskTitle, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_APPROVED,
+      template: 'taskApproved',
+      context: { name, approvedBy, taskId, taskTitle, dashboardUrl },
+    });
+  }
+
+  // async sendTaskRejectedMail(data: TaskRejectedDto) {
+  //   const { email, name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl } = data;
+  //   await this.mailerService.sendMail({
+  //     to: email,
+  //     subject: MAIL_SUBJECT.TASK_REJECTED,
+  //     template: 'taskRejected',
+  //     context: { name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl },
+  //   });
+  // }
+
+  async sendTaskReassignedMail(data: TaskReassignedDto) {
+    const { email, name, reassignedBy, taskId, taskTitle, note, newDueDate, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_REASSIGNED,
+      template: 'taskReassigned',
+      context: { name, reassignedBy, taskId, taskTitle, note, newDueDate, dashboardUrl },
+    });
+  }
+
+  async sendTaskDueDateChangeMail(data: TaskDueDateChangeDto) {
+    const { email, name, changedBy, taskId, taskTitle, oldDueDate, newDueDate, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_DUEDATE_CHANGED,
+      template: 'taskDueDateChanged',
+      context: { name, changedBy, taskId, taskTitle, oldDueDate, newDueDate, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalCreatedMail(data: AppraisalMailDto) {
+    const { email, name, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_CREATED,
+      template: 'appraisalCreated',
+      context: { name, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalSubmittedMail(data: AppraisalMailDto) {
+    const { email, name, employeeName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_SUBMITTED,
+      template: 'appraisalSubmitted',
+      context: { name, employeeName, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalReviewedMail(data: AppraisalMailDto) {
+    const { email, name, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_REVIEWED,
+      template: 'appraisalReviewed',
+      context: { name, dashboardUrl },
+    });
   }
 }

@@ -18,6 +18,17 @@ export const MAIL_SUBJECT = {
     ADD_CLAIM: 'New Claim Added',
     CLAIM_APPROVED: 'Claim Approved',
     CLAIM_REJECTED: 'Claim Rejected',
+    TASK_CREATED: 'New Task Created',
+    TASK_ASSIGNED: 'You Have Been Assigned a Task',
+    TASK_UPDATED: 'Task Updated',
+    TASK_APPROVED: 'Task Approved',
+    TASK_REJECTED: 'Task Rejected',
+    TASK_REASSIGNED: 'Task Reassigned',
+    TASK_STATUS_CHANGED: 'Task Status Changed',
+    TASK_DUEDATE_CHANGED: 'Task Due Date Changed',
+    APPRAISAL_CREATED: 'New Appraisal Created',
+    APPRAISAL_SUBMITTED: 'Appraisal Submitted',
+    APPRAISAL_REVIEWED: 'Appraisal Reviewed',
 }
 
 export class ProspectInviteDto {
@@ -220,6 +231,226 @@ export class PayslipsGenerated {
 
 }
 
+// Task Email DTOs
+export class TaskCreatedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsOptional()
+    @IsString()
+    taskDescription?: string;
+
+    @IsOptional()
+    @IsString()
+    priority?: string;
+
+    @IsOptional()
+    @IsDate()
+    @Transform(({ value }) => value ? new Date(value) : undefined)
+    dueDate?: Date;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskAssignedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    assignedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    // @IsOptional()
+    // @IsString()
+    // taskDescription?: string;
+
+    @IsOptional()
+    @IsString()
+    priority?: string;
+
+    @IsOptional()
+    @IsDate()
+    @Transform(({ value }) => value ? new Date(value) : undefined)
+    dueDate?: Date;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskUpdatedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    updatedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsString()
+    updateDetails: string;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskApprovedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    approvedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskRejectedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    rejectedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsString()
+    rejectionReason: string;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskReassignedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    reassignedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsOptional()
+    @IsString()
+    note?: string;
+
+    @IsOptional()
+    @IsDate()
+    @Transform(({ value }) => value ? new Date(value) : undefined)
+    newDueDate?: Date;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskStatusChangedDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    changedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsString()
+    oldStatus: string;
+
+    @IsString()
+    newStatus: string;
+
+    @IsString()
+    reason: string;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+export class TaskDueDateChangeDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    changedBy: string;
+
+    @IsString()
+    taskId: string;
+
+    @IsString()
+    taskTitle: string;
+
+    @IsOptional()
+    @IsDate()
+    @Transform(({ value }) => value ? new Date(value) : undefined)
+    oldDueDate?: Date;
+
+    @IsOptional()
+    @IsDate()
+    @Transform(({ value }) => value ? new Date(value) : undefined)
+    newDueDate?: Date;
+
+    @IsString()
+    dashboardUrl: string;
+}
+
+
+
 export class ClaimApprovalDto {
     @IsEmail()
     email: string;
@@ -246,4 +477,21 @@ export class ClaimRejectionDto extends ClaimApprovalDto {
     @IsOptional()
     @IsString()
     reason?: string;
+}
+
+export class AppraisalMailDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    employeeName?: string; // For manager notification
+
+    @IsString()
+    dashboardUrl: string;
+
+    @IsString()
+    companyName?: string;
 }

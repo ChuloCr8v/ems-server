@@ -510,7 +510,7 @@ export class PayrollService {
 
     async listDeductions() {
         try {
-            const deductions = await this.prisma.deductions.findMany({
+            const deductions = await (this.prisma as any).deductions.findMany({
                 orderBy: {
                     createdAt: "desc",
                 },
@@ -615,7 +615,7 @@ export class PayrollService {
         });
 
         // === 6. Save deductions record
-        await this.prisma.deductions.create({
+        await (this.prisma as any).deductions.create({
             data: {
                 name: `Deductions-${monthInWords}`,
                 tax,
@@ -810,7 +810,7 @@ export class PayrollService {
     }
 
     async downloadDeductionsExcel(deductionId: string, res: Response): Promise<void> {
-        const deduction = await this.prisma.deductions.findUnique({
+        const deduction = await (this.prisma as any).deductions.findUnique({
             where: { id: deductionId },
         });
 

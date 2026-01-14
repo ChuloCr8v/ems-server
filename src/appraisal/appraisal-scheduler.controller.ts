@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Controller, Logger, NotFoundException, Post } from "@nestjs/common";
 import { PrismaService } from "src/prisma/prisma.service";
 import { DEFAULT_FEEDBACK_QUESTIONS } from "src/constants/kpi-components";
+import { KpiCategoryStatus } from "@prisma/client";
 
 @Controller('appraisal-scheduler')
 export class AppraisalSchedulerController {
@@ -25,6 +26,7 @@ async generateQuarterlyAppraisals() {
     alreadyExisting: 0,
     newTemplates: 0,
   };
+
 
   try {
     // Fetch all active departments with their active managers
@@ -74,7 +76,7 @@ async generateQuarterlyAppraisals() {
 
       // Get approved KPI categories (global + department)
       const globalCategories = await this.prisma.kpiCategory.findMany({
-        where: { isGlobal: true, isApproved: true },
+        where: { isGlobal: true, status: KpiCategoryStatus.APPROVED },
         include: { objectives: true }
       });
 
@@ -82,7 +84,7 @@ async generateQuarterlyAppraisals() {
         where: { 
           departmentId: department.id,
           isGlobal: false,
-          isApproved: true
+          status: KpiCategoryStatus.APPROVED
         },
         include: { objectives: true }
       });
@@ -117,12 +119,12 @@ async generateQuarterlyAppraisals() {
 
       summary.newTemplates = created.length;
 
-      this.logger.log(`✅ Successfully created ${created.length} appraisal templates for ${period}.`);
+      this.logger.log(`Successfully created ${created.length} appraisal templates for ${period}.`);
 
       // Initialize KPI, goals, and feedback for each template
       await this.initializeAppraisalData(created);
     } else {
-      this.logger.log(`ℹ️ No new appraisal templates to create for ${period}.`);
+      this.logger.log(`No new appraisal templates to create for ${period}.`);
     }
 
     // Final return
@@ -135,9 +137,8 @@ async generateQuarterlyAppraisals() {
       period,
       summary
     };
-
   } catch (error) {
-    this.logger.error('❌ Failed to generate quarterly appraisal templates:', error);
+    this.logger.error('Failed to generate quarterly appraisal templates:', error);
     throw new BadRequestException('Failed to generate quarterly appraisal templates: ' + error.message);
   }
 }
@@ -157,7 +158,7 @@ async generateQuarterlyAppraisals() {
         const globalCategories = await this.prisma.kpiCategory.findMany({
           where: { 
             isGlobal: true,
-            isApproved: true 
+            status: KpiCategoryStatus.APPROVED, 
           },
           include: { objectives: true }
         });
@@ -167,7 +168,7 @@ async generateQuarterlyAppraisals() {
           where: { 
             departmentId: appraisal.departmentId,
             isGlobal: false,
-            isApproved: true
+             status: KpiCategoryStatus.APPROVED, 
           },
           include: { objectives: true }
         });
@@ -182,27 +183,13 @@ async generateQuarterlyAppraisals() {
 
         // Create KPI structure with existing categories
         await this.prisma.kpi.create({
-          data: {
-            appraisalId: appraisal.id,
-            categories: {
-              create: allCategories.map(category => ({
-                name: category.name,
-                type: category.type,
-                isGlobal: category.isGlobal,
-                departmentId: category.departmentId,
-                isApproved: true,
-                objectives: {
-                  create: category.objectives.map(obj => ({
-                    name: obj.name,
-                    rating: null,
-                    comment: null
-                  }))
-                }
-              }))
-            }
-          }
-        });
-
+            data: {
+                appraisalId: appraisal.id,
+                categories: {
+                    connect: allCategories.map(category => ({ id: category.id }))
+                    }
+               }
+            });
         // Create empty goals and achievements structure
         await this.prisma.goalsAndAchievement.create({
           data: {
