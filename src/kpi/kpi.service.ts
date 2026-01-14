@@ -17,48 +17,48 @@ export class KpiService {
         if (this.userHasRole(user, Role.ADMIN)) {
             try {
                 const createdOrExisting = await Promise.all(
-                categories.map(async (cat) => {
-                    // Check if STATIC KPI category already exists by name
-                    const existing = await this.prisma.kpiCategory.findFirst({
-                    where: {
-                        name: cat.name,
-                        type: cat.type,
-                        isGlobal: true,
-                    },
-                    include: { objectives: true },
-                    });
+                    categories.map(async (cat) => {
+                        // Check if STATIC KPI category already exists by name
+                        const existing = await this.prisma.kpiCategory.findFirst({
+                            where: {
+                                name: cat.name,
+                                type: cat.type,
+                                isGlobal: true,
+                            },
+                            include: { objectives: true },
+                        });
 
-                    // If it's ORGANIZATIONAL and exists, skip creation
-                    if (existing && cat.type === KpiCategoryType.ORGANIZATIONAL) {
-                    return existing;
-                    }
+                        // If it's ORGANIZATIONAL and exists, skip creation
+                        if (existing && cat.type === KpiCategoryType.ORGANIZATIONAL) {
+                            return existing;
+                        }
 
-                    // Otherwise, create new (for DEPARTMENTAL or new ORGANIZATIONAL)
-                    return await this.prisma.kpiCategory.create({
-                    data: {
-                        name: cat.name,
-                        type: cat.type,
-                        isGlobal: cat.isGlobal ?? true,
-                        status: KpiCategoryStatus.APPROVED,
-                        objectives: cat.objectives?.length
-                        ? {
-                            create: cat.objectives.map((obj) => ({
-                                name: obj.name,
-                                rating: null,
-                                comment: null,
-                            })),
-                            }
-                        : undefined,
-                    },
-                });
-            })
-            );
+                        // Otherwise, create new (for DEPARTMENTAL or new ORGANIZATIONAL)
+                        return await this.prisma.kpiCategory.create({
+                            data: {
+                                name: cat.name,
+                                type: cat.type,
+                                isGlobal: cat.isGlobal ?? true,
+                                status: KpiCategoryStatus.APPROVED,
+                                objectives: cat.objectives?.length
+                                    ? {
+                                        create: cat.objectives.map((obj) => ({
+                                            name: obj.name,
+                                            rating: null,
+                                            comment: null,
+                                        })),
+                                    }
+                                    : undefined,
+                            },
+                        });
+                    })
+                );
 
-         return createdOrExisting;
-        } catch (error) {
-            console.error(error);
-            throw new BadRequestException('Failed to create KPI category');
-           }
+                return createdOrExisting;
+            } catch (error) {
+                console.error(error);
+                throw new BadRequestException('Failed to create KPI category');
+            }
         }
         // If user is DEPT_MANAGER -> create department-specific categories/objectives for manager's department only
         if (this.userHasRole(user, Role.DEPT_MANAGER)) {
@@ -130,7 +130,7 @@ export class KpiService {
 
     async updateCategory(userId: string, categoryId: string, data: CreateKpiDto) {
         const user = await this.findUserById(userId);
-        if(!user) {
+        if (!user) {
             throw bad('User Not Found');
         }
         const category = await this.prisma.kpiCategory.findUnique({
@@ -182,7 +182,7 @@ export class KpiService {
         // DEPT_MANAGER can only update their department's categories
         if (this.userHasRole(user, Role.DEPT_MANAGER)) {
             const manager = await this.prisma.approver.findFirst({
-                where: { 
+                where: {
                     userId: user.id,
                     role: 'DEPT_MANAGER',
                     isActive: true,
@@ -225,10 +225,10 @@ export class KpiService {
         throw new BadRequestException('Unauthorized to update categories');
     }
 
-   async removeCategory(userId: string, categoryId: string) {
+    async removeCategory(userId: string, categoryId: string) {
         // Ensure we have a valid user object from DB
         const user = await this.findUserById(userId);
-        if(!user) {
+        if (!user) {
             throw bad('User Not Found');
         }
         const category = await this.prisma.kpiCategory.findUnique({
@@ -246,116 +246,116 @@ export class KpiService {
         // ===== ADMIN BLOCK =====
         if (this.userHasRole(user, Role.ADMIN)) {
             if (!category.isGlobal) {
-            throw new BadRequestException('Admins can only delete global categories');
+                throw new BadRequestException('Admins can only delete global categories');
             }
 
             try {
-            await this.prisma.kpiCategory.delete({
-                where: { id: categoryId },
-            });
-            return true;
+                await this.prisma.kpiCategory.delete({
+                    where: { id: categoryId },
+                });
+                return true;
             } catch (error) {
-            console.error('DELETE ERROR:', error);
-            throw new BadRequestException('Failed to delete category: ' + error.message);
+                console.error('DELETE ERROR:', error);
+                throw new BadRequestException('Failed to delete category: ' + error.message);
             }
         }
 
         // ===== DEPT_MANAGER =====
         if (this.userHasRole(user, Role.DEPT_MANAGER)) {
             const manager = await this.prisma.approver.findFirst({
-            where: {
-                userId: user.id,
-                role: 'DEPT_MANAGER',
-                isActive: true,
-                departmentId: category.departmentId,
-            },
+                where: {
+                    userId: user.id,
+                    role: 'DEPT_MANAGER',
+                    isActive: true,
+                    departmentId: category.departmentId,
+                },
             });
 
             if (!manager) {
-            throw new BadRequestException('Not authorized to delete this category');
+                throw new BadRequestException('Not authorized to delete this category');
             }
 
             try {
-            await this.prisma.kpiCategory.delete({
-                where: { id: categoryId },
-            });
-            return true;
+                await this.prisma.kpiCategory.delete({
+                    where: { id: categoryId },
+                });
+                return true;
             } catch (error) {
-            if (
-                error instanceof BadRequestException ||
-                error instanceof NotFoundException ||
-                error instanceof ConflictException
-            ) {
-                throw error;
-            }
-            throw new BadRequestException('Failed to delete KPI Category: ' + error.message);
+                if (
+                    error instanceof BadRequestException ||
+                    error instanceof NotFoundException ||
+                    error instanceof ConflictException
+                ) {
+                    throw error;
+                }
+                throw new BadRequestException('Failed to delete KPI Category: ' + error.message);
             }
         }
 
         // ===== UNAUTHORIZED USERS =====
         throw new BadRequestException('Unauthorized to delete categories');
-  }
+    }
 
-  async approveCategory(userId: string, categoryId: string) {
-    const user = await this.findUserById(userId);
-    if(!user) {
-        throw bad('User Not Found');
-    } else if(this.userHasRole(user, Role.ADMIN)) {
-        try {
-            return await this.prisma.kpiCategory.update({
-                where: { id: categoryId },
-                data: { 
-                    status: KpiCategoryStatus.APPROVED,
-                    reviewedAt: new Date(),
-                    reviewedBy: user.id,
-                },
-                include: {
-                    department: {
-                        include: {
-                            approver: true,
-                            appraisals: true,
-                            // kpiCategories: true
+    async approveCategory(userId: string, categoryId: string) {
+        const user = await this.findUserById(userId);
+        if (!user) {
+            throw bad('User Not Found');
+        } else if (this.userHasRole(user, Role.ADMIN)) {
+            try {
+                return await this.prisma.kpiCategory.update({
+                    where: { id: categoryId },
+                    data: {
+                        status: KpiCategoryStatus.APPROVED,
+                        reviewedAt: new Date(),
+                        reviewedBy: user.id,
+                    },
+                    include: {
+                        department: {
+                            include: {
+                                approver: true,
+                                appraisals: true,
+                                // kpiCategories: true
+                            }
                         }
                     }
-                }
-            })
-        } catch (error) {
-            console.error('APPROVAL ERROR:', error);
-            throw new BadRequestException('Failed to approve category: ' + error.message);
-        } 
-    } else {
-        throw bad('You are not authorized to perform this operation');
-    }
-  }
-
-  async denyCategory(userId: string, categoryId: string) {
-    const user = await this.findUserById(userId);
-    if(!user) {
-        throw bad('User Not Found');
-    } else if(this.userHasRole(user, Role.ADMIN)) {
-        try {
-           return await this.prisma.kpiCategory.update({
-            where: { id: categoryId },
-            data: {
-                status: KpiCategoryStatus.REJECTED,
-                reviewedAt: new Date(),
-                reviewedBy: user.id,
-            }, 
-            include: {
-                department: {
-                    include: {
-                        approver: true,
-                        appraisals: true,
-                    }
-                }
+                })
+            } catch (error) {
+                console.error('APPROVAL ERROR:', error);
+                throw new BadRequestException('Failed to approve category: ' + error.message);
             }
-           }) 
-        } catch (error) {
-            console.error('DENIAL ERROR:', error);
-            throw new BadRequestException('Failed to deny category: ' + error.message);
+        } else {
+            throw bad('You are not authorized to perform this operation');
         }
     }
-  }
+
+    async denyCategory(userId: string, categoryId: string) {
+        const user = await this.findUserById(userId);
+        if (!user) {
+            throw bad('User Not Found');
+        } else if (this.userHasRole(user, Role.ADMIN)) {
+            try {
+                return await this.prisma.kpiCategory.update({
+                    where: { id: categoryId },
+                    data: {
+                        status: KpiCategoryStatus.REJECTED,
+                        reviewedAt: new Date(),
+                        reviewedBy: user.id,
+                    },
+                    include: {
+                        department: {
+                            include: {
+                                approver: true,
+                                appraisals: true,
+                            }
+                        }
+                    }
+                })
+            } catch (error) {
+                console.error('DENIAL ERROR:', error);
+                throw new BadRequestException('Failed to deny category: ' + error.message);
+            }
+        }
+    }
 
 
     //////////////////////////////// Helper Methods //////////////////////////

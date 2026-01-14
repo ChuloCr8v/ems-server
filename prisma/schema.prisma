@@ -9,18 +9,24 @@ datasource db {
 }
 
 model Notification {
-  id          String    @id @default(uuid())
-  recipientId String?   @db.Uuid
-  actorId     String?   @db.Uuid
-  prospectId  String?   @db.Uuid
+  id          String  @id @default(uuid())
+  recipientId String? @db.Uuid
+  actorId     String? @db.Uuid
+  prospectId  String? @db.Uuid
   type        String
+  title       String?
   message     String
-  read        Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  actor       User?     @relation("NotificationActor", fields: [actorId], references: [id])
-  prospect    Prospect? @relation(fields: [prospectId], references: [id])
-  recipient   User?     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  read        Boolean @default(false)
+
+  actor     User?     @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect  Prospect? @relation(fields: [prospectId], references: [id])
+  recipient User?     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  actionType NotificationActionType?
+  actionData Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -91,24 +97,27 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([email])
+  @@index([id])
   @@index([eId])
   @@index([firstName, lastName])
   @@index([levelId])
 }
 
 model Department {
-  id             String            @id @default(uuid()) @db.Uuid
-  name           String            @unique
-  createdById    String?           @unique @db.Uuid
-  status         DepartmentStatus? @default(ACTIVE)
+  id             String                  @id @default(uuid()) @db.Uuid
+  name           String                  @unique
+  createdById    String?                 @unique @db.Uuid
+  status         DepartmentStatus?       @default(ACTIVE)
   approver       Approver[]
-  createdBy      User?             @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects      Prospect[]        @relation("DepartmentToProspect")
+  createdBy      User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects      Prospect[]              @relation("DepartmentToProspect")
   taskCategories Category[]
-  user           User[]            @relation("DepartmentToUser")
+  user           User[]                  @relation("DepartmentToUser")
   kpiCategories  KpiCategory[]
   appraisals     Appraisal[]
   tasks          Task[]
+  entitlements   DepartmentEntitlement[]
+  entitlementId  String?                 @db.Uuid()
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -195,7 +204,7 @@ model Upload {
   offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
   payment           Payment?          @relation(fields: [paymentId], references: [id])
   prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  request           LeaveRequest?     @relation(fields: [requestId], references: [id])
+  request           LeaveRequest?     @relation(fields: [requestId], references: [id], onDelete: Cascade)
   Task              Task?             @relation(fields: [taskId], references: [id])
   userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
   prospectDocuments User[]            @relation("ProspectDocuments")
@@ -289,6 +298,9 @@ model Comment {
 
   claimId String?
   claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+
+  leaveId String?       @db.Uuid
+  leave   LeaveRequest? @relation(fields: [leaveId], references: [id], onDelete: SetNull)
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -409,9 +421,11 @@ model Entitlement {
   name String          @unique
   unit EntitlementUnit
 
-  type    EntitlementType?
-  request LeaveRequest[]
-  levels  LevelEntitlement[]
+  type        EntitlementType?
+  request     LeaveRequest[]
+  levels      LevelEntitlement[]
+  departments DepartmentEntitlement[]
+  scope       EntitlementScope?
 
   claims Claim[]
 
@@ -432,6 +446,19 @@ model LevelEntitlement {
   @@unique([levelId, entitlementId])
 }
 
+model DepartmentEntitlement {
+  id            String      @id @default(uuid()) @db.Uuid
+  departmentId  String      @db.Uuid
+  entitlementId String      @db.Uuid
+  value         Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  entitlement   Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, entitlementId])
+}
+
 model LeaveRequest {
   id                String         @id @default(uuid()) @db.Uuid
   userId            String         @db.Uuid
@@ -447,11 +474,12 @@ model LeaveRequest {
   updatedAt         DateTime       @updatedAt
   approvals         Approval[]
   cancelRequest     CancelRequest?
-  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
+  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id], onDelete: Cascade)
   type              Entitlement    @relation(fields: [typeId], references: [id])
   user              User           @relation("user", fields: [userId], references: [id])
   response          Response[]
   uploads           Upload[]
+  comments          Comment[]
 }
 
 model CancelRequest {
@@ -486,7 +514,7 @@ model Approval {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   approver       User?          @relation(fields: [approverId], references: [id], onDelete: SetNull)
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
 
   @@unique([leaveRequestId, phase])
 }
@@ -499,7 +527,7 @@ model Response {
   userId    String        @db.Uuid
   requestId String?       @db.Uuid
   note      String
-  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -550,7 +578,7 @@ model Payslip {
   data      Bytes
   userId    String   @db.Uuid
   createdAt DateTime @default(now())
-  month     Int
+  month     String
   payrollId String   @db.Uuid
   year      Int
   amount    Float
@@ -906,6 +934,24 @@ enum ApproverRole {
   CISO
 }
 
+enum NotificationActionType {
+  INVITE_ACCEPTED
+  EMPLOYEE_ADDED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_DECLINED
+  TASK_ASSIGNED
+  TASK_CREATED
+  CLAIM_CREATED
+  CLAIM_APPROVED
+  CLAIM_REJECTED
+  TASK_UPDATED
+  PAYSLIP_GENERATED
+  APPRAISAL_CREATED
+  APPRAISAL_REVIEWED
+  APPRAISAL_SUBMITTED
+}
+
 enum ApprovalStatus {
   PENDING
   APPROVED
@@ -1097,4 +1143,9 @@ enum CategoryType {
 enum EntitlementType {
   CLAIMS
   LEAVE
+}
+
+enum EntitlementScope {
+  LEVEL
+  DEPARTMENT
 }

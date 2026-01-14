@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { ApprovalRequestDto, CreateTaskDto, UpdateTaskDto } from './dto/tasks.dto';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { CreateCategoryDto } from 'src/category/category.dto';

@@ -2,8 +2,8 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res } from
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
-import { ReqPayload } from 'src/auth/dto/auth.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 
 @Controller('payroll')
 export class PayrollController {
@@ -16,6 +16,11 @@ export class PayrollController {
   @Get('payslips')
   async listPayslips() {
     return this.payroll.listPayslips();
+  }
+
+  @Get('payslips/user')
+  async listUserPayslips(@AuthUser() req: IAuthUser) {
+    return this.payroll.listUserPayslips(req.sub);
   }
 
   @Put("calculate")
@@ -83,23 +88,5 @@ export class PayrollController {
     return this.payroll.downloadDeductionsExcel(id, res);
   }
 
-  //   @Get('test-simple/:userId')
-  // async testSimplePayslip(@Param('userId') userId: string, @Res() res: Response) {
-  //     try {
-  //         const PDFDocument = await import('pdfkit');
-  //         const doc = new PDFDocument();
 
-  //         res.setHeader('Content-Type', 'application/pdf');
-  //         res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
-
-  //         doc.pipe(res);
-  //         doc.fontSize(25).text('TEST PAYSLIP', 100, 100);
-  //         doc.fontSize(12).text('This is a test PDF generated directly without Puppeteer', 100, 150);
-  //         doc.end();
-
-  //     } catch (error) {
-  //         // this.logger.error('Simple PDF test failed:', error);
-  //         throw error;
-  //     }
-  // }
 }

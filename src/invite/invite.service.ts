@@ -178,11 +178,6 @@ export class InviteService {
       return prospect;
     } catch (error) {
       console.log(error)
-      if (error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof ConflictException) {
-        throw error;
-      }
       bad(error)
     }
   }

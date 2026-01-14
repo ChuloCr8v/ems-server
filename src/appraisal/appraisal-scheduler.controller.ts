@@ -119,12 +119,12 @@ async generateQuarterlyAppraisals() {
 
       summary.newTemplates = created.length;
 
-      this.logger.log(`✅ Successfully created ${created.length} appraisal templates for ${period}.`);
+      this.logger.log(`Successfully created ${created.length} appraisal templates for ${period}.`);
 
       // Initialize KPI, goals, and feedback for each template
       await this.initializeAppraisalData(created);
     } else {
-      this.logger.log(`ℹ️ No new appraisal templates to create for ${period}.`);
+      this.logger.log(`No new appraisal templates to create for ${period}.`);
     }
 
     // Final return
@@ -138,7 +138,7 @@ async generateQuarterlyAppraisals() {
       summary
     };
   } catch (error) {
-    this.logger.error('❌ Failed to generate quarterly appraisal templates:', error);
+    this.logger.error('Failed to generate quarterly appraisal templates:', error);
     throw new BadRequestException('Failed to generate quarterly appraisal templates: ' + error.message);
   }
 }

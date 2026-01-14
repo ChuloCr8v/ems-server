@@ -3,7 +3,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import {
   AcceptanceInviteDto,
   ApproveLeaveRequest,
-  DeclinedInviteDto,
+  ClaimApprovalDto, ClaimRejectionDto, ClaimRequest, DeclinedInviteDto,
   EmployeePayslipGenerated,
   InitiateOffboarding,
   LeaveRequest,
@@ -21,7 +21,8 @@ import {
   TaskUpdatedDto,
   UpdateProspectInfoDto,
   WelcomeEmailDto,
-  TaskDueDateChangeDto
+  TaskDueDateChangeDto,
+  AppraisalMailDto
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -153,6 +154,40 @@ export class MailService {
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
       template: 'leaveRequest',
       context: { name, leaveType, leaveValue, startDate, endDate, reason }
+    });
+  }
+
+
+  async sendNewClaimMail(data: ClaimRequest) {
+    const { email, name, claimTitle, type, amount, date, description, approverName } = data;
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.NEW_CLAIM,
+      template: 'newClaim',
+      context: { name, claimTitle, type, amount, date, description, approverName }
+    });
+  }
+
+  async sendClaimApprovalMail(data: ClaimApprovalDto) {
+    const { email, name, claimTitle, amount, date, approverName } = data;
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.CLAIM_APPROVED,
+      template: 'claimApproval',
+      context: { name, claimTitle, amount, date, approverName }
+    });
+  }
+
+  async sendClaimRejectionMail(data: ClaimRejectionDto) {
+    const { email, name, claimTitle, amount, date, approverName, reason } = data;
+
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.CLAIM_REJECTED,
+      template: 'claimRejection',
+      context: { name, claimTitle, amount, date, approverName, reason }
     });
   }
 
@@ -296,6 +331,36 @@ export class MailService {
       subject: MAIL_SUBJECT.TASK_DUEDATE_CHANGED,
       template: 'taskDueDateChanged',
       context: { name, changedBy, taskId, taskTitle, oldDueDate, newDueDate, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalCreatedMail(data: AppraisalMailDto) {
+    const { email, name, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_CREATED,
+      template: 'appraisalCreated',
+      context: { name, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalSubmittedMail(data: AppraisalMailDto) {
+    const { email, name, employeeName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_SUBMITTED,
+      template: 'appraisalSubmitted',
+      context: { name, employeeName, dashboardUrl },
+    });
+  }
+
+  async sendAppraisalReviewedMail(data: AppraisalMailDto) {
+    const { email, name, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.APPRAISAL_REVIEWED,
+      template: 'appraisalReviewed',
+      context: { name, dashboardUrl },
     });
   }
 }

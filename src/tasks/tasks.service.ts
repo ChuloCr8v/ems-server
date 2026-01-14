@@ -1,5 +1,5 @@
 // tasks.service.ts
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalStatus, CategoryType, Prisma, Role, Task, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
@@ -19,12 +19,11 @@ import {
   TaskPriorityChangeEvent,
   TaskDueDateChangeEvent
 } from 'src/events/tasks.event';
-import { create } from 'domain';
 
 
 @Injectable()
 export class TasksService {
-  constructor(private prisma: PrismaService, private event: EventEmitter2) { }
+  constructor(private prisma: PrismaService, private readonly event: EventEmitter2,) { }
 
   private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
@@ -35,7 +34,7 @@ export class TasksService {
   }
 
   private isManager(role: string[]): boolean {
-    const managerRoles = ["ADMIN", "DEPT_MANAGER"]
+    const managerRoles = ["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"]
     return role?.some(r => managerRoles.includes(r))
   }
 
@@ -97,13 +96,10 @@ export class TasksService {
         }
       })
 
-      if (!taskCreator) mustHave(taskCreator, "Unathorized", 401)
+      if (!taskCreator) mustHave(taskCreator, "Unauthorized", 401)
 
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
-
-
-
 
       if (isManager) {
         if (!assignees)
@@ -156,7 +152,7 @@ export class TasksService {
 
       if (assignees && assignees.length > 0) {
         createData.assignees = {
-          create: assignees.map(userId => ({ userId })),
+          create: !isManager ? [...assignees, createdById].map(userId => ({ userId })) : assignees.map(userId => ({ userId })),
         };
       }
 
@@ -170,10 +166,6 @@ export class TasksService {
 
       // console.log(taskDepts)
 
-      //Add creator as assignee if not manager
-      createData.assignees = {
-        create: { userId: createdById },
-      }
 
       const task = await this.prisma.task.create({
         data: {
@@ -198,37 +190,70 @@ export class TasksService {
         // include: this.getTaskInclude(),
       });
 
-      const recipientIds = assignees || [createdById];
-      this.event.emit('task.created', new TaskCreatedEvent(
-        createdById,
-        recipientIds,
-        assignees || [],
-        task.taskId,
-        task.title,
-        task.priority,
-        task.description,
-        task.dueDate,
-      ));
+      // const recipientIds = assignees || [createdById];
+      // this.event.emit('task.created', new TaskCreatedEvent(
+      //   createdById,
+      //   recipientIds,
+      //   assignees || [],
+      //   task.taskId,
+      //   task.title,
+      //   task.priority,
+      //   task.description,
+      //   task.dueDate,
+      // ));
 
-      //Emit task assigned event if there are assignees
-      if (assignees && assignees.length > 0) {
-        this.event.emit('task.assigned', new TaskAssignedEvent(
-          createdById,
-          assignees,
-          task.taskId,
-          task.title,
-          task.priority,
-          task.dueDate
-        ))
+      // //Emit task assigned event if there are assignees
+      // if (assignees && assignees.length > 0) {
+      //   this.event.emit('task.assigned', new TaskAssignedEvent(
+      //     createdById,
+      //     assignees,
+      //     task.taskId,
+      //     task.title,
+      //     task.priority,
+      //     task.dueDate
+      //   ))
+      // }
+
+
+      if (assignees?.length) {
+        this.event.emit("task.assigned", new TaskAssignedEvent(createdById, assignees.map(a => a), task.id, task.title, task.priority, task.dueDate))
+      }
+
+      if (!isManager) {
+        // Find Dept Managers and Team Leads for the department
+        const approvers = await this.prisma.user.findMany({
+          where: {
+            departments: {
+              some: {
+                id: taskDepts
+              }
+            },
+            userRole: {
+              hasSome: [Role.DEPT_MANAGER, Role.TEAM_LEAD]
+            },
+            id: {
+              not: createdById
+            }
+          },
+          select: { id: true }
+        });
+
+        if (approvers.length > 0) {
+          const approverIds = approvers.map(a => a.id);
+          console.log({ approverIds });
+          this.event.emit('task.created', new TaskCreatedEvent(
+            createdById,
+            approverIds,
+            assignees || [],
+            task.id,
+            task.title
+          ));
+        }
       }
 
       return task;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
-        throw error;
-      }
-      console.error('Error creating task:', error);
-      throw new InternalServerErrorException('Error creating task');
+      bad(error)
     }
   }
 
@@ -963,7 +988,7 @@ export class TasksService {
     });
 
     //Emit notification events based on what changed
-     await this.emitUpdateEvents({
+    await this.emitUpdateEvents({
       userId,
       taskId: id,
       taskTitle: task.title,
@@ -978,7 +1003,23 @@ export class TasksService {
       oldDueDate: previousState.dueDate,
       newDueDate: rest.dueDate,
       issueDescription: issue,
-  });
+    });
+
+    if (status && status !== findTask.status) {
+      const allRecipients = new Set<string>();
+      if (task.createdById !== userId) allRecipients.add(task.createdById);
+      task.assignees.forEach(a => {
+        if (a.user.id !== userId) allRecipients.add(a.user.id);
+      });
+
+      this.event.emit('task.updated', new TaskUpdatedEvent(
+        userId,
+        Array.from(allRecipients),
+        task.id,
+        task.title,
+        status
+      ));
+    }
 
     return task;
   }
@@ -1224,8 +1265,8 @@ export class TasksService {
       newTask.createdById
     ])];
 
-     // General task updated event
-      if (this.hasSignificantChanges(params)) {
+    // General task updated event
+    if (this.hasSignificantChanges(params)) {
       this.event.emit('task.updated', new TaskUpdatedEvent(
         userId,
         recipientIds,
@@ -1333,7 +1374,7 @@ export class TasksService {
 
   private hasSignificantChanges(params: any): boolean {
     const significantFields = ['title', 'description', 'category'];
-    return significantFields.some(field => 
+    return significantFields.some(field =>
       params.oldTask[field] !== params.newTask[field]
     );
   }

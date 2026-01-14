@@ -2,9 +2,9 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
-import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, PayrollComponent, User, PrismaClient, Prisma, } from '@prisma/client';
+import { ComponentCategory, SalaryCalculationType, SalaryType, TaxStatus, Payroll, PayrollComponent, User, PrismaClient, Prisma, Report, Payslip, } from '@prisma/client';
 import { CalculateComponentDto } from './dto/payroll.dto';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
 import { TaxService } from './tax.service';
 import * as ExcelJS from 'exceljs';
 import { Logger } from '@nestjs/common';
@@ -18,6 +18,7 @@ import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { monthInWords } from 'src/utils/monthInWords';
 import { MailService } from 'src/mail/mail.service';
+import { monthToWords } from 'src/utils/monthToWords.utils';
 
 
 const templates = resolve(__dirname, '../payroll/templates');
@@ -631,20 +632,15 @@ export class PayrollService {
         const month = monthInWords + " " + new Date().getFullYear();
 
 
-        await this.mail.sendPayrollQueueMail({
-            email: user.email,
-            month,
-            date: new Date().getFullYear().toString(),
+        // await this.mail.sendPayrollQueueMail({
+        //     email: user.email,
+        //     month,
+        //     date: new Date().getFullYear().toString(),
 
-        });
+        // });
 
         try {
             const payrolls = await this.prisma.payroll.findMany({
-                where: {
-                    user: {
-                        email: "bonaventure@zoracom.com"
-                    }
-                },
                 select: {
                     id: true,
                     userId: true
@@ -675,12 +671,12 @@ export class PayrollService {
             await Promise.all(jobs);
 
             // Send final payslip generation completed mail
-            await this.mail.sendPayslipsGenerated({
-                month,
-                date: new Date().getFullYear().toString(),
-                email: user.email,
-                dashboardUrl: "https://ems.miro.zoracom.com"
-            });
+            // await this.mail.sendPayslipsGenerated({
+            //     month,
+            //     date: new Date().getFullYear().toString(),
+            //     email: user.email,
+            //     dashboardUrl: "https://ems.miro.zoracom.com"
+            // });
 
             // Generate deduction summary
             await this.generateConsolidatedDeductionSummary(payrolls);
@@ -694,12 +690,22 @@ export class PayrollService {
     }
 
 
-    async getPayslips(userId?: string) {
+    async listUserPayslips(userId?: string) {
         try {
-            const where = userId ? { userId } : {};
 
-            return await this.prisma.payslip.findMany({
-                where,
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id: userId
+                }
+            })
+
+            if (!user) mustHave(user, "Unauthorized", 404)
+
+
+            const allPayslips = await this.prisma.payslip.findMany({
+                where: {
+                    userId
+                },
                 include: {
                     user: {
                         select: {
@@ -709,9 +715,19 @@ export class PayrollService {
                             eId: true,
                         },
                     },
+                    payroll: {
+                        include: {
+                            component: true,
+                        }
+                    }
+                },
+                omit: {
+                    data: true
                 },
                 orderBy: { createdAt: 'desc' }
             })
+
+            return allPayslips;
         } catch (error) {
             if (error instanceof BadRequestException ||
                 error instanceof NotFoundException ||
@@ -724,21 +740,46 @@ export class PayrollService {
 
     async listPayslips() {
         try {
-            return await this.prisma.payslip.findMany({
-                select: {
-                    id: true,
-                    user: true,
-                    name: true,
-                    createdAt: true,
-                    amount: true,
-                    month: true,
-                    payrollId: true, userId: true
-                },
+            const groupByMonth = (payslips: Payslip[]) => {
+                const grouped = payslips.reduce((acc, payslip) => {
+                    const month = payslip.month
+                    const createdAt = payslip.createdAt
 
+                    if (!acc[month]) {
+                        acc[month] = {
+                            month,
+                            title: `Payslips - month ${month}`,
+                            payslips: [],
+                            createdAt
+                        };
+                    }
+
+                    acc[month].payslips.push(payslip);
+                    return acc;
+                }, {} as Record<number, { month: number; title: string; payslips: Payslip[], createdAt: string }>);
+
+                return grouped
+            };
+
+            const allPayslips = await this.prisma.payslip.findMany({
+                include: {
+                    user: true,
+                    payroll: {
+                        include: {
+                            component: true,
+                        }
+                    }
+                },
+                omit: {
+                    data: true
+                },
                 orderBy: {
                     createdAt: "desc"
                 }
             })
+
+            return Object.values(groupByMonth(allPayslips as []));
+
         } catch (error) {
             console.log(error)
             bad(error)

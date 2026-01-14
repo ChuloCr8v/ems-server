@@ -1,0 +1,234 @@
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Claim Approved</title>
+    <link rel='preconnect' href='https://fonts.googleapis.com' />
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
+    <link
+      href='https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap'
+      rel='stylesheet'
+    />
+  </head>
+
+  <body
+    style='margin:0; padding:0; background-color:#ffffff; font-family:Raleway, sans-serif;'
+  >
+    <table width='100%' cellpadding='0' cellspacing='0' bgcolor='#ffffff'>
+      <tr>
+        <td align='center'>
+
+          <!-- WRAPPER -->
+          <table
+            width='780'
+            cellpadding='0'
+            cellspacing='0'
+            bgcolor='#f8fafc'
+            style='margin:20px auto;'
+          >
+
+            <!-- HEADER -->
+            <tr>
+              <td style='padding:40px 48px;'>
+                <table width='100%' cellpadding='0' cellspacing='0'>
+                  <tr>
+                    <td align='left'>
+                      <img
+                        src='https://ems.miro.zoracom.com/logo.png'
+                        alt='Zoracom Limited'
+                        width='161'
+                        style='display:block;'
+                      />
+                    </td>
+                    <td align='right'>
+                      <table cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td style='padding-left:20px;'>
+                            <a href='https://x.com/Zoracom_'>
+                              <img
+                                src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
+                                width='24'
+                                alt='Twitter'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left:20px;'>
+                            <a href='https://www.facebook.com/zoracom'>
+                              <img
+                                src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
+                                width='24'
+                                alt='Facebook'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left:20px;'>
+                            <a
+                              href='https://www.linkedin.com/company/zoracom-limited/'
+                            >
+                              <img
+                                src='https://img.icons8.com/?size=48&id=114445&format=png'
+                                width='24'
+                                alt='LinkedIn'
+                              />
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- CONTENT CARD -->
+            <tr>
+              <td align='center'>
+                <table
+                  width='660'
+                  cellpadding='0'
+                  cellspacing='0'
+                  bgcolor='#ffffff'
+                  style='border-radius:4px;'
+                >
+                  <tr>
+                    <td
+                      style='padding:32px 48px; color:#333333; font-size:14px; line-height:1.6;'
+                    >
+
+                      <h1
+                        style='margin:0 0 24px; font-size:24px; color:#141414; color: #2E7D32;'
+                      >
+                        Claim Approved
+                      </h1>
+
+                      <p style='margin:0 0 16px; color:#384860;'>
+                        Hello
+                        <strong>{{name}}</strong>,
+                      </p>
+
+                      <p style='margin:0 0 24px; color:#5e5e5e;'>
+                        Your claim request has been approved.
+                      </p>
+
+                      <!-- CLAIM DETAILS -->
+                      <table
+                        width='100%'
+                        cellpadding='0'
+                        cellspacing='0'
+                        bgcolor='#f8fafc'
+                        style='margin:24px 0; padding:16px;'
+                      >
+                        <tr>
+                          <td
+                            style='padding:6px 0; font-weight:600; color:#384860; width:140px;'
+                          >
+                            Claim Title:
+                          </td>
+                          <td style='padding:6px 0; color:#5e5e5e;'>
+                            {{claimTitle}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding:6px 0; font-weight:600; color:#384860;'
+                          >
+                            Amount:
+                          </td>
+                          <td style='padding:6px 0; color:#5e5e5e;'>
+                            {{amount}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding:6px 0; font-weight:600; color:#384860;'
+                          >
+                            Date:
+                          </td>
+                          <td style='padding:6px 0; color:#5e5e5e;'>
+                            {{formatDate date 'MMMM DD, YYYY'}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding:6px 0; font-weight:600; color:#384860;'
+                          >
+                            Approved By:
+                          </td>
+                          <td style='padding:6px 0; color:#5e5e5e;'>
+                            {{approverName}}
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style='margin:24px 0; color:#5e5e5e;'>
+                        The amount will be processed and credited to your
+                        account shortly.
+                      </p>
+
+                      <!-- CTA BUTTON -->
+                      <table
+                        cellpadding='0'
+                        cellspacing='0'
+                        style='margin:24px 0;'
+                      >
+                        <tr>
+                          <td bgcolor='#384860' style='border-radius:4px;'>
+                            <a
+                              href='https://ems.miro.zoracom.com/claims'
+                              style='display:inline-block; padding:12px 24px; color:#ffffff; text-decoration:none; font-weight:600;'
+                            >
+                              View Claim
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p
+                        style='margin-top:40px; font-size:12px; color:#5e5e5e;'
+                      >
+                        Best regards,<br />
+                        <strong>Zoracom HR System</strong>
+                      </p>
+
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- FOOTER -->
+            <tr>
+              <td
+                bgcolor='#e7f5fa'
+                style='padding:40px 48px; font-size:12px; color:#666666; line-height:1.6;'
+              >
+                <p style='margin:0 0 12px;'>
+                  Questions or FAQ? Contact us at
+                  <a
+                    href='mailto:hrteam@zoracom.com'
+                    style='color:#0066cc; text-decoration:none;'
+                  >
+                    hrteam@zoracom.com
+                  </a>. If you’d rather not receive this type of email,
+                  <a href='#' style='color:#0066cc;'>Unsubscribe</a>.
+                </p>
+
+                <p style='margin:0 0 12px;'>
+                  NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
+                  Expressway, Lagos, Nigeria
+                </p>
+
+                <p style='margin:0;'>
+                  © 2024 Zora Communications Limited. All Rights Reserved.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+          <!-- END WRAPPER -->
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

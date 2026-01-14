@@ -6,6 +6,8 @@ import { PuppeteerService } from '../puppeteer/puppeteer.service';
 import { Payroll, User } from '@prisma/client';
 import { MailService } from 'src/mail/mail.service';
 import { monthInWords } from 'src/utils/monthInWords';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 
 @Processor('payslips', { concurrency: 5 })   // ✔ QUEUE NAME
 export class PayslipQueueProcessor extends WorkerHost {
@@ -15,6 +17,7 @@ export class PayslipQueueProcessor extends WorkerHost {
         private readonly payslipTemplate: PayslipTemplateService,
         private readonly puppeteerService: PuppeteerService,
         private readonly mail: MailService,
+        private readonly event: EventEmitter2,
     ) {
         super();
     }
@@ -66,6 +69,9 @@ export class PayslipQueueProcessor extends WorkerHost {
 
         const pdfData = new Uint8Array(pdfBuffer);
 
+        const currentMonth = new Date().toLocaleString('default', { month: 'long' }).toLowerCase();
+        const year = new Date().getFullYear();
+
         await this.prisma.payslip.create({
             data: {
                 data: pdfData,
@@ -73,26 +79,17 @@ export class PayslipQueueProcessor extends WorkerHost {
                 amount: payroll.net,
                 userId: payroll.userId,
                 payrollId: payroll.id,
-                month: new Date().getMonth() + 1,
-                year: new Date().getFullYear(),
+                month: currentMonth,
+                year: year,
             },
         });
 
-
-        await this.mail.sendEmployeePayslipReadyMail({
-            month: monthInWords + " " + new Date().getFullYear().toString(),
-            date: new Date().getFullYear().toString(),
-            email: user.email,
-            name: user.firstName,
-            dashboardUrl: "https://ems.miro.zoracom.com",
-            attachment: {
-                filename: `${user.firstName} ${user.lastName} Payslip (${date}).pdf`,
-                content: pdfData,
-                contentType: "application/pdf"
-            }
-
-        })
-
+        this.event.emit('payroll.generated', new PayslipGeneratedEvent(
+            user.id,
+            payroll.id,
+            currentMonth,
+            year
+        ));
     }
 
     @OnWorkerEvent('completed')

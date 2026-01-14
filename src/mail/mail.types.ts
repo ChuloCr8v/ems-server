@@ -8,6 +8,7 @@ export const MAIL_SUBJECT = {
     DECLINE_OFFER: 'Declined Offer',
     WELCOME_EMAIL: '',
     LEAVE_REQUEST: 'New Leave Request',
+    NEW_CLAIM: 'New Claim Added',
     LEAVE_APPROVAL: 'Leave Request Approved',
     LEAVE_DECLINE: 'Leave Request Denied',
     PAYSLIP_QUEUED: "Payslip Generation Started",
@@ -25,6 +26,9 @@ export const MAIL_SUBJECT = {
     TASK_REASSIGNED: 'Task Reassigned',
     TASK_STATUS_CHANGED: 'Task Status Changed',
     TASK_DUEDATE_CHANGED: 'Task Due Date Changed',
+    APPRAISAL_CREATED: 'New Appraisal Created',
+    APPRAISAL_SUBMITTED: 'Appraisal Submitted',
+    APPRAISAL_REVIEWED: 'Appraisal Reviewed',
 }
 
 export class ProspectInviteDto {
@@ -122,6 +126,34 @@ export class LeaveRequest {
     @IsDate()
     @Transform(({ value }) => new Date(value))
     endDate: Date
+}
+
+export class ClaimRequest {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    approverName: string;
+
+    @IsString()
+    claimTitle: string;
+
+    @IsString()
+    type: string;
+
+    @IsString()
+    amount: string;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    date: Date;
+
+    @IsString()
+    description: string;
+
 }
 
 export class ApproveLeaveRequest {
@@ -417,3 +449,49 @@ export class TaskDueDateChangeDto {
     dashboardUrl: string;
 }
 
+
+
+export class ClaimApprovalDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    claimTitle: string;
+
+    @IsString()
+    amount: string;
+
+    @IsDate()
+    @Transform(({ value }) => new Date(value))
+    date: Date;
+
+    @IsOptional()
+    @IsString()
+    approverName?: string;
+}
+
+export class ClaimRejectionDto extends ClaimApprovalDto {
+    @IsOptional()
+    @IsString()
+    reason?: string;
+}
+
+export class AppraisalMailDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    employeeName?: string; // For manager notification
+
+    @IsString()
+    dashboardUrl: string;
+
+    @IsString()
+    companyName?: string;
+}
