@@ -679,6 +679,39 @@ export class UserService {
         };
     }
 
+    async updateUserStatus(id: string) {
+
+        try {
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id
+                },
+            })
+
+            if (!user) {
+                mustHave(user, "Users not found", 404);
+            }
+
+            const newStatus = user.status === Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+
+            await this.prisma.user.update({
+                where: {
+                    id,
+                },
+                data: {
+                    status: newStatus,
+                },
+            })
+
+            return {
+                message: "users status updated successfully"
+            }
+        } catch (e) {
+            bad(e)
+        }
+    }
+
 
     async deleteUser(ids: string[]) {
         try {

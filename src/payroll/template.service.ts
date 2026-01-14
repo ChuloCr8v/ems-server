@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PayrollComponent, Prisma } from '@prisma/client';
+import { JobType, PayrollComponent, Prisma } from '@prisma/client';
 import { ToWords } from 'to-words';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -39,8 +39,6 @@ export class PayslipTemplateService {
     const totalEarnings = earnings.reduce((s, c) => s + c.monthlyAmount, 0);
     const totalDeductions = deductions.reduce((s, c) => s + c.monthlyAmount, 0);
 
-
-
     const tableRows = this.generateTableRows(earnings, deductions);
 
     const netPay = payroll.net
@@ -54,7 +52,7 @@ export class PayslipTemplateService {
 
     html = html
       .replace(/{{employeeName}}/g, `${user.firstName} ${user.lastName}`)
-      .replace(/{{designation}}/g, user.jobType || 'Not Specified')
+      .replace(/{{designation}}/g, user.jobType === JobType.FULL_TIME ? 'Full Time' : user.jobType === JobType.CONTRACT ? 'Contract' : user.jobType || 'Not Specified')
       .replace(/{{employeeId}}/g, user.eId || 'N/A')
       .replace(/{{payPeriod}}/g, date)
       .replace(/{{department}}/g, user.departments?.[0]?.name || 'N/A')

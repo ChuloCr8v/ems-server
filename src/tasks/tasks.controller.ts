@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { ApprovalRequestDto, CreateTaskDto, UpdateTaskDto } from './dto/tasks.dto';
-import { ReqPayload } from 'src/auth/dto/auth.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { CreateCategoryDto } from 'src/category/category.dto';
 
 @Controller('tasks')
@@ -104,11 +104,10 @@ export class TasksController {
   @Delete(':id')
   async deleteTask(
     @Param('id') id: string,
-    @Req() req: ReqPayload
-
+    @AuthUser() req: IAuthUser,
   ) {
-    const userId = req.user.id;
-    const userRole = req.userRole // Replace with actual user role from auth
+    const userId = req.sub
+    const userRole = req.role
     return this.tasksService.deleteTask(id, userId, userRole);
   }
 

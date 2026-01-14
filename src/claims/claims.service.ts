@@ -88,7 +88,7 @@ export class ClaimsService {
 
   async findAll(
     userId: string,
-    userRole: Role,
+    userRole: Role[],
     filters: { status?: ClaimStatus }
   ) {
     const user = await this.prisma.user.findUnique({
@@ -176,14 +176,14 @@ export class ClaimsService {
     return claim
   }
 
-  async updateClaim(id: string, userRole: Role, updateClaimDto: UpdateClaimDto) {
+  async updateClaim(id: string, userRole: Role[], updateClaimDto: UpdateClaimDto) {
     console.log({ updateClaimDto })
 
     const claim = await this.findOne(id);
 
     if (!claim) mustHave(claim, "Claim not found", 404)
 
-    if (userRole === Role.USER && updateClaimDto.status) {
+    if ((!userRole.includes(Role.DEPT_MANAGER) || !userRole.includes(Role.DEPT_MANAGER)) && updateClaimDto.status) {
       throw new ForbiddenException('Only managers can update claim status');
     }
 
@@ -217,10 +217,10 @@ export class ClaimsService {
 
 
 
-  async removeClaim(id: string, userId: string, userRole: Role) {
+  async removeClaim(id: string, userId: string, userRole: Role[]) {
     const claim = await this.findOne(id);
 
-    if (userRole === Role.USER && claim.userId !== userId) {
+    if (userRole.includes(Role.USER) && claim.userId !== userId) {
       throw new ForbiddenException('You can only delete your own claims');
     }
 
