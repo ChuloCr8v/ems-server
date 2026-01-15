@@ -16,13 +16,13 @@ export class LevelController {
     return res.status(200).json({ message: 'Level created successfully', level });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get()
   async getAllLevels() {
     return await this.levelService.getAllLevels();
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
+  // @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get(':id')
   async getOneLevel(@Param('id') id: string) {
     return await this.levelService.getOneLevel(id);
