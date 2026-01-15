@@ -4,7 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { DepartmentDto } from './dto/department.dto';
+import { CreateTeamDto, DepartmentDto } from './dto/department.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { Prisma, Role, User } from '@prisma/client';
 
@@ -168,7 +168,7 @@ export class DepartmentService {
         }
     }
 
-    async addTeamMembers(deptId: string, userIds: string[]) {
+    async addDepartmentMembers(deptId: string, userIds: string[]) {
         if (!deptId) bad("Dept id must be provided");
 
         try {
@@ -233,7 +233,7 @@ export class DepartmentService {
         }
     }
 
-    async removeTeamMembers(deptId: string, userIds: string[]) {
+    async removeDepartmentMembers(deptId: string, userIds: string[]) {
         if (!deptId) bad("Dept id must be provided");
 
         try {
@@ -292,6 +292,67 @@ export class DepartmentService {
             };
         } catch (error: any) {
             console.error("Bulk removeTeamMembers error:", error);
+            bad(error);
+        }
+    }
+
+
+    async addTeam(deptId: string, createdById: string, data: CreateTeamDto) {
+        if (!deptId) bad("Dept id must be provided");
+
+        const { name, teamLead, userIds } = data
+
+        try {
+            const dept = await this.__findOneDepartment(deptId);
+            if (!dept) mustHave(dept, `Department with id: ${deptId} not found!`);
+
+            const newTeam = await this.prisma.team.create({
+                data: {
+                    name,
+                    approver: {
+                        connect: {
+                            id: dept.approver.find(d => d.role === "DEPT_MANAGER").id
+                        }
+                    }
+                }
+            })
+
+            if (teamLead) {
+                await this.prisma.approver.create({
+                    data: {
+                        user: {
+                            connect: { id: teamLead }
+                        },
+                        role: Role.TEAM_LEAD,
+                        team: {
+                            connect: {
+                                id: newTeam.id
+                            }
+                        }
+                    }
+                })
+            }
+
+            // if (userIds) {
+            //     await Promise.allSettled(
+            //         userIds.map(u => {
+            //             this.prisma.team.update({
+            //                 where: {
+            //                      id: newTeam.id
+            //                 }, data: {
+            //                     members: {
+            //                          connect: userIds.map(id => {id})
+            //                      }
+            //                  }
+            //              })
+            //         })
+            //     )
+            // }
+
+
+            return newTeam
+        } catch (error: any) {
+            console.error("Bulk addTeamMembers error:", error);
             bad(error);
         }
     }

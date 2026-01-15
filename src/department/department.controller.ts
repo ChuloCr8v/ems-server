@@ -1,11 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res } from '@nestjs/common';
 import { DepartmentService } from './department.service';
-import { DepartmentDto } from './dto/department.dto';
+import { CreateTeamDto, DepartmentDto } from './dto/department.dto';
 import { Response } from 'express';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { ReqPayload } from 'src/auth/dto/auth.dto';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('department')
 export class DepartmentController {
@@ -18,7 +18,7 @@ export class DepartmentController {
     return res.status(200).json({ message: `A New Department Has Been Created`, department });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
+  @Auth()
   @Get()
   async getAllDepartments(
   ) {
@@ -32,7 +32,7 @@ export class DepartmentController {
     return await this.departmentService.getTeam(req.user.id);
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
+  @Auth()
   @Get(':id')
   async getOneDepartment(@Param("id") id: string) {
     return await this.departmentService.getOneDepartment(id);
@@ -46,11 +46,20 @@ export class DepartmentController {
   }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Put('add-team/:deptId')
-  async addTeamMembers(@Param('deptId') deptId: string, @Body() userIds: string[], @Res() res: Response) {
-    const department = await this.departmentService.addTeamMembers(deptId, userIds);
-    return res.status(200).json({ message: `Teamn members has been successfully added`, department });
+  @Put('add-department-member/:deptId')
+  async addDepartmentMembers(@Param('deptId') deptId: string, @Body() userIds: string[], @Res() res: Response) {
+    const department = await this.departmentService.addDepartmentMembers(deptId, userIds);
+    return res.status(200).json({ message: `Team members has been successfully added`, department });
   }
+
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Put('add-team/:deptId')
+  async addTeamMembers(@Param('deptId') deptId: string, @Res() res: Response, @AuthUser() req: IAuthUser, @Body() data: CreateTeamDto) {
+    const createdById = req.sub
+    const department = await this.departmentService.addTeam(deptId, createdById, data);
+    return res.status(200).json({ message: `Team has been successfully created`, department });
+  }
+
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Delete(':id')
