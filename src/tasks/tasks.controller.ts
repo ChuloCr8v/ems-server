@@ -1,4 +1,3 @@
-// src/performance/performance.controller.ts
 import {
   Controller,
   Get,

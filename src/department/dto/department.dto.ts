@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { PartialType } from "@nestjs/mapped-types";
+import { IsArray, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class DepartmentDto {
     @IsString()
@@ -18,3 +19,8 @@ export class DepartmentDto {
     createdBy: string
 }
 
+export class CreateTeamDto extends PartialType(DepartmentDto) {
+    @IsArray()
+    @IsOptional()
+    userIds?: string[]
+}

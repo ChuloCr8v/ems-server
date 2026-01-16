@@ -73,12 +73,17 @@ model User {
   payslip               Payslip[]
   responses             Response[]
 
-  userDocuments     Upload[]     @relation("UserDocuments")
-  level             Level?       @relation(fields: [levelId], references: [id])
-  prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  userTask          UserTask[]
-  departments       Department[] @relation("DepartmentToUser")
-  prospectDocuments Upload[]     @relation("ProspectDocuments")
+  userDocuments Upload[]   @relation("UserDocuments")
+  level         Level?     @relation(fields: [levelId], references: [id])
+  prospect      Prospect?  @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  userTask      UserTask[]
+
+  departments Department[] @relation("DepartmentToUser")
+  team        Team?        @relation("team", fields: [teamId], references: [id])
+  teamCreator Team[]       @relation("teamCreator")
+  teamId      String?      @db.Uuid
+
+  prospectDocuments Upload[] @relation("ProspectDocuments")
 
   createdTasks  Task[] @relation("CreatedTasks")
   approvedTasks Task[] @relation("ApprovedTasks")
@@ -117,8 +122,23 @@ model Department {
   appraisals     Appraisal[]
   tasks          Task[]
   entitlements   DepartmentEntitlement[]
-  entitlementId  String?                 @db.Uuid()
+  teams          Team[]
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @default(now()) @updatedAt
+}
 
+model Team {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @unique
+  createdById String?           @db.Uuid
+  status      DepartmentStatus? @default(ACTIVE)
+  approver    Approver[]
+  createdBy   User?             @relation("teamCreator", fields: [createdById], references: [id])
+
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId String?     @db.Uuid
+
+  members   User[]   @relation("team")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 }
@@ -501,6 +521,8 @@ model Approver {
   updatedAt    DateTime    @updatedAt
   department   Department? @relation(fields: [departmentId], references: [id])
   user         User        @relation(fields: [userId], references: [id])
+  team         Team?       @relation(fields: [teamId], references: [id])
+  teamId       String?     @db.Uuid
 }
 
 model Approval {

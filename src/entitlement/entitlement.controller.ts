@@ -17,7 +17,7 @@ export class EntitlementController {
     return res.status(200).json({ message: `An Entitlement Has Been Created`, entitlement });
   }
 
-  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
+  @Auth()
   @Get()
   async getEntitlements() {
     return await this.entitlement.getEntitlements();
