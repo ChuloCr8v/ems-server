@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Report, TaskStatus } from '@prisma/client';
-import { generate } from 'rxjs';
+import { Report, Task, UserTask, TaskStatus } from '@prisma/client';
+
 import { PrismaService } from 'src/prisma/prisma.service';
 import { bad } from 'src/utils/error.utils';
 
@@ -13,23 +13,22 @@ export class ReportService {
         try {
             const week = getCurrentWeek();
 
-            console.log({ week })
-
             const users = await this.prisma.user.findMany({
                 include: {
-                    userTask: { include: { task: true } }
+                    userTask: { include: { task: true } },
+                    createdTasks: true,
                 }
             });
 
             const reports = [];
 
             for (const user of users) {
-                const taskIds = user.userTask
-                    .filter(({ task }) =>
-                        task.status !== TaskStatus.COMPLETED ||
-                        (task.status === TaskStatus.COMPLETED && !task.isReported)
-                    )
-                    .map(ut => ut.taskId)
+                const taskIds = [...user.userTask.flatMap(t => t.task), ...user.createdTasks]
+                    .filter((item: Task) => {
+                        return item.status !== TaskStatus.COMPLETED ||
+                            (item.status === TaskStatus.COMPLETED && !item.isReported)
+                    })
+                    .map((item: Task) => item.id)
                     .filter(Boolean);
 
                 let existing = await this.prisma.report.findFirst({
