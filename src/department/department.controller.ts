@@ -18,7 +18,7 @@ export class DepartmentController {
     return res.status(200).json({ message: `A New Department Has Been Created`, department });
   }
 
-  @Auth()
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get()
   async getAllDepartments(
   ) {
@@ -26,13 +26,31 @@ export class DepartmentController {
   }
 
   @Auth()
-  @Get("/team")
-  async getTeam(@Req() req: ReqPayload
+  @Get("/members")
+  async getDepartmentMembers(@Req() req: ReqPayload
   ) {
-    return await this.departmentService.getTeam(req.user.id);
+    return await this.departmentService.getDepartmentMembers(req.user.id);
   }
 
   @Auth()
+  @Get("/:deptId/teams")
+  async listTeams(
+    @AuthUser() req: IAuthUser,
+    @Param("deptId") deptId: string) {
+    return await this.departmentService.listTeams(deptId);
+  }
+
+
+  @Auth()
+  @Get("/:deptId/team")
+  async getTeam(
+    @AuthUser() req: IAuthUser,
+    @Param("deptId") teamId: string) {
+    return await this.departmentService.getTeam(teamId);
+  }
+
+
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Get(':id')
   async getOneDepartment(@Param("id") id: string) {
     return await this.departmentService.getOneDepartment(id);
@@ -53,7 +71,7 @@ export class DepartmentController {
   }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Put('add-team/:deptId')
+  @Post('add-team/:deptId')
   async addTeamMembers(@Param('deptId') deptId: string, @Res() res: Response, @AuthUser() req: IAuthUser, @Body() data: CreateTeamDto) {
     const createdById = req.sub
     const department = await this.departmentService.addTeam(deptId, createdById, data);

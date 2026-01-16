@@ -309,9 +309,15 @@ export class DepartmentService {
             const newTeam = await this.prisma.team.create({
                 data: {
                     name,
+                    department: { connect: { id: deptId } },
                     approver: {
                         connect: {
                             id: dept.approver.find(d => d.role === "DEPT_MANAGER").id
+                        }
+                    },
+                    createdBy: {
+                        connect: {
+                            id: createdById
                         }
                     }
                 }
@@ -333,26 +339,34 @@ export class DepartmentService {
                 })
             }
 
-            // if (userIds) {
-            //     await Promise.allSettled(
-            //         userIds.map(u => {
-            //             this.prisma.team.update({
-            //                 where: {
-            //                      id: newTeam.id
-            //                 }, data: {
-            //                     members: {
-            //                          connect: userIds.map(id => {id})
-            //                      }
-            //                  }
-            //              })
-            //         })
-            //     )
-            // }
+            if (userIds) {
+                await this.prisma.team.update({
+                    where: {
+                        id: newTeam.id
+                    }, data: {
+                        members: {
+                            connect: userIds.map(id => ({ id }))
+                        }
+                    }
+                })
+
+                await this.prisma.team.update({
+                    where: {
+                        id: newTeam.id
+                    },
+                    data: {
+                        members: {
+                            connect: {
+                                id: teamLead
+                            }
+                        }
+                    }
+                })
+            }
 
 
             return newTeam
-        } catch (error: any) {
-            console.error("Bulk addTeamMembers error:", error);
+        } catch (error) {
             bad(error);
         }
     }
@@ -368,6 +382,9 @@ export class DepartmentService {
                             user: true,
                         },
                     },
+                    teams: {
+                        include: { members: true }
+                    },
                     user: true,
                 },
                 orderBy: { createdAt: 'desc' },
@@ -379,7 +396,7 @@ export class DepartmentService {
         }
     }
 
-    async getTeam(userId: string) {
+    async getDepartmentMembers(userId: string) {
         try {
             const res = await this.prisma.department.findMany({
                 where: {
@@ -420,12 +437,65 @@ export class DepartmentService {
         }
     }
 
+
+    async listTeams(deptId: string) {
+        try {
+            console.log(deptId)
+            const dept = await this.__findOneDepartment(deptId)
+
+            if (!dept) mustHave(dept, "Department not found", 404)
+
+            const teams = await this.prisma.team.findMany({
+                where: {
+                    departmentId: deptId
+                },
+                include: {
+                    members: true
+                }
+            })
+            return teams;
+        } catch (error) {
+            console.log(error);
+            bad(`Failed to get teams: ${error.message}`);
+        }
+    }
+
+
+    async getTeam(teamId: string) {
+        try {
+            const team = await this.prisma.team.findUnique({
+                where: {
+                    id: teamId
+                },
+                include: {
+                    members: true,
+                    department: true
+                }
+            })
+
+
+            if (!team) mustHave(team, "Team not found", 404)
+
+
+            return team;
+        } catch (error) {
+            console.log(error);
+            bad(`Failed to get teams: ${error.message}`);
+        }
+    }
+
+
     async getOneDepartment(id: string) {
         try {
             const department = await this.prisma.department.findUnique({
                 where: { id },
                 include: {
-                    approver: true
+                    approver: true,
+                    teams: {
+                        include: {
+                            members: true
+                        }
+                    }
                 }
             });
             return department;
