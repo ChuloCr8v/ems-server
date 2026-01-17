@@ -73,6 +73,9 @@ model User {
   payslip               Payslip[]
   responses             Response[]
 
+  defaultDepartment Department? @relation("default", fields: [defaultId], references: [id], onDelete: Cascade)
+  defaultId         String?     @db.Uuid
+
   userDocuments Upload[]   @relation("UserDocuments")
   level         Level?     @relation(fields: [levelId], references: [id])
   prospect      Prospect?  @relation(fields: [prospectId], references: [id], onDelete: SetNull)
@@ -109,22 +112,23 @@ model User {
 }
 
 model Department {
-  id             String                  @id @default(uuid()) @db.Uuid
-  name           String                  @unique
-  createdById    String?                 @unique @db.Uuid
-  status         DepartmentStatus?       @default(ACTIVE)
-  approver       Approver[]
-  createdBy      User?                   @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects      Prospect[]              @relation("DepartmentToProspect")
-  taskCategories Category[]
-  user           User[]                  @relation("DepartmentToUser")
-  kpiCategories  KpiCategory[]
-  appraisals     Appraisal[]
-  tasks          Task[]
-  entitlements   DepartmentEntitlement[]
-  teams          Team[]
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @default(now()) @updatedAt
+  id                String                  @id @default(uuid()) @db.Uuid
+  name              String                  @unique
+  createdById       String?                 @unique @db.Uuid
+  status            DepartmentStatus?       @default(ACTIVE)
+  approver          Approver[]
+  createdBy         User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects         Prospect[]              @relation("DepartmentToProspect")
+  taskCategories    Category[]
+  user              User[]                  @relation("DepartmentToUser")
+  defaultDepartment User[]                  @relation("default")
+  kpiCategories     KpiCategory[]
+  appraisals        Appraisal[]
+  tasks             Task[]
+  entitlements      DepartmentEntitlement[]
+  teams             Team[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @default(now()) @updatedAt
 }
 
 model Team {
