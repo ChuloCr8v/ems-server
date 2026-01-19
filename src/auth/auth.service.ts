@@ -65,13 +65,16 @@ export class AuthService {
           id: true,
           email: true,
           userRole: true,
-          prospect: true
+          prospect: true,
+          status: true
         },
       });
 
       if (!user) {
         bad('User does not exist in the system');
       }
+
+      if (user.status === "INACTIVE") bad("Your account has been deactivated. Contact your admin.")
 
       const payload = { sub: user.id, email: user.email, role: user.userRole };
       return {
@@ -126,6 +129,7 @@ export class AuthService {
       if (!user) mustHave(user, "User not found", 404)
 
       if (user.email !== password) bad("Incorrect Password")
+      if (user.status === "INACTIVE") bad("Your account has been deactivated. Contact your admin.")
 
       const payload = { sub: user.id, email: user.email, role: user.userRole };
       return {

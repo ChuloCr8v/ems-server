@@ -8,6 +8,7 @@ import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent } from 'src/events/task.event';
+import { connect } from 'http2';
 
 
 @Injectable()
@@ -21,6 +22,8 @@ export class TasksService {
     });
     return user?.userRole
   }
+
+
 
   private isManager(role: string[]): boolean {
     const managerRoles = ["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"]
@@ -81,7 +84,9 @@ export class TasksService {
         where: {
           id: createdById
         }, include: {
-          departments: true
+          departments: true,
+          defaultDepartment: true,
+          team: true
         }
       })
 
@@ -90,22 +95,22 @@ export class TasksService {
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
-      if (isManager) {
-        if (!assignees)
-          return bad("Please provide at least one assignee");
+      // if (isManager) {
+      //   if (!assignees)
+      //     return bad("Please provide at least one assignee");
 
-        const { startDate, dueDate } = createTaskDto;
+      //   const { startDate, dueDate } = createTaskDto;
 
-        if (!startDate)
-          return bad("Please provide a start date");
+      //   if (!startDate)
+      //     return bad("Please provide a start date");
 
-        if (!dueDate)
-          return bad("Please provide a due date");
-      }
+      //   if (!dueDate)
+      //     return bad("Please provide a due date");
+      // }
 
       if (assignees && assignees.length > 0) {
         const existingUsers = await this.prisma.user.findMany({
-          where: { id: { in: assignees } },
+          where: { id: { in: assignees }, status: { not: "INACTIVE" } },
           select: { id: true },
         });
 
@@ -145,15 +150,22 @@ export class TasksService {
         };
       }
 
-      const taskDepts = createTaskDto.department ?? (await this.prisma.user.findUnique({
-        where: { id: createdById },
-        include:
-        {
-          departments: true
+      const taskDepts = createTaskDto.department ??
+        (
+          taskCreator.defaultDepartment
+            ? taskCreator.defaultDepartment.id
+            : (await this.prisma.user.findUnique({
+              where: { id: createdById },
+              include: { departments: true }
+            }))
+              ?.departments[0].id
+        )
+
+      if (taskCreator.team) {
+        createData.team = {
+          connect: { id: taskCreator.team.id }
         }
-      }))?.departments[0].id
-
-
+      }
 
       const task = await this.prisma.task.create({
         data: {
@@ -187,6 +199,7 @@ export class TasksService {
         // Find Dept Managers and Team Leads for the department
         const approvers = await this.prisma.user.findMany({
           where: {
+            status: "ACTIVE",
             departments: {
               some: {
                 id: taskDepts
@@ -198,8 +211,10 @@ export class TasksService {
             id: {
               not: createdById
             }
+
           },
-          select: { id: true }
+          select: { id: true },
+
         });
 
         if (approvers.length > 0) {
