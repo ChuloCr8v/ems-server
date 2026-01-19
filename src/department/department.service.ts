@@ -4,7 +4,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateTeamDto, DepartmentDto } from './dto/department.dto';
+import { CreateTeamDto, DepartmentDto, UpdateTeamDTO } from './dto/department.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { Prisma, Role, User } from '@prisma/client';
 
@@ -312,7 +312,7 @@ export class DepartmentService {
                     department: { connect: { id: deptId } },
                     approver: {
                         connect: {
-                            id: dept.approver.find(d => d.role === "DEPT_MANAGER").id
+                            id: dept.approver.find(d => d.role === "DEPT_MANAGER")?.id
                         }
                     },
                     createdBy: {
@@ -371,6 +371,71 @@ export class DepartmentService {
         }
     }
 
+    async updateTeam(teamId: string, data: UpdateTeamDTO) {
+        try {
+
+            const team = await this.prisma.team.findUnique({
+                where: {
+                    id: teamId
+                }
+            })
+
+            if (!team) mustHave(team, "Team not found", 404)
+
+            let updateData: Prisma.TeamUpdateInput = {}
+
+            if (data?.name) {
+                updateData.name = data.name
+            }
+
+            if (data?.userIds) {
+                updateData.members = {
+                    set: [],
+                    connect: data.userIds.map(u => ({ id: u }))
+                }
+            }
+
+
+            if (data?.teamLead) {
+                await this.prisma.approver.deleteMany({
+                    where: {
+                        teamId
+                    }
+                })
+
+                await this.prisma.approver.create({
+                    data: {
+                        role: "TEAM_LEAD",
+                        team: {
+                            connect: {
+                                id: teamId
+                            }
+                        },
+                        user: {
+                            connect: {
+                                id: data.teamLead
+                            }
+                        }
+                    }
+                })
+            }
+
+            await this.prisma.team.update({
+                where: {
+                    id: teamId
+                },
+                data: updateData
+            })
+
+            return {
+                message: "Team updated successfully",
+                team
+            }
+        } catch (error) {
+            bad(error)
+        }
+    }
+
 
     async getAllDepartment() {
         try {
@@ -383,9 +448,23 @@ export class DepartmentService {
                         },
                     },
                     teams: {
-                        include: { members: true }
+                        include: {
+                            members: {
+                                where: {
+                                    NOT: {
+                                        status: "INACTIVE"
+                                    }
+                                }
+                            }
+                        }
                     },
-                    user: true,
+                    user: {
+                        where: {
+                            NOT: {
+                                status: "INACTIVE"
+                            }
+                        }
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
             });
@@ -406,6 +485,11 @@ export class DepartmentService {
                 },
                 include: {
                     user: {
+                        where: {
+                            NOT: {
+                                status: "INACTIVE"
+                            }
+                        },
                         include: {
                             approver: {
                                 include: {
@@ -440,7 +524,6 @@ export class DepartmentService {
 
     async listTeams(deptId: string) {
         try {
-            console.log(deptId)
             const dept = await this.__findOneDepartment(deptId)
 
             if (!dept) mustHave(dept, "Department not found", 404)
@@ -450,7 +533,14 @@ export class DepartmentService {
                     departmentId: deptId
                 },
                 include: {
-                    members: true
+                    approver: true,
+                    members: {
+                        where: {
+                            NOT: {
+                                status: "INACTIVE"
+                            }
+                        }
+                    }
                 }
             })
             return teams;
@@ -468,8 +558,15 @@ export class DepartmentService {
                     id: teamId
                 },
                 include: {
-                    members: true,
-                    department: true
+                    members: {
+                        where: {
+                            NOT: {
+                                status: "INACTIVE"
+                            }
+                        }
+                    },
+                    department: true,
+                    approver: true
                 }
             })
 
@@ -521,6 +618,28 @@ export class DepartmentService {
             );
         }
     }
+
+    async deleteTeam(id: string) {
+        try {
+            const team = await this.prisma.team.findUnique({
+                where: {
+                    id
+                }
+            })
+            if (!team) {
+                throw new NotFoundException('team Not Found');
+            }
+
+            return await this.prisma.team.delete({
+                where: { id },
+            });
+        } catch (error) {
+            throw new InternalServerErrorException(
+                `Failed to delete department ${error.message}`,
+            );
+        }
+    }
+
 
     ///////////////////////// Helper Functions ////////////////////
     async __findOneDepartment(id: string) {

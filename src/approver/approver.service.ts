@@ -1,12 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Department, Role } from '@prisma/client';
+import { Department, Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async getApproversForDepartment(departments: Department[]) {
+  async getApproversForDepartment(user: any) {
+
+    const departments = user.defaultDepartment ? [user.defaultDepartment] : user.departments
+
     const deptIds = departments.map((d) => d.id);
 
     const approver = this.prisma.user.findMany({
@@ -15,6 +18,7 @@ export class ApproverService {
           some: {
             departmentId: { in: deptIds },
             role: Role.DEPT_MANAGER,
+            isActive: true
           },
         },
       },
@@ -24,11 +28,7 @@ export class ApproverService {
       },
     });
 
-    console.log(approver)
-
     return approver
-
-
   }
 
   async getGlobalApprovers() {
@@ -41,7 +41,7 @@ export class ApproverService {
     });
   }
 
-   async getDepartmentApprovers() {
+  async getDepartmentApprovers() {
     return this.prisma.user.findMany({
       where: {
         userRole: {
@@ -65,6 +65,15 @@ export class ApproverService {
             }
           }
         },
+        defaultDepartment: {
+          include: {
+            approver: {
+              include: {
+                user: true
+              }
+            }
+          }
+        },
         approver: true
       },
     });
@@ -73,7 +82,7 @@ export class ApproverService {
       throw new NotFoundException('User not found');
     }
 
-    const isDepartmentHead = user.approver.length
+    const isDepartmentHead = user.approver.length && user.approver.some(u => u.role.includes(Role.DEPT_MANAGER))
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
@@ -81,7 +90,7 @@ export class ApproverService {
     }
 
     // Regular employees get department approvers + global approvers
-    const departmentApprovers = await this.getApproversForDepartment(user.departments)
+    const departmentApprovers = await this.getApproversForDepartment(user)
       ?? [];
 
     const globalApprovers = await this.getGlobalApprovers();

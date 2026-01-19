@@ -142,6 +142,8 @@ model Team {
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   departmentId String?     @db.Uuid
 
+  task Task[]
+
   members   User[]   @relation("team")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -740,6 +742,9 @@ model Task {
 
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  teamId String? @db.Uuid
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   comments Comment[]
 
