@@ -73,12 +73,20 @@ model User {
   payslip               Payslip[]
   responses             Response[]
 
-  userDocuments     Upload[]     @relation("UserDocuments")
-  level             Level?       @relation(fields: [levelId], references: [id])
-  prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  userTask          UserTask[]
-  departments       Department[] @relation("DepartmentToUser")
-  prospectDocuments Upload[]     @relation("ProspectDocuments")
+  defaultDepartment Department? @relation("default", fields: [defaultId], references: [id], onDelete: Cascade)
+  defaultId         String?     @db.Uuid
+
+  userDocuments Upload[]   @relation("UserDocuments")
+  level         Level?     @relation(fields: [levelId], references: [id])
+  prospect      Prospect?  @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  userTask      UserTask[]
+
+  departments Department[] @relation("DepartmentToUser")
+  team        Team?        @relation("team", fields: [teamId], references: [id])
+  teamCreator Team[]       @relation("teamCreator")
+  teamId      String?      @db.Uuid
+
+  prospectDocuments Upload[] @relation("ProspectDocuments")
 
   createdTasks  Task[] @relation("CreatedTasks")
   approvedTasks Task[] @relation("ApprovedTasks")
@@ -104,21 +112,37 @@ model User {
 }
 
 model Department {
-  id             String                  @id @default(uuid()) @db.Uuid
-  name           String                  @unique
-  createdById    String?                 @unique @db.Uuid
-  status         DepartmentStatus?       @default(ACTIVE)
-  approver       Approver[]
-  createdBy      User?                   @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects      Prospect[]              @relation("DepartmentToProspect")
-  taskCategories Category[]
-  user           User[]                  @relation("DepartmentToUser")
-  kpiCategories  KpiCategory[]
-  appraisals     Appraisal[]
-  tasks          Task[]
-  entitlements   DepartmentEntitlement[]
-  entitlementId  String?                 @db.Uuid()
+  id                String                  @id @default(uuid()) @db.Uuid
+  name              String                  @unique
+  createdById       String?                 @unique @db.Uuid
+  status            DepartmentStatus?       @default(ACTIVE)
+  approver          Approver[]
+  createdBy         User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects         Prospect[]              @relation("DepartmentToProspect")
+  taskCategories    Category[]
+  user              User[]                  @relation("DepartmentToUser")
+  defaultDepartment User[]                  @relation("default")
+  kpiCategories     KpiCategory[]
+  appraisals        Appraisal[]
+  tasks             Task[]
+  entitlements      DepartmentEntitlement[]
+  teams             Team[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @default(now()) @updatedAt
+}
 
+model Team {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String            @unique
+  createdById String?           @db.Uuid
+  status      DepartmentStatus? @default(ACTIVE)
+  approver    Approver[]
+  createdBy   User?             @relation("teamCreator", fields: [createdById], references: [id])
+
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  departmentId String?     @db.Uuid
+
+  members   User[]   @relation("team")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 }
@@ -501,6 +525,8 @@ model Approver {
   updatedAt    DateTime    @updatedAt
   department   Department? @relation(fields: [departmentId], references: [id])
   user         User        @relation(fields: [userId], references: [id])
+  team         Team?       @relation(fields: [teamId], references: [id])
+  teamId       String?     @db.Uuid
 }
 
 model Approval {
@@ -573,22 +599,40 @@ model PayrollComponent {
 }
 
 model Payslip {
-  id        String   @id @default(uuid()) @db.Uuid
+  id        String  @id @default(uuid()) @db.Uuid
   name      String
-  data      Bytes
-  userId    String   @db.Uuid
-  createdAt DateTime @default(now())
+  // data      Bytes
+  userId    String  @db.Uuid
   month     String
-  payrollId String   @db.Uuid
+  payrollId String  @db.Uuid
   year      Int
   amount    Float
-  payroll   Payroll  @relation(fields: [payrollId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // pdf       Bytes?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([userId])
   @@index([payrollId])
   @@index([month, year])
 }
+
+// model PayslipPdf {
+//   id String @id @default(uuid()) @db.Uuid
+
+//   createdAt DateTime  @default(now())
+//   updatedAt DateTime? @updatedAt
+
+//   payslip   Payslip? @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+//   payslipId String   @unique @db.Uuid
+
+//   data Bytes
+
+//   @@index([id])
+// }
 
 model Deductions {
   id   String @id @default(uuid()) @db.Uuid
@@ -690,12 +734,12 @@ model Task {
   isReported Boolean @default(false)
 
   // Relations
-  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
-  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
+  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id], onDelete: Cascade)
   createdById String @db.Uuid
 
   departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   comments Comment[]
 
@@ -787,8 +831,8 @@ model UserTask {
   assignedAt DateTime @default(now())
   userId     String   @db.Uuid
   taskId     String   @db.Uuid
-  task       Task     @relation(fields: [taskId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
 }
@@ -981,6 +1025,7 @@ enum Status {
   DECLINED
   ISSUE_REPORTED
   ACTIVE
+  INACTIVE
   CONFIRMED
   COMPLETED
   IN_PROGRESS

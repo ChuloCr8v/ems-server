@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Report, TaskStatus } from '@prisma/client';
-import { generate } from 'rxjs';
+import { Report, Task, UserTask, TaskStatus } from '@prisma/client';
+
 import { PrismaService } from 'src/prisma/prisma.service';
 import { bad } from 'src/utils/error.utils';
 
@@ -15,19 +15,20 @@ export class ReportService {
 
             const users = await this.prisma.user.findMany({
                 include: {
-                    userTask: { include: { task: true } }
+                    userTask: { include: { task: true } },
+                    createdTasks: true,
                 }
             });
 
             const reports = [];
 
             for (const user of users) {
-                const taskIds = user.userTask
-                    .filter(({ task }) =>
-                        task.status !== TaskStatus.COMPLETED ||
-                        (task.status === TaskStatus.COMPLETED && !task.isReported)
-                    )
-                    .map(ut => ut.taskId)
+                const taskIds = [...user.userTask.flatMap(t => t.task), ...user.createdTasks]
+                    .filter((item: Task) => {
+                        return item.status !== TaskStatus.COMPLETED ||
+                            (item.status === TaskStatus.COMPLETED && !item.isReported)
+                    })
+                    .map((item: Task) => item.id)
                     .filter(Boolean);
 
                 let existing = await this.prisma.report.findFirst({
@@ -198,15 +199,19 @@ export class ReportService {
 
 }
 
-
 function getCurrentWeek(date = new Date()): number {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    const d = new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate()
+    ));
 
-    const dayNum = d.getUTCDate() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+    const dayNum = d.getUTCDay() || 7; // Sunday → 7
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
 
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
 
-    return Math.ceil((((d.valueOf() - yearStart.valueOf()) / 86400000) + 1) / 7)
-
-}   
+    return Math.ceil(
+        (((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7
+    );
+}

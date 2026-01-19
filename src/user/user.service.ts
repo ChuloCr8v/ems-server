@@ -23,6 +23,11 @@ export class UserService {
                 },
                 include: {
                     departments: true,
+                    defaultDepartment: {
+                        include: {
+                            approver: true
+                        }
+                    },
                     level: {
                         include: {
                             entitlements: true
@@ -277,9 +282,7 @@ export class UserService {
                 ...(data.workPhone && { workPhone: data.workPhone }),
                 ...(data.eId && { eId: data.eId }),
                 ...(data.status && { status: data.status }),
-                ...(data.levelId && {
-                    level: { connect: { id: data.levelId } },
-                }),
+                ...(data.levelId && { levelId: data.levelId }),
             });
         }
 
@@ -304,6 +307,14 @@ export class UserService {
                 set: [],
                 connect: data.departments.map((d) => ({ id: d })),
             };
+
+            if (data.departments.length > 1) {
+                if (!data.defaultDepartment) bad("Select Default Department")
+                if (!data.departments.includes(data.defaultDepartment)) bad("Select user assigned department")
+                updateData.defaultId = data.defaultDepartment;
+            } else {
+                updateData.defaultId = null;
+            }
         }
 
         const updatedUser = await this.prisma.user.update({
@@ -336,6 +347,11 @@ export class UserService {
                 },
                 level: true,
                 departments: true,
+                defaultDepartment: {
+                    include: {
+                        approver: true
+                    }
+                },
                 contacts: {
                     include: {
                         guarantor: {
@@ -518,6 +534,11 @@ export class UserService {
                     },
                     bank: true,
                     departments: true,
+                    defaultDepartment: {
+                        include: {
+                            approver: true
+                        }
+                    },
                     prospect: true,
                 },
             });
@@ -677,6 +698,39 @@ export class UserService {
             failed,
             message: `Processed ${data.length} employees: ${created.length} created, ${failed.length} failed.`,
         };
+    }
+
+    async updateUserStatus(id: string) {
+
+        try {
+
+            const user = await this.prisma.user.findUnique({
+                where: {
+                    id
+                },
+            })
+
+            if (!user) {
+                mustHave(user, "Users not found", 404);
+            }
+
+            const newStatus = user.status === Status.ACTIVE ? Status.INACTIVE : Status.ACTIVE;
+
+            await this.prisma.user.update({
+                where: {
+                    id,
+                },
+                data: {
+                    status: newStatus,
+                },
+            })
+
+            return {
+                message: "users status updated successfully"
+            }
+        } catch (e) {
+            bad(e)
+        }
     }
 
 
