@@ -142,6 +142,8 @@ model Team {
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   departmentId String?     @db.Uuid
 
+  task Task[]
+
   members   User[]   @relation("team")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -741,6 +743,9 @@ model Task {
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
+  teamId String? @db.Uuid
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
   comments Comment[]
 
   approvedById String? @db.Uuid
@@ -914,17 +919,17 @@ model Objective {
 }
 
 model AppraisalObjective {
-  id            String      @id @default(uuid()) @db.Uuid
-  appraisalId   String      @db.Uuid
-  appraisal     Appraisal   @relation(fields: [appraisalId], references: [id])
-  objectiveId   String      @db.Uuid
-  objective     Objective   @relation(fields: [objectiveId], references: [id])
+  id            String       @id @default(uuid()) @db.Uuid
+  appraisalId   String       @db.Uuid
+  appraisal     Appraisal    @relation(fields: [appraisalId], references: [id])
+  objectiveId   String       @db.Uuid
+  objective     Objective    @relation(fields: [objectiveId], references: [id])
   kpiCategoryId String?      @db.Uuid
   kpiCategory   KpiCategory? @relation(fields: [kpiCategoryId], references: [id])
   rating        Float?
   comment       String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model GoalsAndAchievement {
