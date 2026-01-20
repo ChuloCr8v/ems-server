@@ -865,8 +865,8 @@ model Appraisal {
   status              AppraisalStatus      @default(GENERATED)
   departmentId        String               @db.Uuid
   department          Department           @relation(fields: [departmentId], references: [id])
-  appraiserId         String               @db.Uuid
-  appraiser           User                 @relation("Appraiser", fields: [appraiserId], references: [id])
+  appraiserId         String?              @db.Uuid
+  appraiser           User?                @relation("Appraiser", fields: [appraiserId], references: [id])
   appraisedId         String?              @db.Uuid // The employee being appraised
   appraised           User?                @relation("Appraised", fields: [appraisedId], references: [id])
   createdAt           DateTime             @default(now())
@@ -971,7 +971,7 @@ model RatingSummary {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  @@unique([appraisalId, kpiCategoryId])
+  // @@unique([appraisalId, kpiCategoryId])
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -1056,6 +1056,8 @@ enum AppraisalStatus {
   SUBMITTED // Employee has submitted for manager review
   APPRAISED // Manager has reviewed and approved
   COMPLETED // Final state after HR review
+
+  REVIEWED
 }
 
 enum KpiCategoryStatus {
@@ -1067,6 +1069,9 @@ enum KpiCategoryStatus {
 enum KpiCategoryType {
   ORGANIZATIONAL
   DEPARTMENTAL
+
+  STATIC
+  DYNAMIC
 }
 
 enum ComponentCategory {
@@ -1188,6 +1193,8 @@ enum Gender {
 
 enum CategoryType {
   Task
+  STATIC
+  DYNAMIC
 }
 
 enum EntitlementType {
