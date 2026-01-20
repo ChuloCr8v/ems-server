@@ -1,4 +1,21 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
+
+export const UserSelect = {
+    select: {
+        id: true,
+        eId: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        userRole: true,
+        role: true,
+        phone: true,
+        address: true,
+        
+    }
+} satisfies Prisma.UserDefaultArgs;
+
+export type AuthUsers = Prisma.UserGetPayload<typeof UserSelect>;
 
 export const KpiSelect = {
     select: {

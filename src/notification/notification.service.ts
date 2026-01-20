@@ -15,6 +15,15 @@ export class NotificationService {
         return this.prisma.notification.createMany({ data: notifications });
     }
 
+    async create(notification: {
+        recipientId: string;
+        actorId: string;
+        type: string;
+        message: string;
+    }) {
+        return this.prisma.notification.create({ data: notification });
+    }
+
     async getForUser(userId: string) {
         return this.prisma.notification.findMany({
             where: { recipientId: userId },
