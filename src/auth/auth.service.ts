@@ -115,8 +115,8 @@ export class AuthService {
 
   //Temporary. Will remove later so just ignore lack of password.
   async emailLogin(email: string, password: string) {
-    const isDev = process.env.IS_DEV === 'true';
-    if (!isDev) bad("Login with your Microsoft account");
+    // const isDev = process.env.IS_DEV === 'true';
+    // if (!isDev) bad("Login with your Microsoft account");
 
     try {
       const user = await this.prisma.user.findUnique({
