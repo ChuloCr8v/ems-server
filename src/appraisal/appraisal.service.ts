@@ -606,20 +606,20 @@ export class AppraisalService {
                 });
 
                 // Persist each category summary
-                await this.prisma.ratingSummary.upsert({
-                    where: {
-                        appraisalId_kpiCategoryId: {
-                            appraisalId,
-                            kpiCategoryId: category.id,
-                        },
-                    },
-                    update: { averageRating: avg },
-                    create: {
-                        appraisalId,
-                        kpiCategoryId: category.id,
-                        averageRating: avg,
-                    },
-                });
+                // await this.prisma.ratingSummary.upsert({
+                //     where: {
+                //         appraisalId_kpiCategoryId: {
+                //             appraisalId,
+                //             kpiCategoryId: category.id,
+                //         },
+                //     },
+                //     update: { averageRating: avg },
+                //     create: {
+                //         appraisalId,
+                //         kpiCategoryId: category.id,
+                //         averageRating: avg,
+                //     },
+                // });
             }
 
             // --- Compute overall average ---
