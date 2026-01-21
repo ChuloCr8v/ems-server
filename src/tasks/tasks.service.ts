@@ -861,168 +861,173 @@ export class TasksService {
 
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
 
-    const { assignees, category, uploads, status, issue, ...rest } = taskData;
-    const findTask = await this.getOneTask(id);
-    if (!findTask) mustHave(findTask, "Task not found", 404);
+    try {
 
-    //Store previous state for event emission
-    const previousState = {
-      status: findTask.status,
-      assignees: findTask.assignees.map(a => a.userId),
-      priority: findTask.priority,
-      dueDate: findTask.dueDate,
-    }
+      const { assignees, category, uploads, status, issue, ...rest } = taskData;
+      const findTask = await this.getOneTask(id);
+      if (!findTask) mustHave(findTask, "Task not found", 404);
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId
-      }
-    })
-
-    if (!user) mustHave(user, "User not found", 404)
-
-    const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
-
-    const ownerId = await this.taskOwner(findTask.id)
-
-    if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
-
-    if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
-      // if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
-      if (!findTask.startDate) bad("Cannot approve task without start date")
-      if (!findTask.hasTransfer && !findTask.taskDueDates.length && !findTask.dueDate) bad("Cannot approve task without due date")
-      if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
-    }
-
-    const task = await this.prisma.$transaction(async (tx) => {
-
-      // --- handle Uploads ---
-      if (uploads !== undefined && uploads.length > 0) {
-        await tx.task.update({
-          where: { id },
-          data: {
-            uploads: {
-              // set: [], // optional: clears old uploads if needed
-              connect: uploads.map((u: string) => ({ id: u })),
-            },
-          },
-        });
+      //Store previous state for event emission
+      const previousState = {
+        status: findTask.status,
+        assignees: findTask.assignees.map(a => a.userId),
+        priority: findTask.priority,
+        dueDate: findTask.dueDate,
       }
 
-      // --- Sync Assignees ---
-      if (assignees !== undefined) {
-        const existingAssignees = await tx.userTask.findMany({
-          where: { taskId: id },
-          select: { userId: true },
-        });
-        const existingIds = existingAssignees.map((a) => a.userId);
-
-        const newIds = assignees.filter((id: string) => !existingIds.includes(id));
-        const removedIds = existingIds.filter((id) => !assignees.includes(id));
-
-        // Add new ones
-        if (newIds.length > 0) {
-          await tx.userTask.createMany({
-            data: newIds.map((userId: string) => ({
-              taskId: id,
-              userId,
-            })),
-          });
-        }
-
-        // Remove unselected ones
-        if (removedIds.length > 0) {
-          await tx.userTask.deleteMany({
-            where: { taskId: id, userId: { in: removedIds } },
-          });
-        }
-      }
-
-      // --- Handle Categories ---
-      if (category !== undefined && category.length > 0) {
-        await tx.task.update({
-          where: { id },
-          data: {
-            category: {
-              connect: category.map(id => ({ id }))
-            }
-          },
-        });
-      }
-
-      // --- Handle Task Status
-      const completedStatus = () => {
-        if (status === "COMPLETED") {
-          if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
-        } else return status
-      }
-
-      await tx.task.update({
+      const user = await this.prisma.user.findUnique({
         where: {
-          id
-        },
-        data: status === "ISSUES" ? {
-          hasIssues: true,
-          status,
-          taskIssues: {
-            create: {
-              issue: issue,
-              reportedBy: {
-                connect: { id: userId }
-              }
-            }
-          }
-        } : {
-          status: completedStatus()
+          id: userId
         }
       })
 
+      if (!user) mustHave(user, "User not found", 404)
 
-      // --- Update Task Base Data ---
-      const updatedTask = await tx.task.update({
-        where: { id },
-        data: rest,
-        include: this.getTaskInclude(),
+      const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
+
+      const ownerId = await this.taskOwner(findTask.id)
+
+      if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
+
+      if (status) {
+        // if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
+        if (findTask.startDate === null) bad("Cannot approve task without start date")
+        if (!findTask.hasTransfer && !findTask.taskDueDates.length && findTask.dueDate === null) bad("Cannot approve task without due date")
+        if (status === "APPROVED" && findTask.approvalStatus === "APPROVED") bad("Task already approved")
+      }
+
+      const task = await this.prisma.$transaction(async (tx) => {
+
+        // --- handle Uploads ---
+        if (uploads !== undefined && uploads.length > 0) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              uploads: {
+                // set: [], // optional: clears old uploads if needed
+                connect: uploads.map((u: string) => ({ id: u })),
+              },
+            },
+          });
+        }
+
+        // --- Sync Assignees ---
+        if (assignees !== undefined) {
+          const existingAssignees = await tx.userTask.findMany({
+            where: { taskId: id },
+            select: { userId: true },
+          });
+          const existingIds = existingAssignees.map((a) => a.userId);
+
+          const newIds = assignees.filter((id: string) => !existingIds.includes(id));
+          const removedIds = existingIds.filter((id) => !assignees.includes(id));
+
+          // Add new ones
+          if (newIds.length > 0) {
+            await tx.userTask.createMany({
+              data: newIds.map((userId: string) => ({
+                taskId: id,
+                userId,
+              })),
+            });
+          }
+
+          // Remove unselected ones
+          if (removedIds.length > 0) {
+            await tx.userTask.deleteMany({
+              where: { taskId: id, userId: { in: removedIds } },
+            });
+          }
+        }
+
+        // --- Handle Categories ---
+        if (category !== undefined && category.length > 0) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              category: {
+                connect: category.map(id => ({ id }))
+              }
+            },
+          });
+        }
+
+        // --- Handle Task Status
+        const completedStatus = () => {
+          if (status === "COMPLETED") {
+            if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
+          } else return status
+        }
+
+        await tx.task.update({
+          where: {
+            id
+          },
+          data: status === "ISSUES" ? {
+            hasIssues: true,
+            status,
+            taskIssues: {
+              create: {
+                issue: issue,
+                reportedBy: {
+                  connect: { id: userId }
+                }
+              }
+            }
+          } : {
+            status: completedStatus()
+          }
+        })
+
+
+        // --- Update Task Base Data ---
+        const updatedTask = await tx.task.update({
+          where: { id },
+          data: rest,
+          include: this.getTaskInclude(),
+        });
+
+        return updatedTask;
       });
 
-      return updatedTask;
-    });
-
-    //Emit notification events based on what changed
-    await this.emitUpdateEvents({
-      userId,
-      taskId: id,
-      taskTitle: task.title,
-      oldTask: findTask,
-      newTask: task,
-      oldAssignees: previousState.assignees,
-      newAssignees: assignees,
-      oldStatus: previousState.status,
-      newStatus: status,
-      oldPriority: previousState.priority,
-      newPriority: rest.priority,
-      oldDueDate: previousState.dueDate,
-      newDueDate: rest.dueDate,
-      issueDescription: issue,
-    });
-
-    if (status && status !== findTask.status) {
-      const allRecipients = new Set<string>();
-      if (task.createdById !== userId) allRecipients.add(task.createdById);
-      task.assignees.forEach(a => {
-        if (a.user.id !== userId) allRecipients.add(a.user.id);
-      });
-
-      this.event.emit('task.updated', new TaskUpdatedEvent(
+      //Emit notification events based on what changed
+      await this.emitUpdateEvents({
         userId,
-        Array.from(allRecipients),
-        task.id,
-        task.title,
-        status
-      ));
-    }
+        taskId: id,
+        taskTitle: task.title,
+        oldTask: findTask,
+        newTask: task,
+        oldAssignees: previousState.assignees,
+        newAssignees: assignees,
+        oldStatus: previousState.status,
+        newStatus: status,
+        oldPriority: previousState.priority,
+        newPriority: rest.priority,
+        oldDueDate: previousState.dueDate,
+        newDueDate: rest.dueDate,
+        issueDescription: issue,
+      });
 
-    return task;
+      if (status && status !== findTask.status) {
+        const allRecipients = new Set<string>();
+        if (task.createdById !== userId) allRecipients.add(task.createdById);
+        task.assignees.forEach(a => {
+          if (a.user.id !== userId) allRecipients.add(a.user.id);
+        });
+
+        this.event.emit('task.updated', new TaskUpdatedEvent(
+          userId,
+          Array.from(allRecipients),
+          task.id,
+          task.title,
+          status
+        ));
+      }
+
+      return task;
+    } catch (error) {
+      bad(error)
+    }
   }
 
   async transfer(
