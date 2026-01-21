@@ -38,7 +38,7 @@ export class NotificationListener {
             actorId: null,
             type: 'EMPLOYMENT_ACCEPTED',
             title: 'Employment Invitation Accepted',
-            message: `Great news! ${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
+            message: `${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
         }));
 
         await this.notificationService.createMany(notifications);
@@ -47,7 +47,7 @@ export class NotificationListener {
             this.gateway.sendToUser(recipientId, {
                 type: 'EMPLOYMENT_ACCEPTED',
                 title: 'Employment Invitation Accepted',
-                message: `Great news! ${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
+                message: `${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
             });
         }
     }
@@ -118,7 +118,7 @@ export class NotificationListener {
         });
 
         const recipientIds = Array.isArray(event.employeeId) ? event.employeeId : [event.employeeId];
-        const notifications = recipientIds.map((recipientId) => ({
+        const notifications = recipientIds.map((recipientId: string) => ({
             recipientId,
             actorId: event.approverId,
             type: 'LEAVE_APPROVED',
@@ -149,7 +149,7 @@ export class NotificationListener {
             actorId: event.approverId,
             type: 'LEAVE_DECLINED',
             title: 'Leave Request Declined',
-            message: `We regret to inform you that your leave request has been declined. Please contact your manager for more details.`,
+            message: `Your leave request has been declined. Please contact your manager for more details.`,
             actionType: NotificationActionType.LEAVE_DECLINED,
             actionData: {
                 requestId: event.leaveRequestId
@@ -162,7 +162,7 @@ export class NotificationListener {
             this.gateway.sendToUser(recipientId, {
                 type: 'LEAVE_DECLINED',
                 title: 'Leave Request Declined',
-                message: `We regret to inform you that your leave request has been declined. Please contact your manager for more details.`,
+                message: `Your leave request has been declined. Please contact your manager for more details.`,
             });
         }
     }
