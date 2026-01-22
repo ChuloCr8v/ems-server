@@ -20,9 +20,6 @@ import {
 } from 'src/events/tasks.event';
 import { IdGenerator } from 'src/utils/IdGenerator.util';
 
-
-
-
 @Injectable()
 export class TasksService {
   constructor(private prisma: PrismaService, private readonly event: EventEmitter2,) { }
@@ -514,7 +511,6 @@ export class TasksService {
     }
   }
 
-
   //TASK EXTENSIONS
   async extendDueDate(id: string, userId: string, dueDate: Date, note?: string) {
     try {
@@ -975,7 +971,8 @@ export class TasksService {
               }
             }
           } : {
-            status: completedStatus()
+            status: completedStatus(),
+            hasIssues: false
           }
         })
 
@@ -990,23 +987,23 @@ export class TasksService {
         return updatedTask;
       });
 
-      //Emit notification events based on what changed
-      await this.emitUpdateEvents({
-        userId,
-        taskId: id,
-        taskTitle: task.title,
-        oldTask: findTask,
-        newTask: task,
-        oldAssignees: previousState.assignees,
-        newAssignees: assignees,
-        oldStatus: previousState.status,
-        newStatus: status,
-        oldPriority: previousState.priority,
-        newPriority: rest.priority,
-        oldDueDate: previousState.dueDate,
-        newDueDate: rest.dueDate,
-        issueDescription: issue,
-      });
+      // //Emit notification events based on what changed
+      // await this.emitUpdateEvents({
+      //   userId,
+      //   taskId: id,
+      //   taskTitle: task.title,
+      //   oldTask: findTask,
+      //   newTask: task,
+      //   oldAssignees: previousState.assignees,
+      //   newAssignees: assignees,
+      //   oldStatus: previousState.status,
+      //   newStatus: status,
+      //   oldPriority: previousState.priority,
+      //   newPriority: rest.priority,
+      //   oldDueDate: previousState.dueDate,
+      //   newDueDate: rest.dueDate,
+      //   issueDescription: issue,
+      // });
 
       if (status && status !== findTask.status) {
         const allRecipients = new Set<string>();
@@ -1170,6 +1167,7 @@ export class TasksService {
   getTaskInclude() {
     return {
       department: true,
+      taskIssues: true,
       team: true,
       createdBy: {
         select: {
