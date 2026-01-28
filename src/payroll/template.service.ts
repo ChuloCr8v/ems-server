@@ -23,7 +23,12 @@ export class PayslipTemplateService {
   ): string {
     const user = payroll.user;
 
-    const templatePath = path.join(__dirname, 'templates', 'payslip.html');
+    const templatePath = fs.existsSync(
+      path.join(process.cwd(), 'dist', 'src', 'payroll', 'templates', 'payslip.html')
+    )
+      ? path.join(process.cwd(), 'dist', 'src', 'payroll', 'templates', 'payslip.html')
+      : path.join(process.cwd(), 'src', 'payroll', 'templates', 'payslip.html');
+
     let html = fs.readFileSync(templatePath, 'utf8');
 
     const date = new Date().toLocaleDateString('en-US', {
