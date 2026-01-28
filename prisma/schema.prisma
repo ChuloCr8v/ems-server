@@ -73,12 +73,12 @@ model User {
   payslip               Payslip[]
   responses             Response[]
 
-  defaultDepartment Department? @relation("default", fields: [defaultId], references: [id], onDelete: Cascade)
+  defaultDepartment Department? @relation("default", fields: [defaultId], references: [id])
   defaultId         String?     @db.Uuid
 
   userDocuments Upload[]   @relation("UserDocuments")
   level         Level?     @relation(fields: [levelId], references: [id])
-  prospect      Prospect?  @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  prospect      Prospect?  @relation(fields: [prospectId], references: [id])
   userTask      UserTask[]
 
   departments Department[] @relation("DepartmentToUser")
@@ -526,7 +526,7 @@ model Approver {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   department   Department? @relation(fields: [departmentId], references: [id])
-  user         User        @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   team         Team?       @relation(fields: [teamId], references: [id])
   teamId       String?     @db.Uuid
 }
@@ -575,7 +575,7 @@ model Payroll {
   userId        String             @unique @db.Uuid
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
-  user          User               @relation(fields: [userId], references: [id])
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   component     PayrollComponent[]
   payslip       Payslip[]
 }
@@ -603,7 +603,6 @@ model PayrollComponent {
 model Payslip {
   id        String  @id @default(uuid()) @db.Uuid
   name      String
-  // data      Bytes
   userId    String  @db.Uuid
   month     String
   payrollId String  @db.Uuid
@@ -612,29 +611,12 @@ model Payslip {
   payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // pdf       Bytes?
-
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
 
+  @@unique([payrollId, month, year])
   @@index([userId])
-  @@index([payrollId])
-  @@index([month, year])
 }
-
-// model PayslipPdf {
-//   id String @id @default(uuid()) @db.Uuid
-
-//   createdAt DateTime  @default(now())
-//   updatedAt DateTime? @updatedAt
-
-//   payslip   Payslip? @relation(fields: [payslipId], references: [id], onDelete: Cascade)
-//   payslipId String   @unique @db.Uuid
-
-//   data Bytes
-
-//   @@index([id])
-// }
 
 model Deductions {
   id   String @id @default(uuid()) @db.Uuid
