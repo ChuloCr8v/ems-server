@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException, StreamableFile } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
@@ -16,6 +16,7 @@ import { monthInWords } from 'src/utils/monthInWords';
 import { MailService } from 'src/mail/mail.service';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Readable } from 'stream';
 
 
 const templates = resolve(__dirname, '../payroll/templates');
@@ -818,7 +819,8 @@ export class PayrollService {
         }
     }
 
-    async downloadPayslip(payslipId: string, res: Response): Promise<void> {
+
+    async downloadPayslip(payslipId: string): Promise<StreamableFile> {
         const payslip = await this.prisma.payslip.findUnique({
             where: { id: payslipId },
             include: {
@@ -847,19 +849,18 @@ export class PayrollService {
             pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
         } catch (err) {
             console.error('PDF generation failed:', err);
-            bad('Failed to generate payslip PDF');
+            throw new InternalServerErrorException('Failed to generate payslip PDF');
         }
 
         this.validatePDFBuffer(pdfBuffer);
 
-        res.set({
-            'Content-Type': 'application/pdf',
-            'Content-Length': pdfBuffer.length,
-            'Content-Disposition': `attachment; filename="${payslip.name}.pdf"`,
-        });
+        const stream = Readable.from(pdfBuffer);
 
-        res.end(pdfBuffer); // 👈 IMPORTANT
-        return;             // 👈 VERY IMPORTANT
+        return new StreamableFile(stream, {
+            type: 'application/pdf',
+            disposition: `attachment; filename="${payslip.name}.pdf"`,
+            length: pdfBuffer.length,
+        });
     }
 
 
