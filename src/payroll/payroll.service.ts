@@ -819,52 +819,49 @@ export class PayrollService {
     }
 
     async downloadPayslip(payslipId: string, res: Response): Promise<void> {
-        try {
-            const payslip = await this.prisma.payslip.findUnique({
-                where: { id: payslipId },
-                include: {
-                    user: {
-                        include: {
-                            departments: true
-                        }
+        const payslip = await this.prisma.payslip.findUnique({
+            where: { id: payslipId },
+            include: {
+                user: { include: { departments: true } },
+                payroll: {
+                    include: {
+                        component: true,
+                        user: { include: { departments: true } },
                     },
-                    payroll: {
-                        include: {
-                            component: true,
-                            user: {
-                                include: {
-                                    departments: true
-                                }
-                            }
-                        }
-                    }
                 },
-            });
+            },
+        });
 
-            if (!payslip) throw new NotFoundException('Payslip not found');
-
-            const html = this.payslipTemplate.generateHTML(
-                payslip.payroll,
-                payslip.payroll.component,
-            );
-
-            const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
-
-            const pdfBuffer = Buffer.from(pdfData);
-
-            this.validatePDFBuffer(pdfBuffer);
-
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Length', pdfBuffer.length);
-            res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
-
-            res.send(pdfBuffer);
-        } catch (error) {
-            bad(error)
+        if (!payslip) {
+            throw new NotFoundException('Payslip not found');
         }
 
+        const html = this.payslipTemplate.generateHTML(
+            payslip.payroll,
+            payslip.payroll.component,
+        );
 
+        let pdfBuffer: Buffer;
+
+        try {
+            pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
+        } catch (err) {
+            console.error('PDF generation failed:', err);
+            bad('Failed to generate payslip PDF');
+        }
+
+        this.validatePDFBuffer(pdfBuffer);
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Length': pdfBuffer.length,
+            'Content-Disposition': `attachment; filename="${payslip.name}.pdf"`,
+        });
+
+        res.end(pdfBuffer); // 👈 IMPORTANT
+        return;             // 👈 VERY IMPORTANT
     }
+
 
     async downloadDeductionsExcel(deductionId: string, res: Response): Promise<void> {
         const deduction = await (this.prisma as any).deductions.findUnique({

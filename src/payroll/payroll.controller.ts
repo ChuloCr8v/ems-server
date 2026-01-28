@@ -78,10 +78,15 @@ export class PayrollController {
     return this.payroll.queuePayslipsForPeriod(req.user.id);
   }
 
+  @Auth()
   @Get('download/:payslipId')
-  async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
-    return this.payroll.downloadPayslip(payslipId, res)
+  async downloadPayslip(
+    @Param('payslipId') payslipId: string,
+    @Res() res: Response,
+  ) {
+    await this.payroll.downloadPayslip(payslipId, res);
   }
+
 
   @Get('deductions/download/:id')
   async downloadDeductionsExcel(@Param('id') id: string, @Res() res: Response): Promise<void> {
