@@ -88,7 +88,7 @@ export class PayrollController {
     return this.payroll.downloadDeductionsExcel(id, res);
   }
 
-  // @Auth(["ADMIN", "HR", "SUPERADMIN"])
+  @Auth(["ADMIN", "HR", "SUPERADMIN"])
   @Delete('delete/payslip')
   async delete() {
     await this.prisma.payslip.deleteMany()
