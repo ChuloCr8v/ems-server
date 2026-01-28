@@ -820,6 +820,7 @@ export class PayrollService {
     }
 
 
+
     async downloadPayslip(payslipId: string): Promise<StreamableFile> {
         const payslip = await this.prisma.payslip.findUnique({
             where: { id: payslipId },
@@ -848,13 +849,15 @@ export class PayrollService {
         try {
             pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
         } catch (err) {
-            console.error('PDF generation failed:', err);
+            console.error('[Payslip PDF]', err);
             throw new InternalServerErrorException('Failed to generate payslip PDF');
         }
 
         this.validatePDFBuffer(pdfBuffer);
 
-        const stream = Readable.from(pdfBuffer);
+        const stream = new Readable();
+        stream.push(pdfBuffer);
+        stream.push(null);
 
         return new StreamableFile(stream, {
             type: 'application/pdf',
