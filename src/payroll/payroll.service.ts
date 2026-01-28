@@ -819,46 +819,50 @@ export class PayrollService {
     }
 
     async downloadPayslip(payslipId: string, res: Response): Promise<void> {
-
-        const payslip = await this.prisma.payslip.findUnique({
-            where: { id: payslipId },
-            include: {
-                user: {
-                    include: {
-                        departments: true
-                    }
-                },
-                payroll: {
-                    include: {
-                        component: true,
-                        user: {
-                            include: {
-                                departments: true
+        try {
+            const payslip = await this.prisma.payslip.findUnique({
+                where: { id: payslipId },
+                include: {
+                    user: {
+                        include: {
+                            departments: true
+                        }
+                    },
+                    payroll: {
+                        include: {
+                            component: true,
+                            user: {
+                                include: {
+                                    departments: true
+                                }
                             }
                         }
                     }
-                }
-            },
-        });
+                },
+            });
 
-        if (!payslip) throw new NotFoundException('Payslip not found');
+            if (!payslip) throw new NotFoundException('Payslip not found');
 
-        const html = this.payslipTemplate.generateHTML(
-            payslip.payroll,
-            payslip.payroll.component,
-        );
+            const html = this.payslipTemplate.generateHTML(
+                payslip.payroll,
+                payslip.payroll.component,
+            );
 
-        const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
+            const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
 
-        const pdfBuffer = Buffer.from(pdfData);
+            const pdfBuffer = Buffer.from(pdfData);
 
-        this.validatePDFBuffer(pdfBuffer);
+            this.validatePDFBuffer(pdfBuffer);
 
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Length', pdfBuffer.length);
-        res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Length', pdfBuffer.length);
+            res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
 
-        res.send(pdfBuffer);
+            res.send(pdfBuffer);
+        } catch (error) {
+            bad(error)
+        }
+
 
     }
 
