@@ -13,6 +13,7 @@ import {
   IsObject,
   IsBoolean,
   IsNotEmpty,
+  IsDate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -456,5 +457,3 @@ export class ErrorResponseDto {
   path?: string;
 }
 
-// You'll need to import IsDate from class-validator
-import { IsDate } from 'class-validator';

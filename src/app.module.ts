@@ -33,6 +33,7 @@ import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
 import { PuppeteerModule } from './puppeteer/puppeteer.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { PuppeteerModule } from './puppeteer/puppeteer.module';
     KpiModule,
     ReportModule,
     PuppeteerModule,
+    PaymentModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
 

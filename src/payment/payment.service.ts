@@ -168,4 +168,63 @@ export class PaystackService {
       };
     }
   }
+
+  // Add these methods to your existing PaystackService class
+async getBanks(): Promise<any[]> {
+  try {
+    const response = await axios.get(
+      `${this.baseUrl}/bank`,
+      { 
+        headers: this.getHeaders(),
+        params: {
+          country: 'nigeria',
+          perPage: 100,
+        }
+      }
+    );
+
+    if (response.data.status) {
+      return response.data.data;
+    }
+    throw new Error('Failed to fetch banks from Paystack');
+  } catch (error) {
+    this.logger.error('Failed to fetch banks', error.response?.data || error.message);
+    throw new Error(`Failed to fetch banks: ${error.message}`);
+  }
+}
+
+async resolveBankAccount(accountNumber: string, bankCode: string) {
+  try {
+    const response = await axios.get(
+      `${this.baseUrl}/bank/resolve`,
+      {
+        headers: this.getHeaders(),
+        params: {
+          account_number: accountNumber,
+          bank_code: bankCode,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    this.logger.error('Failed to resolve bank account', error.response?.data);
+    throw new Error(`Bank account resolution failed: ${error.message}`);
+  }
+}
+
+// Helper method for webhook signature validation
+validateWebhookSignature(signature: string, body: any, secret: string): boolean {
+  // Implement Paystack webhook signature validation
+  // Refer to Paystack documentation for proper implementation
+  const crypto = require('crypto');
+  const hash = crypto
+    .createHmac('sha512', secret)
+    .update(JSON.stringify(body))
+    .digest('hex');
+  
+  return hash === signature;
+}
+
+
 }

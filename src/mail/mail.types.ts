@@ -29,6 +29,7 @@ export const MAIL_SUBJECT = {
     APPRAISAL_CREATED: 'New Appraisal Created',
     APPRAISAL_SUBMITTED: 'Appraisal Submitted',
     APPRAISAL_REVIEWED: 'Appraisal Reviewed',
+    PAYMENT_CONFIRMED: 'Payment Confirmation',
 }
 
 export class ProspectInviteDto {
@@ -494,4 +495,25 @@ export class AppraisalMailDto {
 
     @IsString()
     companyName?: string;
+}
+
+// In your mail DTOs file (or create one)
+export class PaymentConfirmationDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsString()
+    claimTitle?: string; // For manager notification
+
+    @IsString()
+    amount: string;
+
+    @IsString()
+    paymentReference?: string;
+
+    @IsString()
+    date: string;
 }
