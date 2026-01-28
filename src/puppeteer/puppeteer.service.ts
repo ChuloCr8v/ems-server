@@ -75,13 +75,15 @@ export class PuppeteerService implements OnModuleDestroy {
   async renderPdfFromHtml(html: string): Promise<Buffer> {
     return this.pdfQueue.add(async () => {
       const browser = await this.getBrowser(true);
-      const page: Page = await browser.newPage();
+      const page = await browser.newPage();
 
       try {
         await page.setContent(html, {
-          waitUntil: 'domcontentloaded',
+          waitUntil: ['domcontentloaded', 'networkidle0'],
           timeout: 30_000,
         });
+
+        await page.emulateMediaType('screen');
 
         const pdfUint8 = await page.pdf({
           format: 'A4',
@@ -95,6 +97,7 @@ export class PuppeteerService implements OnModuleDestroy {
       }
     });
   }
+
 
   /* ---------------- Shutdown ---------------- */
 
