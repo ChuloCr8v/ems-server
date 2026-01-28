@@ -628,65 +628,34 @@ export class PayrollService {
     }
 
     async queuePayslipsForPeriod(userId: string) {
-        console.log("Queueing payslips for user:", userId);
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
         const month = monthInWords + " " + new Date().getFullYear();
 
-
-        // await this.mail.sendPayrollQueueMail({
-        //     email: user.email,
-        //     month,
-        //     date: new Date().getFullYear().toString(),
-
-        // });
-
         try {
             const payrolls = await this.prisma.payroll.findMany({
-                // where: { userId },
                 include: {
                     user: true
                 }
             });
 
-            console.log("Payrolls:", payrolls.length);
-
             if (!payrolls.length) {
                 return { message: "No payroll records found" };
             }
 
-
             await Promise.allSettled(
                 payrolls.map(p => {
-                    console.log("Generating payslip for payroll:", p.id);
-
-                    // 1. Fetch payroll
-                    const payroll = this.prisma.payroll.findUnique({
-                        where: { id: p.id },
-                        include: {
-                            user: { include: { departments: true } },
-                            component: true,
-                        },
-                    });
-
-                    if (!payroll) {
-                        throw new Error(`Payroll not found: ${p.id}`);
-                    }
-
-                    // 4. Save
                     this.savePayslip(p, p.user);
-
-                    return { status: 'done', p };
                 })
             )
 
             // Send final payslip generation completed mail
-            // await this.mail.sendPayslipsGenerated({
-            //     month,
-            //     date: new Date().getFullYear().toString(),
-            //     email: user.email,
-            //     dashboardUrl: "https://ems.miro.zoracom.com"
-            // });
+            await this.mail.sendPayslipsGenerated({
+                month,
+                date: new Date().getFullYear().toString(),
+                email: user.email,
+                dashboardUrl: "https://ems.miro.zoracom.com"
+            });
 
             // Generate deduction summary
             await this.generateConsolidatedDeductionSummary(payrolls);
@@ -710,14 +679,22 @@ export class PayrollService {
             month: 'long',
         });
 
-        // const pdfData = new Uint8Array(pdfBuffer);
-
         const currentMonth = new Date().toLocaleString('default', { month: 'long' }).toLowerCase();
         const year = new Date().getFullYear();
 
-        await this.prisma.payslip.create({
-            data: {
-                // data: pdfData,
+        await this.prisma.payslip.upsert({
+            where: {
+                payrollId_month_year: {
+                    payrollId: payroll.id,
+                    month: currentMonth,
+                    year: year,
+                },
+            },
+            update: {
+                name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+                amount: payroll.net,
+            },
+            create: {
                 name: `${user.firstName} ${user.lastName} Payslip (${date})`,
                 amount: payroll.net,
                 userId: payroll.userId,
@@ -727,16 +704,13 @@ export class PayrollService {
             },
         });
 
+
         this.event.emit('payroll.generated', new PayslipGeneratedEvent(
             user.id,
             payroll.id,
             currentMonth,
             year
         ));
-    }
-
-    async savePayslipPDF() {
-
     }
 
     async listUserPayslips(userId?: string) {

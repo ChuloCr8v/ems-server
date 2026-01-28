@@ -44,7 +44,6 @@ export class UserService {
 
             return me
         } catch (error) {
-            console.log(error)
             bad(error)
         }
     }
@@ -236,7 +235,6 @@ export class UserService {
 
             return approveUser;
         } catch (error) {
-            console.log(error)
             bad(error)
         }
     }
@@ -408,8 +406,6 @@ export class UserService {
         tx: Prisma.TransactionClient,
     ) {
         const { eId, email, workPhone } = data;
-
-        console.log(data)
 
         if (eId) {
             const existingEId = await tx.user.findFirst({

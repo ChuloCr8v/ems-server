@@ -8,6 +8,11 @@
         "include": "mail/templates",
         "outDir": "dist/src",
         "watchAssets": true
+      },
+      {
+        "include": "payroll/templates",
+        "outDir": "dist/src",
+        "watchAssets": true
       }
     ],
     "watchAssets": true,
