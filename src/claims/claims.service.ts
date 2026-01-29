@@ -261,14 +261,14 @@ export class ClaimsService {
 
       this.event.emit('claim.approved', new ClaimApprovedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId));
 
-      await this.mail.sendClaimApprovalMail({
-        email: updatedClaim.user.email,
-        name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-        claimTitle: updatedClaim.title,
-        amount: updatedClaim.amount.toLocaleString(),
-        date: updatedClaim.dateOfExpense,
-        approverName
-      });
+      // await this.mail.sendClaimApprovalMail({
+      //   email: updatedClaim.user.email,
+      //   name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+      //   claimTitle: updatedClaim.title,
+      //   amount: updatedClaim.amount.toLocaleString(),
+      //   date: updatedClaim.dateOfExpense,
+      //   approverName
+      // });
     }
 
     if (status === 'REJECTED') {
