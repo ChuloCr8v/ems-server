@@ -1,5 +1,5 @@
 // src/claims/claims.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClaimStatus, Prisma, Role } from '@prisma/client';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
@@ -236,15 +236,28 @@ export class ClaimsService {
     return { message: 'Claim deleted successfully' };
   }
 
-  async updateStatus(id: string, status: 'APPROVED' | 'REJECTED', approverId: string, notes?: string) {
-
+  async updateStatus(
+    id: string,
+    status: 'APPROVED' | 'REJECTED',
+    approverId: string,
+    notes?: string
+  ) {
     try {
-      const claim = await this.prisma.claim.findUnique({ where: { id } });
+      // 1. Find claim and include user
+      const claim = await this.prisma.claim.findUnique({
+        where: { id },
+        include: { user: true },
+      });
 
       if (!claim) {
         throw new NotFoundException('Claim not found');
       }
 
+      if (!claim.user) {
+        throw new Error('Claim has no associated user');
+      }
+
+      // 2. Update claim
       const updatedClaim = await this.prisma.claim.update({
         where: { id },
         data: {
@@ -252,50 +265,76 @@ export class ClaimsService {
           notes,
           updatedAt: new Date(),
         },
-        include: {
-          user: true
-        }
+        include: { user: true }, // Ensure user is included
       });
 
-      if (status === 'APPROVED') {
+      // 3. Find approver safely
+      let approverName = 'Admin';
+      try {
         const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
-        const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+        if (approver) approverName = `${approver.firstName} ${approver.lastName}`;
+      } catch {
+        // fallback to Admin if approver lookup fails
+      }
 
-        this.event.emit('claim.approved', new ClaimApprovedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId));
+      // 4. Emit events and send emails asynchronously (won't block)
+      const sendMailSafe = async (mailFunc: () => Promise<void>) => {
+        try {
+          await mailFunc();
+        } catch (err) {
+          console.error('Failed to send email:', err);
+        }
+      };
 
-        await this.mail.sendClaimApprovalMail({
-          email: updatedClaim.user.email,
-          name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-          claimTitle: updatedClaim.title,
-          amount: updatedClaim.amount.toLocaleString(),
-          date: updatedClaim.dateOfExpense,
-          approverName
-        });
+      if (status === 'APPROVED') {
+        this.event.emit('claim.approved', new ClaimApprovedEvent(
+          id,
+          updatedClaim.userId,
+          [updatedClaim.userId],
+          approverId
+        ));
+
+        await sendMailSafe(() =>
+          this.mail.sendClaimApprovalMail({
+            email: updatedClaim.user.email,
+            name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+            claimTitle: updatedClaim.title,
+            amount: updatedClaim.amount.toLocaleString('en-US'), // explicit locale
+            date: updatedClaim.dateOfExpense,
+            approverName,
+          })
+        );
       }
 
       if (status === 'REJECTED') {
-        const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
-        const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+        this.event.emit('claim.rejected', new ClaimRejectedEvent(
+          id,
+          updatedClaim.userId,
+          [updatedClaim.userId],
+          approverId,
+          notes
+        ));
 
-        this.event.emit('claim.rejected', new ClaimRejectedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId, notes));
-
-        await this.mail.sendClaimRejectionMail({
-          email: updatedClaim.user.email,
-          name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-          claimTitle: updatedClaim.title,
-          amount: updatedClaim.amount.toLocaleString(),
-          date: updatedClaim.dateOfExpense,
-          approverName,
-          reason: notes
-        });
+        await sendMailSafe(() =>
+          this.mail.sendClaimRejectionMail({
+            email: updatedClaim.user.email,
+            name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+            claimTitle: updatedClaim.title,
+            amount: updatedClaim.amount.toLocaleString('en-US'),
+            date: updatedClaim.dateOfExpense,
+            approverName,
+            reason: notes,
+          })
+        );
       }
 
       return updatedClaim;
     } catch (error) {
-      bad(error)
+      console.error('Failed to update claim status:', error);
+      throw new InternalServerErrorException('Unable to update claim status', error);
     }
-
   }
+
 
   async approveClaim(id: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
