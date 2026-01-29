@@ -62,23 +62,23 @@ export class ClaimsService {
       })
 
 
-      if (emailReciepients.length) {
+      // if (emailReciepients.length) {
 
-        this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
+      //   this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
 
-        await Promise.all(
-          emailReciepients.map(e => this.mail.sendNewClaimMail({
-            email: e.email,
-            approverName: e.firstName + " " + e.lastName,
-            name: `${claim.user.firstName} ${claim.user.lastName}`,
-            claimTitle: createClaimDto.title,
-            type: createClaimDto.entitlement,
-            amount: createClaimDto.amount.toLocaleString(),
-            date: createClaimDto.dateOfExpense,
-            description: createClaimDto.description || 'No description provided',
-          }))
-        )
-      }
+      //   await Promise.all(
+      //     emailReciepients.map(e => this.mail.sendNewClaimMail({
+      //       email: e.email,
+      //       approverName: e.firstName + " " + e.lastName,
+      //       name: `${claim.user.firstName} ${claim.user.lastName}`,
+      //       claimTitle: createClaimDto.title,
+      //       type: createClaimDto.entitlement,
+      //       amount: createClaimDto.amount.toLocaleString(),
+      //       date: createClaimDto.dateOfExpense,
+      //       description: createClaimDto.description || 'No description provided',
+      //     }))
+      //   )
+      // }
 
       return claim
     } catch (error) {
