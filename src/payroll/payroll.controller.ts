@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res, StreamableFile } from '@nestjs/common';
 import { PayrollService } from './payroll.service';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
 import { Response } from 'express';
@@ -78,17 +78,14 @@ export class PayrollController {
     return this.payroll.queuePayslipsForPeriod(req.user.id);
   }
 
-  // @Post('generate/:userId')
-  // async generatePayslipForUser(@Param('userId') userId: string) {
-  //   return this.payroll.generatePayslipForUser(userId);
-  // }
-
+  @Auth()
   @Get('download/:payslipId')
-  async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
-    return this.payroll.downloadPayslip(payslipId, res)
-    // const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res)
-    // return res.send(pdfBuffer);
+  downloadPayslip(
+    @Param('payslipId') payslipId: string,
+  ): Promise<StreamableFile> {
+    return this.payroll.downloadPayslip(payslipId);
   }
+
 
   @Get('deductions/download/:id')
   async downloadDeductionsExcel(@Param('id') id: string, @Res() res: Response): Promise<void> {

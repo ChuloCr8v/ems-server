@@ -6,12 +6,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { EmploymentAcceptedEvent, EmploymentApprovedEvent } from 'src/events/employment.event';
 import { LeaveApprovedEvent, LeaveRequestedPayload } from 'src/events/leave.event';
 import { NotificationActionType } from '@prisma/client';
-import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent } from 'src/events/task.event';
+import { TaskAssignedEvent, TaskCreatedEvent, TaskUpdatedEvent, TaskStatusChangeEvent } from 'src/events/tasks.event';
+// import { ClaimApprovedEvent, ClaimCreatedEvent, ClaimRejectedEvent } from 'src/events/claim.event';
 import { ClaimApprovedEvent, ClaimCreatedEvent, ClaimRejectedEvent } from 'src/events/claim.event';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 // import { TaskApprovedPayload, TaskAssignedPayload, TaskAssigneeChangePayload, TaskCreatePayload, TaskDueDateChangePayload, TaskPriorityChangePayload, TaskReassignedPayload, TaskRejectedPayload, TaskStatusChangePayload, TaskUpdatedPayload } from 'src/events/tasks.event';
 // import { MailService } from 'src/mail/mail.service';
 import { MailService } from 'src/mail/mail.service';
+import { TaskAssignedDto } from 'src/mail/mail.types';
 import { AppraisalCreatedEvent, AppraisalSubmittedEvent, AppraisalReviewedEvent } from 'src/events/appraisal.event';
 import { AppraisalMailDto, PipMailDto } from 'src/mail/mail.types';
 import { PipRecommendedEvent, PipApprovedEvent, PipRejectedEvent, PipCompletedEvent } from 'src/events/pip.event';
@@ -37,7 +39,7 @@ export class NotificationListener {
             actorId: null,
             type: 'EMPLOYMENT_ACCEPTED',
             title: 'Employment Invitation Accepted',
-            message: `Great news! ${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
+            message: `${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
         }));
 
         await this.notificationService.createMany(notifications);
@@ -46,7 +48,7 @@ export class NotificationListener {
             this.gateway.sendToUser(recipientId, {
                 type: 'EMPLOYMENT_ACCEPTED',
                 title: 'Employment Invitation Accepted',
-                message: `Great news! ${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
+                message: `${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
             });
         }
     }
@@ -117,7 +119,7 @@ export class NotificationListener {
         });
 
         const recipientIds = Array.isArray(event.employeeId) ? event.employeeId : [event.employeeId];
-        const notifications = recipientIds.map((recipientId) => ({
+        const notifications = recipientIds.map((recipientId: string) => ({
             recipientId,
             actorId: event.approverId,
             type: 'LEAVE_APPROVED',
@@ -148,7 +150,7 @@ export class NotificationListener {
             actorId: event.approverId,
             type: 'LEAVE_DECLINED',
             title: 'Leave Request Declined',
-            message: `We regret to inform you that your leave request has been declined. Please contact your manager for more details.`,
+            message: `Your leave request has been declined. Please contact your manager for more details.`,
             actionType: NotificationActionType.LEAVE_DECLINED,
             actionData: {
                 requestId: event.leaveRequestId
@@ -161,7 +163,7 @@ export class NotificationListener {
             this.gateway.sendToUser(recipientId, {
                 type: 'LEAVE_DECLINED',
                 title: 'Leave Request Declined',
-                message: `We regret to inform you that your leave request has been declined. Please contact your manager for more details.`,
+                message: `Your leave request has been declined. Please contact your manager for more details.`,
             });
         }
     }
@@ -253,28 +255,51 @@ export class NotificationListener {
     @OnEvent('task.assigned')
     async handleTaskAssignment(event: TaskAssignedEvent) {
 
-        const recipientIds = event.recipientIds;
+        // Fetch assigner details
+        const assigner = await this.prisma.user.findUnique({
+            where: { id: event.employeeId },
+        });
 
-        const notifications = recipientIds.map((recipientId) => ({
-            recipientId,
-            actorId: event.actorId,
+        // Fetch assignees details
+        const assignees = await this.prisma.user.findMany({
+            where: { id: { in: event.assigneeIds } },
+        });
+
+        const notifications = assignees.map((assignee) => ({
+            recipientId: assignee.id,
+            actorId: event.employeeId,
             type: 'TASK_ASSIGNED',
             title: 'New Task Assignment',
-            message: `You have been assigned a new task. Please check your task board for details and deadlines.`,
+            message: `You have been assigned a new task: "${event.taskTitle}". Please check your task board for details and deadlines.`,
             actionType: NotificationActionType.TASK_ASSIGNED,
             actionData: {
-                taskId: event.requestId
+                taskId: event.taskId
             }
         }));
 
         await this.notificationService.createMany(notifications);
 
-        for (const recipientId of recipientIds) {
-            this.gateway.sendToUser(recipientId, {
+        for (const assignee of assignees) {
+            // Socket Notification
+            this.gateway.sendToUser(assignee.id, {
                 type: 'TASK_ASSIGNED',
                 title: 'New Task Assignment',
-                message: `You have been assigned a new task. Please check your task board for details and deadlines.`,
+                message: `You have been assigned a new task: "${event.taskTitle}". Please check your task board for details and deadlines.`,
             });
+
+            // Email Notification
+            const mailData: TaskAssignedDto = {
+                email: assignee.email,
+                name: assignee.firstName,
+                assignedBy: assigner ? `${assigner.firstName} ${assigner.lastName}` : 'System',
+                taskId: event.taskId,
+                taskTitle: event.taskTitle,
+                priority: event.priority,
+                dueDate: event.dueDate,
+                dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+            };
+
+            await this.mailService.sendTaskAssignedMail(mailData);
         }
     }
 
@@ -289,14 +314,13 @@ export class NotificationListener {
     @OnEvent('task.updated')
     async handleTaskUpdated(event: TaskUpdatedEvent) {
         const recipientIds = Array.isArray(event.recipientIds) ? event.recipientIds : [event.recipientIds];
-        const formattedStatus = this.formatEnumString(event.newStatus);
 
         const notifications = recipientIds.map((recipientId) => ({
             recipientId,
-            actorId: event.actorId,
+            actorId: event.employeeId,
             type: 'TASK_UPDATED',
-            title: 'Task Status Update',
-            message: `The status of task "${event.taskTitle}" has been updated to "${formattedStatus}". Check the task for any further actions required.`,
+            title: 'Task Update',
+            message: `Task "${event.taskTitle}" updated: ${event.updateDetails}.`,
             actionType: NotificationActionType.TASK_UPDATED,
             actionData: {
                 taskId: event.taskId
@@ -308,8 +332,8 @@ export class NotificationListener {
         for (const recipientId of recipientIds) {
             this.gateway.sendToUser(recipientId, {
                 type: 'TASK_UPDATED',
-                title: 'Task Status Update',
-                message: `The status of task "${event.taskTitle}" has been updated to "${formattedStatus}". Check the task for any further actions required.`,
+                title: 'Task Update',
+                message: `Task "${event.taskTitle}" updated: ${event.updateDetails}.`,
             });
         }
     }
@@ -320,7 +344,7 @@ export class NotificationListener {
 
         const notifications = recipientIds.map((recipientId) => ({
             recipientId,
-            actorId: event.actorId,
+            actorId: event.employeeId,
             type: 'TASK_CREATED',
             title: 'Task Approval Required',
             message: `A new task "${event.taskTitle}" has been created and requires your approval before it can be assigned.`,

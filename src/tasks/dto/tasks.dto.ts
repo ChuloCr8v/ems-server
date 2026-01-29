@@ -75,6 +75,10 @@ export class CreateTaskDto {
   @IsString()
   @IsOptional()
   department?: string;
+
+  @IsEnum(TaskStatus)
+  @IsOptional()
+  status?: TaskStatus;
 }
 
 export class UpdateTaskDto {

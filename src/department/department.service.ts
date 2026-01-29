@@ -324,6 +324,13 @@ export class DepartmentService {
             })
 
             if (teamLead) {
+                const user = await this.prisma.user.findUnique({
+                    where: { id: teamLead },
+                    include: { departments: true, team: true },
+                });
+
+                if (!user) mustHave(user, `User with id: ${teamLead} not found!`);
+
                 await this.prisma.approver.create({
                     data: {
                         user: {
@@ -334,6 +341,15 @@ export class DepartmentService {
                             connect: {
                                 id: newTeam.id
                             }
+                        }
+                    }
+                })
+
+                await this.prisma.user.update({
+                    where: { id: teamLead },
+                    data: {
+                        userRole: {
+                            push: Role.TEAM_LEAD
                         }
                     }
                 })

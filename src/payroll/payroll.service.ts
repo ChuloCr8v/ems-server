@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException, StreamableFile } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
@@ -16,6 +16,7 @@ import { monthInWords } from 'src/utils/monthInWords';
 import { MailService } from 'src/mail/mail.service';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Readable } from 'stream';
 
 
 const templates = resolve(__dirname, '../payroll/templates');
@@ -628,65 +629,34 @@ export class PayrollService {
     }
 
     async queuePayslipsForPeriod(userId: string) {
-        console.log("Queueing payslips for user:", userId);
         const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
         const month = monthInWords + " " + new Date().getFullYear();
 
-
-        // await this.mail.sendPayrollQueueMail({
-        //     email: user.email,
-        //     month,
-        //     date: new Date().getFullYear().toString(),
-
-        // });
-
         try {
             const payrolls = await this.prisma.payroll.findMany({
-                // where: { userId },
                 include: {
                     user: true
                 }
             });
 
-            console.log("Payrolls:", payrolls.length);
-
             if (!payrolls.length) {
                 return { message: "No payroll records found" };
             }
 
-
             await Promise.allSettled(
                 payrolls.map(p => {
-                    console.log("Generating payslip for payroll:", p.id);
-
-                    // 1. Fetch payroll
-                    const payroll = this.prisma.payroll.findUnique({
-                        where: { id: p.id },
-                        include: {
-                            user: { include: { departments: true } },
-                            component: true,
-                        },
-                    });
-
-                    if (!payroll) {
-                        throw new Error(`Payroll not found: ${p.id}`);
-                    }
-
-                    // 4. Save
                     this.savePayslip(p, p.user);
-
-                    return { status: 'done', p };
                 })
             )
 
             // Send final payslip generation completed mail
-            // await this.mail.sendPayslipsGenerated({
-            //     month,
-            //     date: new Date().getFullYear().toString(),
-            //     email: user.email,
-            //     dashboardUrl: "https://ems.miro.zoracom.com"
-            // });
+            await this.mail.sendPayslipsGenerated({
+                month,
+                date: new Date().getFullYear().toString(),
+                email: user.email,
+                dashboardUrl: "https://ems.miro.zoracom.com"
+            });
 
             // Generate deduction summary
             await this.generateConsolidatedDeductionSummary(payrolls);
@@ -710,14 +680,22 @@ export class PayrollService {
             month: 'long',
         });
 
-        // const pdfData = new Uint8Array(pdfBuffer);
-
         const currentMonth = new Date().toLocaleString('default', { month: 'long' }).toLowerCase();
         const year = new Date().getFullYear();
 
-        await this.prisma.payslip.create({
-            data: {
-                // data: pdfData,
+        await this.prisma.payslip.upsert({
+            where: {
+                payrollId_month_year: {
+                    payrollId: payroll.id,
+                    month: currentMonth,
+                    year: year,
+                },
+            },
+            update: {
+                name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+                amount: payroll.net,
+            },
+            create: {
                 name: `${user.firstName} ${user.lastName} Payslip (${date})`,
                 amount: payroll.net,
                 userId: payroll.userId,
@@ -727,16 +705,13 @@ export class PayrollService {
             },
         });
 
+
         this.event.emit('payroll.generated', new PayslipGeneratedEvent(
             user.id,
             payroll.id,
             currentMonth,
             year
         ));
-    }
-
-    async savePayslipPDF() {
-
     }
 
     async listUserPayslips(userId?: string) {
@@ -844,49 +819,53 @@ export class PayrollService {
         }
     }
 
-    async downloadPayslip(payslipId: string, res: Response): Promise<void> {
 
+
+    async downloadPayslip(payslipId: string): Promise<StreamableFile> {
         const payslip = await this.prisma.payslip.findUnique({
             where: { id: payslipId },
             include: {
-                user: {
-                    include: {
-                        departments: true
-                    }
-                },
+                user: { include: { departments: true } },
                 payroll: {
                     include: {
                         component: true,
-                        user: {
-                            include: {
-                                departments: true
-                            }
-                        }
-                    }
-                }
+                        user: { include: { departments: true } },
+                    },
+                },
             },
         });
 
-        if (!payslip) throw new NotFoundException('Payslip not found');
+        if (!payslip) {
+            throw new NotFoundException('Payslip not found');
+        }
 
         const html = this.payslipTemplate.generateHTML(
             payslip.payroll,
             payslip.payroll.component,
         );
 
-        const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
+        let pdfBuffer: Buffer;
 
-        const pdfBuffer = Buffer.from(pdfData);
+        try {
+            pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
+        } catch (err) {
+            console.error('[Payslip PDF]', err);
+            throw new InternalServerErrorException('Failed to generate payslip PDF');
+        }
 
         this.validatePDFBuffer(pdfBuffer);
 
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Length', pdfBuffer.length);
-        res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
+        const stream = new Readable();
+        stream.push(pdfBuffer);
+        stream.push(null);
 
-        res.send(pdfBuffer);
-
+        return new StreamableFile(stream, {
+            type: 'application/pdf',
+            disposition: `attachment; filename="${payslip.name}.pdf"`,
+            length: pdfBuffer.length,
+        });
     }
+
 
     async downloadDeductionsExcel(deductionId: string, res: Response): Promise<void> {
         const deduction = await (this.prisma as any).deductions.findUnique({

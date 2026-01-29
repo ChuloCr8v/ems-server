@@ -3,7 +3,6 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException,
 import { PrismaService } from '../prisma/prisma.service';
 import { ApprovalStatus, CategoryType, Prisma, Role, Task, TaskStatus, User } from '@prisma/client';
 import { ApprovalRequestDto, CreateTaskDto, TaskPriority, TaskResponseDto, UpdateTaskDto } from './dto/tasks.dto';
-import { IdGenerator } from 'src/utils/IdGenerator.util';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -19,8 +18,7 @@ import {
   TaskPriorityChangeEvent,
   TaskDueDateChangeEvent
 } from 'src/events/tasks.event';
-import { connect } from 'http2';
-
+import { IdGenerator } from 'src/utils/IdGenerator.util';
 
 @Injectable()
 export class TasksService {
@@ -33,8 +31,6 @@ export class TasksService {
     });
     return user?.userRole
   }
-
-
 
   private isManager(role: string[]): boolean {
     const managerRoles = ["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"]
@@ -119,22 +115,13 @@ export class TasksService {
       //     return bad("Please provide a due date");
       // }
 
-      if (assignees && assignees.length > 0) {
-        const existingUsers = await this.prisma.user.findMany({
-          where: { id: { in: assignees }, status: { not: "INACTIVE" } },
-          select: { id: true },
-        });
-
-        if (existingUsers.length !== assignees.length) {
-          throw new BadRequestException('One or more assignees not found');
-        }
-      }
+      const taskStatus = createTaskDto.status ? createTaskDto.status : isManager ? 'IN_PROGRESS' : 'PENDING_APPROVAL';
 
       const createData: any = {
         title: taskData.title,
         description: taskData.description,
         priority: taskData.priority,
-        status: isManager ? 'IN_PROGRESS' : 'PENDING_APPROVAL',
+        status: taskStatus,
         approvalStatus: isManager ? 'APPROVED' : 'PENDING',
         createdById,
       };
@@ -147,7 +134,9 @@ export class TasksService {
         createData.dueDate = new Date(taskData.dueDate);
       }
 
-      if (isManager && assignees && assignees.length > 0) {
+
+      //Approval Status
+      if (isManager) {
         createData.approvedById = createdById;
         createData.approvedAt = new Date();
         createData.approvalRequestedAt = new Date();
@@ -155,12 +144,27 @@ export class TasksService {
         createData.approvalRequestedAt = new Date();
       }
 
+      //Assignees
       if (assignees && assignees.length > 0) {
+        const existingUsers = await this.prisma.user.findMany({
+          where: { id: { in: assignees }, status: { not: "INACTIVE" } },
+          select: { id: true },
+        });
+
+        if (existingUsers.length !== assignees.length) {
+          throw new BadRequestException('One or more assignees not found');
+        }
+
         createData.assignees = {
           create: !isManager ? [...assignees, createdById].map(userId => ({ userId })) : assignees.map(userId => ({ userId })),
         };
+      } else {
+        createData.assignees = {
+          create: { userId: createdById }
+        }
       }
 
+      //Department
       const taskDepts = createTaskDto.department ??
         (
           taskCreator.defaultDepartment
@@ -173,16 +177,14 @@ export class TasksService {
         )
 
       if (taskCreator.team) {
-        createData.team = {
-          connect: { id: taskCreator.team.id }
-        }
+        createData.teamId = taskCreator.team.id;
       }
 
       const task = await this.prisma.task.create({
         data: {
           ...createData,
           departmentId: taskDepts,
-          taskId: IdGenerator("TSK"),
+          taskId: IdGenerator("TASK"),
           ...(uploads && uploads.length > 0
             ? {
               uploads: {
@@ -200,31 +202,6 @@ export class TasksService {
         },
         // include: this.getTaskInclude(),
       });
-
-      // const recipientIds = assignees || [createdById];
-      // this.event.emit('task.created', new TaskCreatedEvent(
-      //   createdById,
-      //   recipientIds,
-      //   assignees || [],
-      //   task.taskId,
-      //   task.title,
-      //   task.priority,
-      //   task.description,
-      //   task.dueDate,
-      // ));
-
-      // //Emit task assigned event if there are assignees
-      // if (assignees && assignees.length > 0) {
-      //   this.event.emit('task.assigned', new TaskAssignedEvent(
-      //     createdById,
-      //     assignees,
-      //     task.taskId,
-      //     task.title,
-      //     task.priority,
-      //     task.dueDate
-      //   ))
-      // }
-
 
       if (assignees?.length) {
         this.event.emit("task.assigned", new TaskAssignedEvent(createdById, assignees.map(a => a), task.id, task.title, task.priority, task.dueDate))
@@ -254,7 +231,7 @@ export class TasksService {
 
         if (approvers.length > 0) {
           const approverIds = approvers.map(a => a.id);
-          console.log({ approverIds });
+
           this.event.emit('task.created', new TaskCreatedEvent(
             createdById,
             approverIds,
@@ -457,7 +434,7 @@ export class TasksService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        include: { departments: true },
+        include: { departments: true, team: true },
       });
 
       if (!user) throw new UnauthorizedException();
@@ -474,6 +451,8 @@ export class TasksService {
       if (user.userRole.includes(Role.DEPT_MANAGER) || user.userRole.includes(Role.TEAM_LEAD)) {
         const userDeptIds = user.departments.map((d) => d.id);
 
+
+
         return this.prisma.task.findMany({
           ...baseFindArgs,
           where: {
@@ -481,9 +460,14 @@ export class TasksService {
               {
                 department: {
                   id: { in: userDeptIds }
+                },
+                ...(user.userRole.includes(Role.DEPT_MANAGER) ? {} : { team: null })
+              },
+              {
+                team: {
+                  id: user.team?.id
                 }
               },
-
               {
                 assignees: {
                   some: { userId },
@@ -526,7 +510,6 @@ export class TasksService {
       bad(error);
     }
   }
-
 
   //TASK EXTENSIONS
   async extendDueDate(id: string, userId: string, dueDate: Date, note?: string) {
@@ -874,168 +857,174 @@ export class TasksService {
 
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
 
-    const { assignees, category, uploads, status, issue, ...rest } = taskData;
-    const findTask = await this.getOneTask(id);
-    if (!findTask) mustHave(findTask, "Task not found", 404);
+    try {
 
-    //Store previous state for event emission
-    const previousState = {
-      status: findTask.status,
-      assignees: findTask.assignees.map(a => a.userId),
-      priority: findTask.priority,
-      dueDate: findTask.dueDate,
-    }
+      const { assignees, category, uploads, status, issue, ...rest } = taskData;
+      const findTask = await this.getOneTask(id);
+      if (!findTask) mustHave(findTask, "Task not found", 404);
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId
-      }
-    })
-
-    if (!user) mustHave(user, "User not found", 404)
-
-    const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
-
-    const ownerId = await this.taskOwner(findTask.id)
-
-    if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
-
-    if (status && (["IN_PROGRESS", "APPROVED"].includes(status))) {
-      if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
-      if (!findTask.startDate) bad("Cannot approve task without start date")
-      if (!findTask.hasTransfer && !findTask.taskDueDates.length && !findTask.dueDate) bad("Cannot approve task without due date")
-      if (findTask.approvalStatus === "APPROVED") bad("Task already approved")
-    }
-
-    const task = await this.prisma.$transaction(async (tx) => {
-
-      // --- handle Uploads ---
-      if (uploads !== undefined && uploads.length > 0) {
-        await tx.task.update({
-          where: { id },
-          data: {
-            uploads: {
-              // set: [], // optional: clears old uploads if needed
-              connect: uploads.map((u: string) => ({ id: u })),
-            },
-          },
-        });
+      //Store previous state for event emission
+      const previousState = {
+        status: findTask.status,
+        assignees: findTask.assignees.map(a => a.userId),
+        priority: findTask.priority,
+        dueDate: findTask.dueDate,
       }
 
-      // --- Sync Assignees ---
-      if (assignees !== undefined) {
-        const existingAssignees = await tx.userTask.findMany({
-          where: { taskId: id },
-          select: { userId: true },
-        });
-        const existingIds = existingAssignees.map((a) => a.userId);
-
-        const newIds = assignees.filter((id: string) => !existingIds.includes(id));
-        const removedIds = existingIds.filter((id) => !assignees.includes(id));
-
-        // Add new ones
-        if (newIds.length > 0) {
-          await tx.userTask.createMany({
-            data: newIds.map((userId: string) => ({
-              taskId: id,
-              userId,
-            })),
-          });
-        }
-
-        // Remove unselected ones
-        if (removedIds.length > 0) {
-          await tx.userTask.deleteMany({
-            where: { taskId: id, userId: { in: removedIds } },
-          });
-        }
-      }
-
-      // --- Handle Categories ---
-      if (category !== undefined && category.length > 0) {
-        await tx.task.update({
-          where: { id },
-          data: {
-            category: {
-              connect: category.map(id => ({ id }))
-            }
-          },
-        });
-      }
-
-      // --- Handle Task Status
-      const completedStatus = () => {
-        if (status === "COMPLETED") {
-          if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
-        } else return status
-      }
-
-      await tx.task.update({
+      const user = await this.prisma.user.findUnique({
         where: {
-          id
-        },
-        data: status === "ISSUES" ? {
-          hasIssues: true,
-          status,
-          taskIssues: {
-            create: {
-              issue: issue,
-              reportedBy: {
-                connect: { id: userId }
-              }
-            }
-          }
-        } : {
-          status: completedStatus()
+          id: userId
         }
       })
 
+      if (!user) mustHave(user, "User not found", 404)
 
-      // --- Update Task Base Data ---
-      const updatedTask = await tx.task.update({
-        where: { id },
-        data: rest,
-        include: this.getTaskInclude(),
+      const canAct = user.userRole.includes("ADMIN") || user.userRole.includes("DEPT_MANAGER") || user.userRole.includes("TEAM_LEAD")
+
+      const ownerId = await this.taskOwner(findTask.id)
+
+      if (!canAct && ownerId !== userId) bad("You are not authorized to perform this action")
+
+      if (status) {
+        // if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
+        if (findTask.startDate === null) bad("Cannot approve task without start date")
+        if (!findTask.hasTransfer && !findTask.taskDueDates.length && findTask.dueDate === null) bad("Cannot approve task without due date")
+        if (status === "APPROVED" && findTask.approvalStatus === "APPROVED") bad("Task already approved")
+      }
+
+      const task = await this.prisma.$transaction(async (tx) => {
+
+        // --- handle Uploads ---
+        if (uploads !== undefined && uploads.length > 0) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              uploads: {
+                // set: [], // optional: clears old uploads if needed
+                connect: uploads.map((u: string) => ({ id: u })),
+              },
+            },
+          });
+        }
+
+        // --- Sync Assignees ---
+        if (assignees !== undefined) {
+          const existingAssignees = await tx.userTask.findMany({
+            where: { taskId: id },
+            select: { userId: true },
+          });
+          const existingIds = existingAssignees.map((a) => a.userId);
+
+          const newIds = assignees.filter((id: string) => !existingIds.includes(id));
+          const removedIds = existingIds.filter((id) => !assignees.includes(id));
+
+          // Add new ones
+          if (newIds.length > 0) {
+            await tx.userTask.createMany({
+              data: newIds.map((userId: string) => ({
+                taskId: id,
+                userId,
+              })),
+            });
+          }
+
+          // Remove unselected ones
+          if (removedIds.length > 0) {
+            await tx.userTask.deleteMany({
+              where: { taskId: id, userId: { in: removedIds } },
+            });
+          }
+        }
+
+        // --- Handle Categories ---
+        if (category !== undefined && category.length > 0) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              category: {
+                connect: category.map(id => ({ id }))
+              }
+            },
+          });
+        }
+
+        // --- Handle Task Status
+        const completedStatus = () => {
+          if (status === "COMPLETED") {
+            if (!canAct) { return TaskStatus.PENDING_REVIEW } else return TaskStatus.COMPLETED
+          } else return status
+        }
+
+        await tx.task.update({
+          where: {
+            id
+          },
+          data: status === "ISSUES" ? {
+            hasIssues: true,
+            status,
+            taskIssues: {
+              create: {
+                issue: issue,
+                reportedBy: {
+                  connect: { id: userId }
+                }
+              }
+            }
+          } : {
+            status: completedStatus(),
+            hasIssues: false
+          }
+        })
+
+
+        // --- Update Task Base Data ---
+        const updatedTask = await tx.task.update({
+          where: { id },
+          data: rest,
+          include: this.getTaskInclude(),
+        });
+
+        return updatedTask;
       });
 
-      return updatedTask;
-    });
+      // //Emit notification events based on what changed
+      // await this.emitUpdateEvents({
+      //   userId,
+      //   taskId: id,
+      //   taskTitle: task.title,
+      //   oldTask: findTask,
+      //   newTask: task,
+      //   oldAssignees: previousState.assignees,
+      //   newAssignees: assignees,
+      //   oldStatus: previousState.status,
+      //   newStatus: status,
+      //   oldPriority: previousState.priority,
+      //   newPriority: rest.priority,
+      //   oldDueDate: previousState.dueDate,
+      //   newDueDate: rest.dueDate,
+      //   issueDescription: issue,
+      // });
 
-    //Emit notification events based on what changed
-    await this.emitUpdateEvents({
-      userId,
-      taskId: id,
-      taskTitle: task.title,
-      oldTask: findTask,
-      newTask: task,
-      oldAssignees: previousState.assignees,
-      newAssignees: assignees,
-      oldStatus: previousState.status,
-      newStatus: status,
-      oldPriority: previousState.priority,
-      newPriority: rest.priority,
-      oldDueDate: previousState.dueDate,
-      newDueDate: rest.dueDate,
-      issueDescription: issue,
-    });
+      if (status && status !== findTask.status) {
+        const allRecipients = new Set<string>();
+        if (task.createdById !== userId) allRecipients.add(task.createdById);
+        task.assignees.forEach(a => {
+          if (a.user.id !== userId) allRecipients.add(a.user.id);
+        });
 
-    if (status && status !== findTask.status) {
-      const allRecipients = new Set<string>();
-      if (task.createdById !== userId) allRecipients.add(task.createdById);
-      task.assignees.forEach(a => {
-        if (a.user.id !== userId) allRecipients.add(a.user.id);
-      });
+        this.event.emit('task.updated', new TaskUpdatedEvent(
+          userId,
+          Array.from(allRecipients),
+          task.id,
+          task.title,
+          status
+        ));
+      }
 
-      this.event.emit('task.updated', new TaskUpdatedEvent(
-        userId,
-        Array.from(allRecipients),
-        task.id,
-        task.title,
-        status
-      ));
+      return task;
+    } catch (error) {
+      bad(error)
     }
-
-    return task;
   }
 
   async transfer(
@@ -1178,6 +1167,8 @@ export class TasksService {
   getTaskInclude() {
     return {
       department: true,
+      taskIssues: true,
+      team: true,
       createdBy: {
         select: {
           id: true,
@@ -1234,7 +1225,8 @@ export class TasksService {
         orderBy: {
           createdAt: 'desc' as any,
         },
-      }
+      },
+
 
     };
   }
