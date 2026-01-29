@@ -6,7 +6,7 @@ import { InviteModule } from 'src/invite/invite.module';
 import { MailModule } from 'src/mail/mail.module';
 
 @Module({
-  imports: [PrismaModule, InviteModule, MailModule], 
+  imports: [PrismaModule, InviteModule, MailModule],
   providers: [UserService],
   controllers: [UserController],
   exports: [UserService],

@@ -63,9 +63,13 @@ import { PipModule } from './pip/pip.module';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     PipModule,
-
   ],
-  controllers: [AppController, UploadsController, NotificationController, CategoryController],
+  controllers: [
+    AppController,
+    UploadsController,
+    NotificationController,
+    CategoryController,
+  ],
   providers: [AppService, UploadsService, NotificationService, CategoryService],
 })
-export class AppModule { }
+export class AppModule {}

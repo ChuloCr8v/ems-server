@@ -1,28 +1,28 @@
-import { PartialType } from "@nestjs/mapped-types";
-import { IsArray, IsNotEmpty, IsOptional, IsString } from "class-validator";
+import { PartialType } from '@nestjs/mapped-types';
+import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class DepartmentDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-    @IsString()
-    @IsOptional()
-    departmentHead?: string
+  @IsString()
+  @IsOptional()
+  departmentHead?: string;
 
-    @IsString()
-    @IsOptional()
-    teamLead?: string
+  @IsString()
+  @IsOptional()
+  teamLead?: string;
 
-    @IsString()
-    @IsNotEmpty()
-    createdBy: string
+  @IsString()
+  @IsNotEmpty()
+  createdBy: string;
 }
 
 export class CreateTeamDto extends PartialType(DepartmentDto) {
-    @IsArray()
-    @IsOptional()
-    userIds?: string[]
+  @IsArray()
+  @IsOptional()
+  userIds?: string[];
 }
 
-export class UpdateTeamDTO extends PartialType(CreateTeamDto) { }
+export class UpdateTeamDTO extends PartialType(CreateTeamDto) {}

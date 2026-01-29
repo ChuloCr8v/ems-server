@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Res,
+} from '@nestjs/common';
 import { LevelService } from './level.service';
 import { LevelDto, UpdateLevelDto } from './dto/level.dto';
 import { Response } from 'express';
@@ -7,13 +16,15 @@ import { Role } from '@prisma/client';
 
 @Controller('level')
 export class LevelController {
-  constructor(private readonly levelService: LevelService) { }
+  constructor(private readonly levelService: LevelService) {}
 
   @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Post()
   async createLevel(@Body() input: LevelDto, @Res() res: Response) {
     const level = await this.levelService.createLevel(input);
-    return res.status(200).json({ message: 'Level created successfully', level });
+    return res
+      .status(200)
+      .json({ message: 'Level created successfully', level });
   }
 
   // @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
@@ -30,7 +41,11 @@ export class LevelController {
 
   @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Put(':id')
-  async updateLevel(@Param('id') id: string, @Body() update: UpdateLevelDto, @Res() res: Response) {
+  async updateLevel(
+    @Param('id') id: string,
+    @Body() update: UpdateLevelDto,
+    @Res() res: Response,
+  ) {
     const level = await this.levelService.updateLevel(id, update);
     return res.status(200).json({ message: 'A Level Has Been Updated', level });
   }

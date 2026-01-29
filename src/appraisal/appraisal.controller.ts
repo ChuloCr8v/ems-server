@@ -1,6 +1,26 @@
-import { Body, Controller, Param, Patch, Post, Res, Delete, Req, Request, UseGuards, Get, ForbiddenException, Query, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Res,
+  Delete,
+  Req,
+  Request,
+  UseGuards,
+  Get,
+  ForbiddenException,
+  Query,
+  Put,
+} from '@nestjs/common';
 import { AppraisalService } from './appraisal.service';
-import { FillAppraisalDto, GetAppraisalsDto, GetHRAppraisalsDto, SendToDepartmentDto } from './dto/apppraisal.dto';
+import {
+  FillAppraisalDto,
+  GetAppraisalsDto,
+  GetHRAppraisalsDto,
+  SendToDepartmentDto,
+} from './dto/apppraisal.dto';
 import { Response } from 'express';
 import { AppraisalSchedulerService } from './appraisal-scheduler.service';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
@@ -10,26 +30,55 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 @Controller('appraisal')
 // @UseGuards(AuthGuard, RolesGuard)
 export class AppraisalController {
-  constructor(private readonly appraisal: AppraisalService, private readonly appraisalScheduler: AppraisalSchedulerService) {}
+  constructor(
+    private readonly appraisal: AppraisalService,
+    private readonly appraisalScheduler: AppraisalSchedulerService,
+  ) {}
   @Auth([Role.DEPT_MANAGER, Role.USER])
   @Patch(':appraisalId/submit')
-  async fillAppraisal(@AuthUser() user: IAuthUser, @Param('appraisalId') appraisalId: string, @Body() data: FillAppraisalDto, @Res() res: Response) {
+  async fillAppraisal(
+    @AuthUser() user: IAuthUser,
+    @Param('appraisalId') appraisalId: string,
+    @Body() data: FillAppraisalDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
-    const appraisal = await this.appraisal.submitAppraisal(userId, appraisalId, data);
-    return res.status(200).json({ message: `Aprraisal Has Been Submitted`, appraisal });
+    const appraisal = await this.appraisal.submitAppraisal(
+      userId,
+      appraisalId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: `Aprraisal Has Been Submitted`, appraisal });
   }
 
   @Auth([Role.DEPT_MANAGER, Role.USER])
   @Patch(':appraisalId/draft')
-  async fillDraftAppraisal(@AuthUser() user: IAuthUser, @Param('appraisalId') appraisalId: string, @Body() data: FillAppraisalDto, @Res() res: Response) {
+  async fillDraftAppraisal(
+    @AuthUser() user: IAuthUser,
+    @Param('appraisalId') appraisalId: string,
+    @Body() data: FillAppraisalDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
-    const appraisal = await this.appraisal.saveAppraisalDraft(userId, appraisalId, data);
-    return res.status(200).json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
-  } 
+    const appraisal = await this.appraisal.saveAppraisalDraft(
+      userId,
+      appraisalId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
+  }
 
-  @Auth([Role.DEPT_MANAGER]) 
+  @Auth([Role.DEPT_MANAGER])
   @Post(':appraisalId/send')
-  async sendAppraisalToTeam(@AuthUser() user: IAuthUser, @Param('appraisalId') appraisalId: string, @Body() data: GetAppraisalsDto) {
+  async sendAppraisalToTeam(
+    @AuthUser() user: IAuthUser,
+    @Param('appraisalId') appraisalId: string,
+    @Body() data: GetAppraisalsDto,
+  ) {
     return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
   }
 
@@ -49,12 +98,18 @@ export class AppraisalController {
     @Query('status') status?: any,
     // @Req() req: Request
   ) {
-    return this.appraisal.getAppraisalForUser(user.sub, { quarter, year, status });
+    return this.appraisal.getAppraisalForUser(user.sub, {
+      quarter,
+      year,
+      status,
+    });
   }
 
   @Get(':appraisalId/feedback-questions')
-  async getAppraisalFeedbackQuestions(@Param('appraisalId') appraisalId: string) {
-    return this.appraisal.findAppraisalFeedbackQuestion(appraisalId)
+  async getAppraisalFeedbackQuestions(
+    @Param('appraisalId') appraisalId: string,
+  ) {
+    return this.appraisal.findAppraisalFeedbackQuestion(appraisalId);
   }
 
   @Get(':appraisalId/rating-summary')

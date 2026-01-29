@@ -27,7 +27,12 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
-import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto } from './dto/assets.dto';
+import {
+  AssignAssetDto,
+  CreateAssetDto,
+  ReportFaultDto,
+  UpdateFaultStatusDto,
+} from './dto/assets.dto';
 import { Role } from '@prisma/client';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 
@@ -35,7 +40,7 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 @ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetService) { }
+  constructor(private readonly assetsService: AssetService) {}
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
@@ -46,14 +51,12 @@ export class AssetsController {
     type: CreateAssetDto,
   })
   @ApiCreatedResponse({ description: 'Asset successfully created' })
-  async create(
-    @Body() createAssetDto: CreateAssetDto,
-  ) {
+  async create(@Body() createAssetDto: CreateAssetDto) {
     return this.assetsService.createAsset(createAssetDto);
   }
 
   @Auth([Role.ADMIN, Role.FACILITY])
-  @Put("update/:id")
+  @Put('update/:id')
   @ApiOperation({ summary: 'Update an asset' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -65,10 +68,11 @@ export class AssetsController {
   async updateAsset(
     @Param('id') id: string,
     @Body() updateAssetDto: CreateAssetDto,
-    @UploadedFiles() files: {
-      assetImage?: Express.Multer.File[],
-      barcodeImage?: Express.Multer.File[]
-    }
+    @UploadedFiles()
+    files: {
+      assetImage?: Express.Multer.File[];
+      barcodeImage?: Express.Multer.File[];
+    },
   ) {
     return this.assetsService.updateAsset(id, updateAssetDto);
   }
@@ -78,7 +82,7 @@ export class AssetsController {
   @ApiParam({ name: 'filename', description: 'Image filename' })
   async getAssetImage(
     @Param('filename') filename: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const filePath = join(process.cwd(), 'uploads', 'assets', filename);
     res.sendFile(filePath);
@@ -89,7 +93,7 @@ export class AssetsController {
   @ApiParam({ name: 'filename', description: 'Image filename' })
   async getFaultImage(
     @Param('filename') filename: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const filePath = join(process.cwd(), 'uploads', 'faults', filename);
     res.sendFile(filePath);
@@ -118,7 +122,7 @@ export class AssetsController {
   @ApiBody({ type: AssignAssetDto })
   @ApiCreatedResponse({ description: 'Asset successfully assigned' })
   @ApiResponse({ status: 400, description: 'Invalid assignment data' })
-  async assignAsset(@Param("id") id: string, @Body() dto: AssignAssetDto) {
+  async assignAsset(@Param('id') id: string, @Body() dto: AssignAssetDto) {
     return this.assetsService.assignAsset(id, dto);
   }
 
@@ -173,7 +177,7 @@ export class AssetsController {
   @ApiResponse({ status: 404, description: 'Fault not found' })
   updateFaultStatus(
     @Param('id') id: string,
-    @Body() dto: { resolvedById: string, notes: string, }
+    @Body() dto: { resolvedById: string; notes: string },
   ) {
     return this.assetsService.resolveFault(id, dto);
   }
@@ -239,20 +243,22 @@ export class AssetsController {
     return this.assetsService.createMultiAssets(file);
   }
 
-  @Put("retrieve")
-  async retrieveAsset(@Body() dto: { assetIds: string[], retrievedById: string, notes: string }) {
-    return this.assetsService.retrieveAssets(dto)
+  @Put('retrieve')
+  async retrieveAsset(
+    @Body() dto: { assetIds: string[]; retrievedById: string; notes: string },
+  ) {
+    return this.assetsService.retrieveAssets(dto);
   }
 
-  @Delete(":id")
+  @Delete(':id')
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @ApiOperation({ summary: 'Delete asset by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
   @ApiResponse({ status: 200, description: 'Asset deleted successfully' })
   async deleteAsset(@Param('id') id: string, @Res() res: Response) {
     await this.assetsService.deleteAsset(id);
-    return res.status(200).json({ message: `Asset has been deleted successfully` });
+    return res
+      .status(200)
+      .json({ message: `Asset has been deleted successfully` });
   }
 }
-
-

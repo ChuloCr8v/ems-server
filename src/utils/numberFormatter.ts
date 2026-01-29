@@ -1,13 +1,13 @@
 export const formatNumberWithCommas = (number: number | undefined) => {
   let numberStr = String(number?.toFixed(0));
-  let parts = [];
+  const parts = [];
   while (numberStr.length > 3) {
     parts.unshift(numberStr.slice(-3));
     numberStr = numberStr.slice(0, -3);
   }
   parts.unshift(numberStr);
 
-  let formattedNumber = parts.join(',');
+  const formattedNumber = parts.join(',');
 
   return formattedNumber;
 };

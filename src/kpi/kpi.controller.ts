@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post, Res, Req, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Res,
+  Req,
+  Delete,
+} from '@nestjs/common';
 import { KpiService } from './kpi.service';
 import { CreateKpiDto } from './dto/kpi.dto';
 import { Response } from 'express';
@@ -14,10 +24,16 @@ export class KpiController {
 
   @Auth([Role.ADMIN, Role.DEPT_MANAGER])
   @Post('categories')
-  async createCategory(@AuthUser() user: IAuthUser, @Body() data: CreateKpiDto, @Res() res: Response) {
+  async createCategory(
+    @AuthUser() user: IAuthUser,
+    @Body() data: CreateKpiDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const category = await this.kpi.createCategory(userId, data);
-    return res.status(200).json({ message: `A New Category Has Been Created`, category });
+    return res
+      .status(200)
+      .json({ message: `A New Category Has Been Created`, category });
   }
 
   @Get('categories')
@@ -36,11 +52,13 @@ export class KpiController {
     @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
     @Body() data: CreateKpiDto,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const userId = user.sub;
     const category = await this.kpi.updateCategory(userId, categoryId, data);
-    return res.status(200).json({ message: 'Category Updated Successfully', category });
+    return res
+      .status(200)
+      .json({ message: 'Category Updated Successfully', category });
   }
 
   @Auth([Role.ADMIN, Role.DEPT_MANAGER])
@@ -48,7 +66,7 @@ export class KpiController {
   async removeCategory(
     @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const userId = user.sub;
     await this.kpi.removeCategory(userId, categoryId);
@@ -60,11 +78,13 @@ export class KpiController {
   async approveCategory(
     @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const userId = user.sub;
     const category = await this.kpi.approveCategory(userId, categoryId);
-    return res.status(200).json({message: 'Category Has Been Approved', category});
+    return res
+      .status(200)
+      .json({ message: 'Category Has Been Approved', category });
   }
 
   @Auth([Role.ADMIN])
@@ -72,10 +92,12 @@ export class KpiController {
   async denyCategory(
     @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const userId = user.sub;
     const category = await this.kpi.denyCategory(userId, categoryId);
-    return res.status(200).json({message: 'Category Has Been Denied', category});
+    return res
+      .status(200)
+      .json({ message: 'Category Has Been Denied', category });
   }
 }
