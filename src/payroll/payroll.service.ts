@@ -850,7 +850,7 @@ export class PayrollService {
             pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
         } catch (err) {
             console.error('[Payslip PDF]', err);
-            throw new InternalServerErrorException('Failed to generate payslip PDF', { cause: err });
+            bad('Failed to generate payslip PDF: ' + err);
         }
 
         this.validatePDFBuffer(pdfBuffer);
