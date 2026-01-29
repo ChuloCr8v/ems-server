@@ -13,7 +13,8 @@ import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 // import { MailService } from 'src/mail/mail.service';
 import { MailService } from 'src/mail/mail.service';
 import { AppraisalCreatedEvent, AppraisalSubmittedEvent, AppraisalReviewedEvent } from 'src/events/appraisal.event';
-import { AppraisalMailDto } from 'src/mail/mail.types';
+import { AppraisalMailDto, PipMailDto } from 'src/mail/mail.types';
+import { PipRecommendedEvent, PipApprovedEvent, PipRejectedEvent, PipCompletedEvent } from 'src/events/pip.event';
 
 @Injectable()
 export class NotificationListener {
@@ -374,7 +375,7 @@ export class NotificationListener {
             type: 'APPRAISAL_CREATED',
             title: 'New Appraisal',
             message: `A new appraisal has been created for you. Please log in to complete it.`,
-            actionType: NotificationActionType.APPRAISAL_CREATED, 
+            actionType: NotificationActionType.APPRAISAL_CREATED,
             actionData: { appraisalId: event.appraisalId }
         }));
 
@@ -460,5 +461,139 @@ export class NotificationListener {
             dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
         };
         await this.mailService.sendAppraisalReviewedMail(mailData);
+    }
+
+    @OnEvent('pip.recommended')
+    async handlePipRecommended(event: PipRecommendedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+        const recommender = await this.prisma.user.findUnique({ where: { id: event.recommenderId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.recommenderId,
+            type: 'PIP_RECOMMENDED',
+            title: 'New PIP Recommendation',
+            message: `A new Performance Improvement Plan (PIP) has been recommended for you by ${recommender.firstName} ${recommender.lastName}.`,
+            actionType: NotificationActionType.PIP_RECOMMENDED,
+            actionData: { pipId: event.rPipId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'PIP_RECOMMENDED',
+                title: 'New PIP Recommendation',
+                message: `A new Performance Improvement Plan (PIP) has been recommended for you by ${recommender.firstName} ${recommender.lastName}.`,
+            });
+        }
+
+        const mailData: PipMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            recommenderName: `${recommender.firstName} ${recommender.lastName}`,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendPipRecommendedMail(mailData);
+    }
+
+    @OnEvent('pip.approved')
+    async handlePipApproved(event: PipApprovedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+        const approver = await this.prisma.user.findUnique({ where: { id: event.approverId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.approverId,
+            type: 'PIP_APPROVED',
+            title: 'PIP Approved',
+            message: `Your Performance Improvement Plan (PIP) has been approved.`,
+            actionType: NotificationActionType.PIP_APPROVED,
+            actionData: { pipId: event.pipId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'PIP_APPROVED',
+                title: 'PIP Approved',
+                message: `Your Performance Improvement Plan (PIP) has been approved.`,
+            });
+        }
+
+        const mailData: PipMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            approverName: `${approver.firstName} ${approver.lastName}`,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendPipApprovedMail(mailData);
+    }
+
+    @OnEvent('pip.rejected')
+    async handlePipRejected(event: PipRejectedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+        const rejector = await this.prisma.user.findUnique({ where: { id: event.rejectorId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.rejectorId,
+            type: 'PIP_REJECTED',
+            title: 'PIP Rejected',
+            message: `Your Performance Improvement Plan (PIP) has been rejected. A new recommendation has been created.`,
+            actionType: NotificationActionType.PIP_REJECTED,
+            actionData: { pipId: event.pipId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'PIP_REJECTED',
+                title: 'PIP Rejected',
+                message: `Your Performance Improvement Plan (PIP) has been rejected. A new recommendation has been created.`,
+            });
+        }
+
+        const mailData: PipMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            rejectorName: `${rejector.firstName} ${rejector.lastName}`,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendPipRejectedMail(mailData);
+    }
+
+    @OnEvent('pip.completed')
+    async handlePipCompleted(event: PipCompletedEvent) {
+        const employee = await this.prisma.user.findUnique({ where: { id: event.employeeId } });
+
+        const notifications = event.recipientIds.map((recipientId) => ({
+            recipientId,
+            actorId: event.employeeId,
+            type: 'PIP_COMPLETED',
+            title: 'PIP Completed',
+            message: `${employee.firstName} ${employee.lastName} has completed their Performance Improvement Plan (PIP).`,
+            actionType: NotificationActionType.PIP_COMPLETED,
+            actionData: { pipId: event.pipId }
+        }));
+
+        await this.notificationService.createMany(notifications);
+
+        for (const recipientId of event.recipientIds) {
+            this.gateway.sendToUser(recipientId, {
+                type: 'PIP_COMPLETED',
+                title: 'PIP Completed',
+                message: `${employee.firstName} ${employee.lastName} has completed their Performance Improvement Plan (PIP).`,
+            });
+        }
+
+        const mailData: PipMailDto = {
+            email: employee.email,
+            name: employee.firstName,
+            dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+        };
+        await this.mailService.sendPipCompletedMail(mailData);
     }
 }

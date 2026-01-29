@@ -24,3 +24,5 @@ export class CreateTeamDto extends PartialType(DepartmentDto) {
     @IsOptional()
     userIds?: string[]
 }
+
+export class UpdateTeamDTO extends PartialType(CreateTeamDto) { }

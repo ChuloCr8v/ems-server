@@ -22,7 +22,8 @@ import {
   UpdateProspectInfoDto,
   WelcomeEmailDto,
   TaskDueDateChangeDto,
-  AppraisalMailDto
+  AppraisalMailDto,
+  PipMailDto
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -360,6 +361,46 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.APPRAISAL_REVIEWED,
       template: 'appraisalReviewed',
+      context: { name, dashboardUrl },
+    });
+  }
+
+  async sendPipRecommendedMail(data: PipMailDto) {
+    const { email, name, recommenderName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_RECOMMENDED,
+      template: 'pipRecommended',
+      context: { name, recommenderName, dashboardUrl },
+    });
+  }
+
+  async sendPipApprovedMail(data: PipMailDto) {
+    const { email, name, approverName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_APPROVED,
+      template: 'pipApproved',
+      context: { name, approverName, dashboardUrl },
+    });
+  }
+
+  async sendPipRejectedMail(data: PipMailDto) {
+    const { email, name, rejectorName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_REJECTED,
+      template: 'pipRejected',
+      context: { name, rejectorName, dashboardUrl },
+    });
+  }
+
+  async sendPipCompletedMail(data: PipMailDto) {
+    const { email, name, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_COMPLETED,
+      template: 'pipCompleted',
       context: { name, dashboardUrl },
     });
   }

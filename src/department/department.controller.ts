@@ -1,6 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Req, Res } from '@nestjs/common';
 import { DepartmentService } from './department.service';
-import { CreateTeamDto, DepartmentDto } from './dto/department.dto';
+import { CreateTeamDto, DepartmentDto, UpdateTeamDTO } from './dto/department.dto';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
@@ -75,25 +75,35 @@ export class DepartmentController {
   async addTeamMembers(@Param('deptId') deptId: string, @Res() res: Response, @AuthUser() req: IAuthUser, @Body() data: CreateTeamDto) {
     const createdById = req.sub
     const department = await this.departmentService.addTeam(deptId, createdById, data);
-    return res.status(200).json({ message: `Team has been successfully created`, department });
+    return res.status(200).json({ message: `Team has created successfully`, department });
   }
-
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
-  @Delete(':id')
-  async deleteDepartment(@Param('id') id: string, @Res() res: Response) {
-    const department = await this.departmentService.deleteDepartment(id);
-    return res.status(200).json({ message: `Department Has Been Deleted`, department });
+  @Patch('update-team/:teamId')
+  async updateTeam(@Param('teamId') teamId: string, @Res() res: Response, @Body() data: UpdateTeamDTO) {
+    const department = await this.departmentService.updateTeam(teamId, data);
+    return res.status(200).json({ message: `Team has been updated successfully`, department });
   }
+
 
   @Delete(":id")
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @ApiOperation({ summary: 'Delete a department by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Department ID' })
   @ApiResponse({ status: 200, description: 'Department deleted successfully' })
-  async deleteProspect(@Param('id') id: string, @Res() res: Response) {
+  async deleteDepartment(@Param('id') id: string, @Res() res: Response) {
     await this.departmentService.deleteDepartment(id);
     return res.status(200).json({ message: `Department has been deleted successfully` });
+  }
+
+  @Delete(":id/team")
+  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @ApiOperation({ summary: 'Delete a team by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Team ID' })
+  @ApiResponse({ status: 200, description: 'Team deleted successfully' })
+  async deleteTeam(@Param('id') id: string, @Res() res: Response) {
+    await this.departmentService.deleteTeam(id);
+    return res.status(200).json({ message: `Team has been deleted successfully` });
   }
 }
 

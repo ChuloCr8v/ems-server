@@ -37,7 +37,8 @@ export class UserService {
                         include: {
                             department: true
                         }
-                    }
+                    },
+                    team: true
                 }
             })
 
@@ -346,7 +347,9 @@ export class UserService {
                     }
                 },
                 level: true,
-                departments: true,
+                departments: {
+
+                },
                 defaultDepartment: {
                     include: {
                         approver: true
@@ -708,6 +711,9 @@ export class UserService {
                 where: {
                     id
                 },
+                include: {
+                    approver: true
+                }
             })
 
             if (!user) {
@@ -725,8 +731,19 @@ export class UserService {
                 },
             })
 
+            if (user.approver.length) {
+                await this.prisma.approver.updateMany({
+                    where: {
+                        userId: id
+                    },
+                    data: {
+                        isActive: newStatus === "ACTIVE" ? true : false
+                    }
+                })
+            }
+
             return {
-                message: "users status updated successfully"
+                message: "user's status updated successfully"
             }
         } catch (e) {
             bad(e)

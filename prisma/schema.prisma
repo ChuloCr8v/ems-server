@@ -101,6 +101,10 @@ model User {
   taskIssues    TaskIssues[]
   taskTransfers TaskTransfer[]
 
+  pip     Pip[]
+  rPipBy  RecommendedPip[] @relation("PipRecommendedBy")
+  rPipFor RecommendedPip[] @relation("PipRecommendedFor")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -141,6 +145,8 @@ model Team {
 
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   departmentId String?     @db.Uuid
+
+  task Task[]
 
   members   User[]   @relation("team")
   createdAt DateTime @default(now())
@@ -218,8 +224,10 @@ model Upload {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   guarantorId       String?           @db.Uuid
+  pipId             String?           @db.Uuid
   claimId           String?
   taskId            String?           @db.Uuid
+  recomPipId        String?           @db.Uuid
   asset             Asset?            @relation("AssetImages", fields: [assetId], references: [id])
   claim             Claim?            @relation(fields: [claimId], references: [id])
   comment           Comment?          @relation(fields: [commentId], references: [id])
@@ -230,6 +238,8 @@ model Upload {
   prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
   request           LeaveRequest?     @relation(fields: [requestId], references: [id], onDelete: Cascade)
   Task              Task?             @relation(fields: [taskId], references: [id])
+  pip               Pip?              @relation(fields: [pipId], references: [id])
+  recomPip          RecommendedPip?   @relation(fields: [recomPipId], references: [id])
   userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
   prospectDocuments User[]            @relation("ProspectDocuments")
 }
@@ -325,6 +335,12 @@ model Comment {
 
   leaveId String?       @db.Uuid
   leave   LeaveRequest? @relation(fields: [leaveId], references: [id], onDelete: SetNull)
+
+  pipId String? @db.Uuid
+  pip   Pip?    @relation(fields: [pipId], references: [id], onDelete: SetNull)
+
+  rPipId String?         @db.Uuid
+  rPip   RecommendedPip? @relation(fields: [rPipId], references: [id], onDelete: SetNull)
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -649,7 +665,7 @@ model Deductions {
   @@index([id, month])
 }
 
-/// //////////////////////////////////////// CLAIMS ///////////////////////////////////////////
+/////////////////////////////////////////// CLAIMS ///////////////////////////////////////////
 model Claim {
   id            String      @id @default(uuid())
   title         String
@@ -740,6 +756,9 @@ model Task {
 
   departmentId String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  teamId String? @db.Uuid
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   comments Comment[]
 
@@ -914,17 +933,17 @@ model Objective {
 }
 
 model AppraisalObjective {
-  id            String      @id @default(uuid()) @db.Uuid
-  appraisalId   String      @db.Uuid
-  appraisal     Appraisal   @relation(fields: [appraisalId], references: [id])
-  objectiveId   String      @db.Uuid
-  objective     Objective   @relation(fields: [objectiveId], references: [id])
+  id            String       @id @default(uuid()) @db.Uuid
+  appraisalId   String       @db.Uuid
+  appraisal     Appraisal    @relation(fields: [appraisalId], references: [id])
+  objectiveId   String       @db.Uuid
+  objective     Objective    @relation(fields: [objectiveId], references: [id])
   kpiCategoryId String?      @db.Uuid
   kpiCategory   KpiCategory? @relation(fields: [kpiCategoryId], references: [id])
   rating        Float?
   comment       String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model GoalsAndAchievement {
@@ -969,6 +988,46 @@ model RatingSummary {
   @@unique([appraisalId, kpiCategoryId])
 }
 
+//////////////////////////////////////////  PIP ///////////////////////////////////////////
+model Pip {
+  id           String          @id @default(uuid()) @db.Uuid
+  title        String
+  platform     String
+  url          String
+  startDate    DateTime
+  endDate      DateTime
+  duration     String
+  cost         Float
+  reason       String
+  status       PipStatus       @default(PENDING)
+  comment      Comment[]
+  rPipId       String?         @unique @db.Uuid
+  rPip         RecommendedPip? @relation("RecommendationToPip", fields: [rPipId], references: [id], onDelete: SetNull)
+  userId       String          @db.Uuid
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  uploads      Upload[]
+  rejectedById String?         @db.Uuid
+  rejecteAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model RecommendedPip {
+  id               String    @id @default(uuid()) @db.Uuid
+  rPipId           String
+  aoi              String
+  recommendedById  String    @db.Uuid
+  recommendedBy    User      @relation("PipRecommendedBy", fields: [recommendedById], references: [id])
+  recommendedForId String    @db.Uuid
+  recommendedFor   User      @relation("PipRecommendedFor", fields: [recommendedForId], references: [id])
+  reason           String?
+  comment          Comment[]
+  uploads          Upload[]
+  pip              Pip?      @relation("RecommendationToPip")
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum ApproverRole {
@@ -994,6 +1053,10 @@ enum NotificationActionType {
   APPRAISAL_CREATED
   APPRAISAL_REVIEWED
   APPRAISAL_SUBMITTED
+  PIP_RECOMMENDED
+  PIP_APPROVED
+  PIP_REJECTED
+  PIP_COMPLETED
 }
 
 enum ApprovalStatus {
@@ -1022,6 +1085,8 @@ enum AStatus {
 enum Status {
   PENDING
   ACCEPTED
+  APPROVED
+  REJECTED
   DECLINED
   ISSUE_REPORTED
   ACTIVE
@@ -1029,6 +1094,14 @@ enum Status {
   CONFIRMED
   COMPLETED
   IN_PROGRESS
+}
+
+enum PipStatus {
+  PENDING
+  MANAGER_APPROVED
+  HR_APPROVED
+  REJECTED
+  COMPLETED
 }
 
 enum TaxStatus {
