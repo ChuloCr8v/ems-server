@@ -18,69 +18,74 @@ export class ClaimsService {
   ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
+    try {
+      const claimId = "CLM" + Date.now().toString().slice(-4);
 
-    const claimId = "CLM" + Date.now().toString().slice(-4);
+      const claim = await this.prisma.claim.create({
+        data: {
+          claimId,
+          title: createClaimDto.title,
+          amount: Number(createClaimDto.amount),
+          dateOfExpense: new Date(createClaimDto.dateOfExpense),
+          description: createClaimDto.description,
+          entitlement: { connect: { id: createClaimDto.entitlement } },
+          user: {
+            connect: {
+              id: userId
+            }
+          },
+          proofUrls: createClaimDto.proofUrls
+            ? {
+              connect: createClaimDto.proofUrls.map((id) => ({ id })),
+            }
+            : undefined,
 
-    const claim = await this.prisma.claim.create({
-      data: {
-        claimId,
-        title: createClaimDto.title,
-        amount: Number(createClaimDto.amount),
-        dateOfExpense: new Date(createClaimDto.dateOfExpense),
-        description: createClaimDto.description,
-        entitlement: { connect: { id: createClaimDto.entitlement } },
-        user: {
-          connect: {
-            id: userId
-          }
         },
-        proofUrls: createClaimDto.proofUrls
-          ? {
-            connect: createClaimDto.proofUrls.map((id) => ({ id })),
-          }
-          : undefined,
-
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    const emailReciepients = await this.prisma.user.findMany({
-      where: {
-        userRole: {
-          hasSome: ["ADMIN", "SUPERADMIN"]
+      const emailReciepients = await this.prisma.user.findMany({
+        where: {
+          userRole: {
+            hasSome: ["ADMIN", "SUPERADMIN"]
+          }
         }
+      })
+
+
+      if (emailReciepients.length) {
+
+        this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
+
+        await Promise.all(
+          emailReciepients.map(e => this.mail.sendNewClaimMail({
+            email: e.email,
+            approverName: e.firstName + " " + e.lastName,
+            name: `${claim.user.firstName} ${claim.user.lastName}`,
+            claimTitle: createClaimDto.title,
+            type: createClaimDto.entitlement,
+            amount: createClaimDto.amount.toLocaleString(),
+            date: createClaimDto.dateOfExpense,
+            description: createClaimDto.description || 'No description provided',
+          }))
+        )
       }
-    })
 
-
-    if (emailReciepients.length) {
-
-      this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
-
-      await Promise.all(
-        emailReciepients.map(e => this.mail.sendNewClaimMail({
-          email: e.email,
-          approverName: e.firstName + " " + e.lastName,
-          name: `${claim.user.firstName} ${claim.user.lastName}`,
-          claimTitle: createClaimDto.title,
-          type: createClaimDto.entitlement,
-          amount: createClaimDto.amount.toLocaleString(),
-          date: createClaimDto.dateOfExpense,
-          description: createClaimDto.description || 'No description provided',
-        }))
-      )
+      return claim
+    } catch (error) {
+      bad(error)
     }
 
-    return claim
+
   }
 
 

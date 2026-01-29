@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException, StreamableFile } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { STATIC_DEDUCTION_COMPONENTS, STATIC_EARNING_COMPONENTS } from 'src/constants/static-components';
 import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
@@ -16,6 +16,7 @@ import { monthInWords } from 'src/utils/monthInWords';
 import { MailService } from 'src/mail/mail.service';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Readable } from 'stream';
 
 
 const templates = resolve(__dirname, '../payroll/templates');
@@ -818,49 +819,53 @@ export class PayrollService {
         }
     }
 
-    async downloadPayslip(payslipId: string, res: Response): Promise<void> {
 
+
+    async downloadPayslip(payslipId: string): Promise<StreamableFile> {
         const payslip = await this.prisma.payslip.findUnique({
             where: { id: payslipId },
             include: {
-                user: {
-                    include: {
-                        departments: true
-                    }
-                },
+                user: { include: { departments: true } },
                 payroll: {
                     include: {
                         component: true,
-                        user: {
-                            include: {
-                                departments: true
-                            }
-                        }
-                    }
-                }
+                        user: { include: { departments: true } },
+                    },
+                },
             },
         });
 
-        if (!payslip) throw new NotFoundException('Payslip not found');
+        if (!payslip) {
+            throw new NotFoundException('Payslip not found');
+        }
 
         const html = this.payslipTemplate.generateHTML(
             payslip.payroll,
             payslip.payroll.component,
         );
 
-        const pdfData: Buffer = await this.puppeteerService.renderPdfFromHtml(html);
+        let pdfBuffer: Buffer;
 
-        const pdfBuffer = Buffer.from(pdfData);
+        try {
+            pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
+        } catch (err) {
+            console.error('[Payslip PDF]', err);
+            bad('Failed to generate payslip PDF: ' + err);
+        }
 
         this.validatePDFBuffer(pdfBuffer);
 
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Length', pdfBuffer.length);
-        res.setHeader('Content-Disposition', `attachment; filename="${payslip.name}.pdf"`);
+        const stream = new Readable();
+        stream.push(pdfBuffer);
+        stream.push(null);
 
-        res.send(pdfBuffer);
-
+        return new StreamableFile(stream, {
+            type: 'application/pdf',
+            disposition: `attachment; filename="${payslip.name}.pdf"`,
+            length: pdfBuffer.length,
+        });
     }
+
 
     async downloadDeductionsExcel(deductionId: string, res: Response): Promise<void> {
         const deduction = await (this.prisma as any).deductions.findUnique({

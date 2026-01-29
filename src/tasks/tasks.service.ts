@@ -7,13 +7,13 @@ import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateCategoryDto } from 'src/category/category.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
-  TaskCreatedEvent,
   TaskAssignedEvent,
-  TaskApprovedEvent,
+  TaskCreatedEvent,
   TaskRejectedEvent,
-  TaskReassignedEvent,
   TaskUpdatedEvent,
+  TaskReassignedEvent,
   TaskStatusChangeEvent,
+  TaskApprovedEvent,
   TaskAssigneeChangeEvent,
   TaskPriorityChangeEvent,
   TaskDueDateChangeEvent
