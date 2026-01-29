@@ -7,7 +7,7 @@ import { ApproverModule } from 'src/approver/approver.module';
 import { ApproverService } from 'src/approver/approver.service';
 
 @Module({
-  imports: [PrismaModule, MailModule, ],
+  imports: [PrismaModule, MailModule],
   controllers: [LeaveController],
   providers: [LeaveService, ApproverService],
 })

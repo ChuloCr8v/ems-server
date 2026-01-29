@@ -3,7 +3,10 @@ import { MailerService } from '@nestjs-modules/mailer';
 import {
   AcceptanceInviteDto,
   ApproveLeaveRequest,
-  ClaimApprovalDto, ClaimRejectionDto, ClaimRequest, DeclinedInviteDto,
+  ClaimApprovalDto,
+  ClaimRejectionDto,
+  ClaimRequest,
+  DeclinedInviteDto,
   EmployeePayslipGenerated,
   InitiateOffboarding,
   LeaveRequest,
@@ -22,55 +25,59 @@ import {
   WelcomeEmailDto,
   TaskDueDateChangeDto,
   AppraisalMailDto,
-  PipMailDto
+  PipMailDto,
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
 
 @Injectable()
 export class MailService {
-
   constructor(
     private mailerService: MailerService,
     private config: ConfigService,
-  ) { this.registerHandlebarsHelpers(); }
+  ) {
+    this.registerHandlebarsHelpers();
+  }
 
   private registerHandlebarsHelpers() {
-    Handlebars.registerHelper('formatDate', function (date: Date, format?: string) {
-      if (!date) return '';
+    Handlebars.registerHelper(
+      'formatDate',
+      function (date: Date, format?: string) {
+        if (!date) return '';
 
-      const dateObj = new Date(date);
-      const options: Intl.DateTimeFormatOptions = {};
+        const dateObj = new Date(date);
+        const options: Intl.DateTimeFormatOptions = {};
 
-      // Default format
-      if (!format) {
-        return dateObj.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      }
+        // Default format
+        if (!format) {
+          return dateObj.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          });
+        }
 
-      // Custom format parsing
-      if (format.includes('MMMM')) options.month = 'long';
-      else if (format.includes('MMM')) options.month = 'short';
-      else if (format.includes('MM')) options.month = '2-digit';
+        // Custom format parsing
+        if (format.includes('MMMM')) options.month = 'long';
+        else if (format.includes('MMM')) options.month = 'short';
+        else if (format.includes('MM')) options.month = '2-digit';
 
-      if (format.includes('DD')) options.day = '2-digit';
-      else if (format.includes('D')) options.day = 'numeric';
+        if (format.includes('DD')) options.day = '2-digit';
+        else if (format.includes('D')) options.day = 'numeric';
 
-      if (format.includes('YYYY')) options.year = 'numeric';
-      else if (format.includes('YY')) options.year = '2-digit';
+        if (format.includes('YYYY')) options.year = 'numeric';
+        else if (format.includes('YY')) options.year = '2-digit';
 
-      return dateObj.toLocaleDateString('en-US', options);
-    });
+        return dateObj.toLocaleDateString('en-US', options);
+      },
+    );
 
     // Additional helper for time if needed
     Handlebars.registerHelper('formatTime', function (date: Date) {
       if (!date) return '';
       return new Date(date).toLocaleTimeString('en-US', {
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
       });
     });
   }
@@ -84,7 +91,7 @@ export class MailService {
       subject: MAIL_SUBJECT.PROSPECT_INVITATION,
       template: 'invite',
       attachments,
-      context: { firstName, link, attachments }
+      context: { firstName, link, attachments },
     });
   }
 
@@ -115,7 +122,7 @@ export class MailService {
       subject: MAIL_SUBJECT.UPDATE_USER_INFO,
       template: 'user',
       context: { name, comment, link },
-    })
+    });
   }
 
   async initiateOffboardingMail(offboarding: InitiateOffboarding) {
@@ -125,7 +132,7 @@ export class MailService {
       subject: MAIL_SUBJECT.INITIATE_OFFBOARDING,
       template: 'offboarding',
       context: { name },
-    })
+    });
   }
 
   async sendWelcomeEmail(data: WelcomeEmailDto) {
@@ -147,25 +154,42 @@ export class MailService {
   }
 
   async sendLeaveRequestMail(data: LeaveRequest) {
-    const { email, leaveType, leaveValue, name, startDate, endDate, reason } = data;
+    const { email, leaveType, leaveValue, name, startDate, endDate, reason } =
+      data;
 
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
       template: 'leaveRequest',
-      context: { name, leaveType, leaveValue, startDate, endDate, reason }
+      context: { name, leaveType, leaveValue, startDate, endDate, reason },
     });
   }
 
-
   async sendNewClaimMail(data: ClaimRequest) {
-    const { email, name, claimTitle, type, amount, date, description, approverName } = data;
+    const {
+      email,
+      name,
+      claimTitle,
+      type,
+      amount,
+      date,
+      description,
+      approverName,
+    } = data;
 
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.NEW_CLAIM,
       template: 'newClaim',
-      context: { name, claimTitle, type, amount, date, description, approverName }
+      context: {
+        name,
+        claimTitle,
+        type,
+        amount,
+        date,
+        description,
+        approverName,
+      },
     });
   }
 
@@ -176,18 +200,19 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.CLAIM_APPROVED,
       template: 'claimApproval',
-      context: { name, claimTitle, amount, date, approverName }
+      context: { name, claimTitle, amount, date, approverName },
     });
   }
 
   async sendClaimRejectionMail(data: ClaimRejectionDto) {
-    const { email, name, claimTitle, amount, date, approverName, reason } = data;
+    const { email, name, claimTitle, amount, date, approverName, reason } =
+      data;
 
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.CLAIM_REJECTED,
       template: 'claimRejection',
-      context: { name, claimTitle, amount, date, approverName, reason }
+      context: { name, claimTitle, amount, date, approverName, reason },
     });
   }
 
@@ -197,18 +222,19 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.LEAVE_APPROVAL,
       template: 'leaveApproved',
-      context: { name, leaveType, startDate, endDate, leaveValue, },
-    })
+      context: { name, leaveType, startDate, endDate, leaveValue },
+    });
   }
 
   async sendLeaveRejectMail(data: RejectLeaveRequest) {
-    const { email, name, startDate, endDate, leaveType, leaveValue, reason } = data;
+    const { email, name, startDate, endDate, leaveType, leaveValue, reason } =
+      data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_DECLINE,
       template: 'leaveDenied',
       context: { name, leaveType, startDate, endDate, leaveValue, reason },
-    })
+    });
   }
 
   async sendPayrollQueueMail(data: PayslipQueued) {
@@ -218,7 +244,7 @@ export class MailService {
       subject: MAIL_SUBJECT.PAYSLIP_QUEUED,
       template: 'payslipQueued',
       context: { month, date, email },
-    })
+    });
   }
 
   async sendEmployeePayslipReadyMail(data: EmployeePayslipGenerated) {
@@ -230,14 +256,14 @@ export class MailService {
       context: { month, date, email, name, dashboardUrl },
       attachments: attachment
         ? [
-          {
-            filename: attachment.filename,
-            content: attachment.content,
-            contentType: attachment.contentType,
-          },
-        ]
+            {
+              filename: attachment.filename,
+              content: attachment.content,
+              contentType: attachment.contentType,
+            },
+          ]
         : [],
-    })
+    });
   }
 
   async sendPayslipsGenerated(data: PayslipsGenerated) {
@@ -247,50 +273,117 @@ export class MailService {
       subject: MAIL_SUBJECT.PAYSLIPS_GENERATED,
       template: 'payslipsGenerated',
       context: { month, date, email, dashboardUrl },
-
-    })
+    });
   }
 
   // Task Email Methods
   //Notification
   async sendTaskCreatedMail(data: TaskCreatedDto) {
-    const { email, name, taskId, taskTitle, taskDescription, priority, dueDate, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      taskId,
+      taskTitle,
+      taskDescription,
+      priority,
+      dueDate,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_CREATED,
       template: 'taskCreated',
-      context: { name, taskId, taskTitle, taskDescription, priority, dueDate, dashboardUrl },
+      context: {
+        name,
+        taskId,
+        taskTitle,
+        taskDescription,
+        priority,
+        dueDate,
+        dashboardUrl,
+      },
     });
   }
 
   async sendTaskAssignedMail(data: TaskAssignedDto) {
-    const { email, name, assignedBy, taskId, taskTitle, priority, dueDate, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      assignedBy,
+      taskId,
+      taskTitle,
+      priority,
+      dueDate,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_ASSIGNED,
       template: 'taskAssigned',
-      context: { name, assignedBy, taskId, taskTitle, priority, dueDate, dashboardUrl },
+      context: {
+        name,
+        assignedBy,
+        taskId,
+        taskTitle,
+        priority,
+        dueDate,
+        dashboardUrl,
+      },
     });
   }
 
   //Notification
   async sendTaskUpdatedMail(data: TaskUpdatedDto) {
-    const { email, name, updatedBy, taskId, taskTitle, updateDetails, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      updatedBy,
+      taskId,
+      taskTitle,
+      updateDetails,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_UPDATED,
       template: 'taskUpdated',
-      context: { name, updatedBy, taskId, taskTitle, updateDetails, dashboardUrl },
+      context: {
+        name,
+        updatedBy,
+        taskId,
+        taskTitle,
+        updateDetails,
+        dashboardUrl,
+      },
     });
   }
 
   async sendTaskStatusChangeMail(data: TaskStatusChangedDto) {
-    const { email, name, changedBy, taskId, taskTitle, oldStatus, newStatus, reason, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      changedBy,
+      taskId,
+      taskTitle,
+      oldStatus,
+      newStatus,
+      reason,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_STATUS_CHANGED,
       template: 'taskStatusChanged',
-      context: { name, changedBy, taskId, taskTitle, oldStatus, newStatus, reason, dashboardUrl },
+      context: {
+        name,
+        changedBy,
+        taskId,
+        taskTitle,
+        oldStatus,
+        newStatus,
+        reason,
+        dashboardUrl,
+      },
     });
   }
 
@@ -315,22 +408,56 @@ export class MailService {
   // }
 
   async sendTaskReassignedMail(data: TaskReassignedDto) {
-    const { email, name, reassignedBy, taskId, taskTitle, note, newDueDate, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      reassignedBy,
+      taskId,
+      taskTitle,
+      note,
+      newDueDate,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_REASSIGNED,
       template: 'taskReassigned',
-      context: { name, reassignedBy, taskId, taskTitle, note, newDueDate, dashboardUrl },
+      context: {
+        name,
+        reassignedBy,
+        taskId,
+        taskTitle,
+        note,
+        newDueDate,
+        dashboardUrl,
+      },
     });
   }
 
   async sendTaskDueDateChangeMail(data: TaskDueDateChangeDto) {
-    const { email, name, changedBy, taskId, taskTitle, oldDueDate, newDueDate, dashboardUrl } = data;
+    const {
+      email,
+      name,
+      changedBy,
+      taskId,
+      taskTitle,
+      oldDueDate,
+      newDueDate,
+      dashboardUrl,
+    } = data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.TASK_DUEDATE_CHANGED,
       template: 'taskDueDateChanged',
-      context: { name, changedBy, taskId, taskTitle, oldDueDate, newDueDate, dashboardUrl },
+      context: {
+        name,
+        changedBy,
+        taskId,
+        taskTitle,
+        oldDueDate,
+        newDueDate,
+        dashboardUrl,
+      },
     });
   }
 

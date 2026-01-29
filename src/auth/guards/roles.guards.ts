@@ -1,8 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Role } from '@prisma/client';
@@ -13,7 +9,7 @@ export class RolesGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRoles = this.reflector.getAllAndOverride<Role[]>(ROLES_KEY, [
@@ -35,13 +31,12 @@ export class RolesGuard implements CanActivate {
 
     if (!dbUser) return false;
 
-    let effectiveRoles = [...(dbUser.userRole || [])];
+    const effectiveRoles = [...(dbUser.userRole || [])];
 
     if (dbUser.approver?.length > 0) {
       effectiveRoles.push(Role.DEPT_MANAGER);
     }
 
     return effectiveRoles.some((role) => requiredRoles.includes(role));
-
   }
 }

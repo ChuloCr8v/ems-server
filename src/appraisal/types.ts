@@ -8,7 +8,7 @@ export interface AppraisalWhereInput {
   appraiserId?: string;
   appraisedId?: string;
   OR?: any[];
-} 
+}
 
 export interface AppraisalInclude {
   appraised?: any;
@@ -31,7 +31,5 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   HR = 'HR',
   DEPT_MANAGER = 'DEPT_MANAGER',
-  USER = 'USER'
+  USER = 'USER',
 }
-
-

@@ -98,7 +98,6 @@ export class PuppeteerService implements OnModuleDestroy {
     });
   }
 
-
   /* ---------------- Shutdown ---------------- */
 
   async onModuleDestroy() {

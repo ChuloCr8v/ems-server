@@ -7,16 +7,17 @@ import { CreateCategoryDto } from './category.dto';
 
 @Controller('category')
 export class CategoryController {
-    constructor(private prisma: PrismaService, private category: CategoryService) { }
+  constructor(
+    private prisma: PrismaService,
+    private category: CategoryService,
+  ) {}
 
-    @Auth(["ADMIN", "DEPT_MANAGER", "TEAM_LEAD"])
-    @Post("category")
-    async createTaskCategory(
-        @Body() dto: CreateCategoryDto,
-        @Req() req: ReqPayload
-
-    ) {
-        return this.category.create(req.user.id, dto);
-    }
-
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
+  @Post('category')
+  async createTaskCategory(
+    @Body() dto: CreateCategoryDto,
+    @Req() req: ReqPayload,
+  ) {
+    return this.category.create(req.user.id, dto);
+  }
 }

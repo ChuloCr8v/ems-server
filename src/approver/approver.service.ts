@@ -4,11 +4,12 @@ import { Department, Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getApproversForDepartment(user: any) {
-
-    const departments = user.defaultDepartment ? [user.defaultDepartment] : user.departments
+    const departments = user.defaultDepartment
+      ? [user.defaultDepartment]
+      : user.departments;
 
     const deptIds = departments.map((d) => d.id);
 
@@ -18,7 +19,7 @@ export class ApproverService {
           some: {
             departmentId: { in: deptIds },
             role: Role.DEPT_MANAGER,
-            isActive: true
+            isActive: true,
           },
         },
       },
@@ -28,14 +29,14 @@ export class ApproverService {
       },
     });
 
-    return approver
+    return approver;
   }
 
   async getGlobalApprovers() {
     return this.prisma.user.findMany({
       where: {
         userRole: {
-          has: Role.LEAVE_MANAGER
+          has: Role.LEAVE_MANAGER,
         },
       },
     });
@@ -45,7 +46,7 @@ export class ApproverService {
     return this.prisma.user.findMany({
       where: {
         userRole: {
-          has: Role.DEPT_MANAGER
+          has: Role.DEPT_MANAGER,
         },
       },
     });
@@ -60,21 +61,21 @@ export class ApproverService {
           include: {
             approver: {
               include: {
-                user: true
-              }
-            }
-          }
+                user: true,
+              },
+            },
+          },
         },
         defaultDepartment: {
           include: {
             approver: {
               include: {
-                user: true
-              }
-            }
-          }
+                user: true,
+              },
+            },
+          },
         },
-        approver: true
+        approver: true,
       },
     });
 
@@ -82,7 +83,9 @@ export class ApproverService {
       throw new NotFoundException('User not found');
     }
 
-    const isDepartmentHead = user.approver.length && user.approver.some(u => u.role.includes(Role.DEPT_MANAGER))
+    const isDepartmentHead =
+      user.approver.length &&
+      user.approver.some((u) => u.role.includes(Role.DEPT_MANAGER));
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
@@ -90,8 +93,8 @@ export class ApproverService {
     }
 
     // Regular employees get department approvers + global approvers
-    const departmentApprovers = await this.getApproversForDepartment(user)
-      ?? [];
+    const departmentApprovers =
+      (await this.getApproversForDepartment(user)) ?? [];
 
     const globalApprovers = await this.getGlobalApprovers();
 
@@ -99,13 +102,15 @@ export class ApproverService {
   }
 
   private async getApproversForDepartmentHead() {
-
     const globalApprovers = await this.getGlobalApprovers();
 
-    return globalApprovers
+    return globalApprovers;
   }
 
-  async canUserApprove(approverUserId: string, targetUserId: string): Promise<boolean> {
+  async canUserApprove(
+    approverUserId: string,
+    targetUserId: string,
+  ): Promise<boolean> {
     // Prevent self-approval
     if (approverUserId === targetUserId) return false;
 
@@ -135,22 +140,30 @@ export class ApproverService {
     if (approverUser.userRole.includes(Role.LEAVE_MANAGER)) return true;
 
     // 2. Department approvers can approve members of their department
-    const approverDeptIds = approverUser.departments.map(d => d.id);
-    const targetDeptIds = targetUser.departments.map(d => d.id);
+    const approverDeptIds = approverUser.departments.map((d) => d.id);
+    const targetDeptIds = targetUser.departments.map((d) => d.id);
 
-    const isSameDepartment = targetDeptIds.some(id => approverDeptIds.includes(id));
+    const isSameDepartment = targetDeptIds.some((id) =>
+      approverDeptIds.includes(id),
+    );
     if (isSameDepartment) return true;
 
     // 3. Peer department heads can approve each other
     const isTargetDepartmentHead = targetUser.approver.length > 0;
-    const isApproverDepartmentHead = approverUser.approver.some(a => a.role === 'DEPT_MANAGER');
+    const isApproverDepartmentHead = approverUser.approver.some(
+      (a) => a.role === 'DEPT_MANAGER',
+    );
 
     if (isTargetDepartmentHead && isApproverDepartmentHead) return true;
 
     return false;
   }
 
-  async createApprover(userId: string, departmentId: string | null, role: Role) {
+  async createApprover(
+    userId: string,
+    departmentId: string | null,
+    role: Role,
+  ) {
     return this.prisma.approver.create({
       data: {
         userId,

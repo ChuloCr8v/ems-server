@@ -7,12 +7,9 @@ import { AuthService } from 'src/auth/auth.service';
 import { UploadsModule } from 'src/uploads/uploads.module';
 
 @Module({
-  imports: [
-    PrismaModule,
-    MailModule,
-    UploadsModule],
+  imports: [PrismaModule, MailModule, UploadsModule],
   providers: [InviteService, AuthService],
   controllers: [InviteController],
-  exports: [InviteService,],
+  exports: [InviteService],
 })
-export class InviteModule { }
+export class InviteModule {}

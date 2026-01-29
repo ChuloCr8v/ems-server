@@ -1,10 +1,19 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApproverService } from './approver.service';
 import { Role } from '@prisma/client';
 
 @Controller('approvers')
 export class ApproverController {
-  constructor(private readonly approverService: ApproverService) { }
+  constructor(private readonly approverService: ApproverService) {}
 
   @Get()
   findAll() {
