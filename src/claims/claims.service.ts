@@ -62,23 +62,23 @@ export class ClaimsService {
       })
 
 
-      // if (emailReciepients.length) {
+      if (emailReciepients.length) {
 
-      //   this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
+        this.event.emit('claim.created', new ClaimCreatedEvent(claim.id, userId, emailReciepients.map(e => e.id)));
 
-      //   await Promise.all(
-      //     emailReciepients.map(e => this.mail.sendNewClaimMail({
-      //       email: e.email,
-      //       approverName: e.firstName + " " + e.lastName,
-      //       name: `${claim.user.firstName} ${claim.user.lastName}`,
-      //       claimTitle: createClaimDto.title,
-      //       type: createClaimDto.entitlement,
-      //       amount: createClaimDto.amount.toLocaleString(),
-      //       date: createClaimDto.dateOfExpense,
-      //       description: createClaimDto.description || 'No description provided',
-      //     }))
-      //   )
-      // }
+        await Promise.all(
+          emailReciepients.map(e => this.mail.sendNewClaimMail({
+            email: e.email,
+            approverName: e.firstName + " " + e.lastName,
+            name: `${claim.user.firstName} ${claim.user.lastName}`,
+            claimTitle: createClaimDto.title,
+            type: createClaimDto.entitlement,
+            amount: createClaimDto.amount.toLocaleString(),
+            date: createClaimDto.dateOfExpense,
+            description: createClaimDto.description || 'No description provided',
+          }))
+        )
+      }
 
       return claim
     } catch (error) {
@@ -237,58 +237,64 @@ export class ClaimsService {
   }
 
   async updateStatus(id: string, status: 'APPROVED' | 'REJECTED', approverId: string, notes?: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id } });
 
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
-    }
+    try {
+      const claim = await this.prisma.claim.findUnique({ where: { id } });
 
-    const updatedClaim = await this.prisma.claim.update({
-      where: { id },
-      data: {
-        status,
-        notes,
-        updatedAt: new Date(),
-      },
-      include: {
-        user: true
+      if (!claim) {
+        throw new NotFoundException('Claim not found');
       }
-    });
 
-    if (status === 'APPROVED') {
-      const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
-      const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
-
-      this.event.emit('claim.approved', new ClaimApprovedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId));
-
-      // await this.mail.sendClaimApprovalMail({
-      //   email: updatedClaim.user.email,
-      //   name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-      //   claimTitle: updatedClaim.title,
-      //   amount: updatedClaim.amount.toLocaleString(),
-      //   date: updatedClaim.dateOfExpense,
-      //   approverName
-      // });
-    }
-
-    if (status === 'REJECTED') {
-      const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
-      const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
-
-      this.event.emit('claim.rejected', new ClaimRejectedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId, notes));
-
-      await this.mail.sendClaimRejectionMail({
-        email: updatedClaim.user.email,
-        name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-        claimTitle: updatedClaim.title,
-        amount: updatedClaim.amount.toLocaleString(),
-        date: updatedClaim.dateOfExpense,
-        approverName,
-        reason: notes
+      const updatedClaim = await this.prisma.claim.update({
+        where: { id },
+        data: {
+          status,
+          notes,
+          updatedAt: new Date(),
+        },
+        include: {
+          user: true
+        }
       });
+
+      if (status === 'APPROVED') {
+        const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+        const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+
+        this.event.emit('claim.approved', new ClaimApprovedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId));
+
+        await this.mail.sendClaimApprovalMail({
+          email: updatedClaim.user.email,
+          name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+          claimTitle: updatedClaim.title,
+          amount: updatedClaim.amount.toLocaleString(),
+          date: updatedClaim.dateOfExpense,
+          approverName
+        });
+      }
+
+      if (status === 'REJECTED') {
+        const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
+        const approverName = approver ? `${approver.firstName} ${approver.lastName}` : 'Admin';
+
+        this.event.emit('claim.rejected', new ClaimRejectedEvent(id, updatedClaim.userId, [updatedClaim.userId], approverId, notes));
+
+        await this.mail.sendClaimRejectionMail({
+          email: updatedClaim.user.email,
+          name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+          claimTitle: updatedClaim.title,
+          amount: updatedClaim.amount.toLocaleString(),
+          date: updatedClaim.dateOfExpense,
+          approverName,
+          reason: notes
+        });
+      }
+
+      return updatedClaim;
+    } catch (error) {
+      bad(error)
     }
 
-    return updatedClaim;
   }
 
   async approveClaim(id: string) {

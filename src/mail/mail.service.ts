@@ -16,7 +16,6 @@ import {
   TaskAssignedDto,
   TaskCreatedDto,
   TaskReassignedDto,
-  TaskRejectedDto,
   TaskStatusChangedDto,
   TaskUpdatedDto,
   UpdateProspectInfoDto,
