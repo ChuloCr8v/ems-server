@@ -265,7 +265,7 @@ export class ClaimsService {
           notes,
           updatedAt: new Date(),
         },
-        include: { user: true }, // Ensure user is included
+        include: { user: true },
       });
 
       // 3. Find approver safely
@@ -273,8 +273,8 @@ export class ClaimsService {
       try {
         const approver = await this.prisma.user.findUnique({ where: { id: approverId } });
         if (approver) approverName = `${approver.firstName} ${approver.lastName}`;
-      } catch {
-        // fallback to Admin if approver lookup fails
+      } catch (error) {
+        bad('Failed to find approver:', error);
       }
 
       // 4. Emit events and send emails asynchronously (won't block)
@@ -282,7 +282,7 @@ export class ClaimsService {
         try {
           await mailFunc();
         } catch (err) {
-          console.error('Failed to send email:', err);
+          bad('Failed to send email:', err);
         }
       };
 
@@ -299,7 +299,7 @@ export class ClaimsService {
             email: updatedClaim.user.email,
             name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
             claimTitle: updatedClaim.title,
-            amount: updatedClaim.amount.toLocaleString('en-US'), // explicit locale
+            amount: updatedClaim.amount.toLocaleString('en-US'),
             date: updatedClaim.dateOfExpense,
             approverName,
           })
