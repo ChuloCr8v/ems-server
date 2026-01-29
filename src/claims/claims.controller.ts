@@ -33,8 +33,6 @@ export class ClaimsController {
     return this.claimsService.addClaim(req.sub, data);
   }
 
-
-
   @Get()
   async findAll(
     @AuthUser() req: IAuthUser,
