@@ -1,0 +1,254 @@
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Payslip Generation Started</title>
+    <link rel='preconnect' href='https://fonts.googleapis.com' />
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
+    <link
+      href='https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap'
+      rel='stylesheet'
+    />
+
+    <style
+    >
+      body {
+        {{! margin: 0;
+        padding: 0; }}
+        font-family: 'Raleway', sans-serif;
+        background-color: #ffffff;
+        {{! min-height: 100vh; }}
+        display: flex;
+        flex-direction: column,
+        justify-content: center;
+        align-items: center;
+      }
+
+      .wrapper {
+        width: 800px;
+        background-color: #f8fafc;
+        position: relative;
+        overflow: visible;
+        margin: 20px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .Name {
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1.5;
+        color: #384860;
+      }
+
+      .header {
+        width: 100%;
+        height: 104px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 42.46px 48px;
+        box-sizing: border-box;
+      }
+
+      .zoracom-logo {
+        width: 161px;
+        height: 30px;
+        margin-left: 12px;
+      }
+
+      .social-icons {
+        display: flex;
+        gap: 24px;
+        margin-right: 15px;
+      }
+
+      .social-icon {
+        width: 24px;
+        height: 24px;
+      }
+
+      .content-wrapper {
+        width: 705px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        padding: 0 48px;
+        box-sizing: border-box;
+        position: relative;
+        z-index: 2;
+        border-radius: 4px;
+        margin-bottom: 20px;
+      }
+
+      .content {
+        color: #333333;
+        font-weight: 400;
+        font-size: 16px;
+        line-height: 1.5;
+        padding: 24px 0 40px;
+        white-space: pre-line;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0 0 24px 0;
+        line-height: 1;
+      }
+
+      .greeting {
+        font-size: 16px;
+        margin-top: -20px;
+        font-weight: 400;
+        color: #384860;
+      }
+
+      .message {
+        font-size: 16px;
+        margin-top: -40px;
+        color: #5e5e5e;
+      }
+
+      .signature {
+        margin-top: -90px;
+        line-height: 1;
+      }
+
+      .footer {
+        font-size: 12px;
+        color: #666666;
+        padding: 40px 48px 24px;
+        border-top: 1px solid #eeeeee;
+        line-height: 1.5;
+        background-color: #ecf8ee;
+        position: relative;
+        z-index: 1;
+        margin-top: 20px;
+      }
+
+      .footer-content {
+        max-width: 100%;
+        margin: 0 auto;
+      }
+
+      .fcontent1 {
+        font-size: 14px;
+        transform: translateX(20px);
+      }
+
+      .button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #0a96cc;
+        color: #fff;
+        text-decoration: none;
+        padding: 8px 45px;
+        width: 179px;
+        height: 42px;
+        transform: translateY(-50px);
+      }
+
+      .button:hover {
+        background-color: #007bb8;
+      }
+
+      .fcontent2 {
+        transform: translateX(20px);
+        font-size: 14px;
+        margin-top: 10px;
+        padding-top: 15px;
+        margin-bottom: 8px;
+      }
+
+      .fcontent3 {
+        transform: translateX(20px);
+        font-size: 14px;
+        margin-top: 0;
+        padding-top: 0;
+      }
+
+      .ID {
+        font-weight: 500;
+        color: #5e5e5e;
+        font-size: 14px;
+        margin-top: -20px;
+        display: block;
+        font-style: bold;
+      }
+
+      .cheeers {
+        font-weight: 400;
+        font-size: 14px;
+        color: #5e5e5e;
+        display: block;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class='wrapper'>
+      <div class='header'>
+        <img
+          src='https://ems.miro.zoracom.com/logo.png'
+          alt='Zoracom Limited'
+          class='zoracom-logo'
+        />
+
+        <div class='social-icons'>
+          <a href='#'><img
+              src='../assets/Social icon - Twitter.svg'
+              class='social-icon'
+            /></a>
+          <a href='#'><img src='../assets/Vector.svg' class='social-icon' /></a>
+          <a href='#'><img
+              src='../assets/Group (2).svg'
+              class='social-icon'
+            /></a>
+        </div>
+      </div>
+
+      <div class='content-wrapper'>
+        <div class='content'>
+          <h1>Payslip Generation Started</h1>
+
+          <p class='message'>
+            Your request to generate payslips for
+            <strong>{{month}}</strong>
+            has officially begun. This task involves generating payslips for all
+            employees and may take a few minutes depending on the number of
+            records. No action is required from your end. We will notify you
+            once the entire batch is completed.
+          </p>
+
+          <div class='signature'>
+            <span class='cheeers'>Regards,</span><br />
+            <span class='ID'>Zoracom EMS</span>
+          </div>
+        </div>
+      </div>
+
+      <div class='footer'>
+        <div class='footer-content'>
+          <p class='fcontent1'>
+            Questions or concerns? Contact us at
+            <a href='hrteam@zoracom.com' class='email'>
+              hrteam@zoracom.com</a>.<br />
+            Don’t want to receive emails from Zoracom?
+            <a href='#'>Unsubscribe</a>.
+          </p>
+
+          <p class='fcontent2'>
+            NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe Expressway,
+            Lagos, Nigeria
+          </p>
+
+          <p class='fcontent3'>
+            ©
+            {{date}}
+            Zora Communications Limited. All Rights Reserved.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

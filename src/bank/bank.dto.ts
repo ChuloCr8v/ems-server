@@ -1,15 +1,15 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class BankDto {
-    @IsString()
-    @IsNotEmpty()
-    bankName: string
+  @IsString()
+  @IsNotEmpty()
+  bankName: string;
 
-    @IsString()
-    @IsNotEmpty()
-    accountName: string
+  @IsString()
+  @IsNotEmpty()
+  accountName: string;
 
-    @IsString()
-    @IsNotEmpty()
-    accountNumber: string
+  @IsString()
+  @IsNotEmpty()
+  accountNumber: string;
 }

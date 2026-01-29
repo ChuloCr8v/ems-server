@@ -7,9 +7,9 @@ async function main() {
   // Bona (ADMIN)
   await prisma.user.create({
     data: {
-      firstName: "Benedict",
-      lastName: "Nwosu",
-      email: "benedict@zoracom.com",
+      firstName: "Bonaventure",
+      lastName: "Nkematu",
+      email: "bonaventure@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
@@ -45,15 +45,15 @@ async function main() {
   });
 
   const users = [
-    {
-      firstName: "Benedict",
-      lastName: "Nwosu",
-      email: "benedict@zoracom.com",
-      phone: "08011112221",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Software Engineer",
-    },
+    // {
+    //   firstName: "Benedict",
+    //   lastName: "Nwosu",
+    //   email: "benedict@zoracom.com",
+    //   phone: "08011112221",
+    //   gender: "Male",
+    //   maritalStatus: MaritalStatus.MARRIED,
+    //   role: "Software Engineer",
+    // },
     // {
     //   firstName: "Amaka",
     //   lastName: "Eze",

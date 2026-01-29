@@ -1,40 +1,50 @@
-import { PartialType } from "@nestjs/mapped-types";
-import { AppraisalStatus, KpiCategoryType } from "@prisma/client";
-import { Transform, Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDate, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from "class-validator";
+import { AppraisalStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class KpiRatingDto {
-    @IsString()
-    @IsNotEmpty()
-    objectiveId: string;
+  @IsString()
+  @IsNotEmpty()
+  objectiveId: string;
 
-    @IsNumber()
-    @Min(1)
-    @Max(5)
-    rating: number;
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  rating: number;
 
-    @IsString()
-    @IsOptional()
-    comment?: string;
+  @IsString()
+  @IsOptional()
+  comment?: string;
 }
 
 export class UpdateKpiRatingDto {
-    @IsNumber()
-    @IsOptional()
-    rating?: number;
+  @IsNumber()
+  @IsOptional()
+  rating?: number;
 
-    @IsString()
-    @IsOptional()
-    comment?: string;
+  @IsString()
+  @IsOptional()
+  comment?: string;
 }
 
 export class GoalsAndAchievementDto {
-  @IsArray() 
+  @IsArray()
   @IsString({ each: true })
   achievements: string[];
 
   @IsArray()
-  @IsString({ each: true }) 
+  @IsString({ each: true })
   goals: string[];
 }
 
@@ -43,78 +53,16 @@ export class FeedbackQuestionDto {
   @IsNotEmpty()
   questionId: string;
 
-  @IsOptional() 
-  @IsString() 
+  @IsOptional()
+  @IsString()
   response?: string;
 }
 
 export class FeedbackDto {
-  @IsArray() 
-  @ValidateNested({ each: true }) 
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => FeedbackQuestionDto)
   questions: FeedbackQuestionDto[];
-}
-
-export class UpdateAppraisalDto {
-  @IsOptional()
-  @IsString()
-  managerComment?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => KpiRatingDto)
-  kpiRatings?: KpiRatingDto[];
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => GoalsAndAchievementDto)
-  goalsAndAchievements?: GoalsAndAchievementDto;
-
-  @IsOptional()
-  @IsBoolean()
-  complete?: boolean = false;
-}
-
-export class RatingSummaryResponseDto {
-  @IsNumber()
-  technicalPerformance: number;
-
-  @IsNumber()
-  teamCollaboration: number;
-
-  @IsNumber()
-  initiativesLeadership: number;
-
-  @IsNumber()
-  departmentalKpi: number;
-
-  @IsNumber()
-  overallPerformance: number;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CategoryBreakdownDto)
-  categoryBreakdown: CategoryBreakdownDto[];
-}
-
-export class CategoryBreakdownDto {
-  @IsString()
-  categoryName: string;
-
-  @IsNumber()
-  averageRating: number;
-
-  @IsNumber()
-  totalObjectives: number;
-
-  @IsNumber()
-  ratedObjectives: number;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ObjectiveRatingDto)
-  objectives: ObjectiveRatingDto[];
 }
 
 export class ObjectiveRatingDto {
@@ -123,6 +71,19 @@ export class ObjectiveRatingDto {
 
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsNumber()
+  rating?: number;
+
+  @IsOptional()
+  @IsString()
+  comment?: string;
+}
+
+export class AppraisalObjectiveRatingDto {
+  @IsString()
+  appraisalObjId: string;
 
   @IsOptional()
   @IsNumber()
@@ -147,11 +108,15 @@ export class SendToDepartmentDto {
 }
 
 export class FillAppraisalDto {
+  @IsString()
+  @IsOptional()
+  managerComment?: string;
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => ObjectiveRatingDto)
-  objectiveRatings?: ObjectiveRatingDto[];
+  @Type(() => AppraisalObjectiveRatingDto)
+  objectiveRatings?: AppraisalObjectiveRatingDto[];
 
   @IsOptional()
   @ValidateNested()
@@ -162,11 +127,7 @@ export class FillAppraisalDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => FeedbackQuestionDto)
-  feedbackResponses?: FeedbackQuestionDto[];
-
-  @IsOptional()
-  @IsBoolean()
-  submit?: boolean = false;
+  feedback?: FeedbackQuestionDto[];
 }
 
 // appraise-submission.dto.ts (same as before)
@@ -178,12 +139,13 @@ export class AppraiseSubmissionDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => ObjectiveRatingDto)
-  objectiveRatings?: ObjectiveRatingDto[];
+  @Type(() => AppraisalObjectiveRatingDto)
+  objectiveRatings?: AppraisalObjectiveRatingDto[];
 
   @IsOptional()
-  @IsBoolean()
-  complete?: boolean = false;
+  @ValidateNested()
+  @Type(() => GoalsAndAchievementDto)
+  goalsAndAchievements?: GoalsAndAchievementDto;
 }
 
 // get-appraisals.dto.ts
@@ -208,10 +170,6 @@ export class GetAppraisalsDto {
   @IsOptional()
   @IsString()
   userId?: string;
-
-  // @IsOptional()
-  // @IsString()
-  // employeeId?: string;
 }
 
 export class GetHRAppraisalsDto extends GetAppraisalsDto {

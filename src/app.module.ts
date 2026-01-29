@@ -4,7 +4,6 @@ import { UserModule } from './user/user.module';
 import { InviteModule } from './invite/invite.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { ConfigModule } from '@nestjs/config';
 import { DepartmentModule } from './department/department.module';
 import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
@@ -33,6 +32,8 @@ import { AppraisalModule } from './appraisal/appraisal.module';
 import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
+import { PuppeteerModule } from './puppeteer/puppeteer.module';
+import { PipModule } from './pip/pip.module';
 
 @Module({
   imports: [
@@ -58,10 +59,17 @@ import { ScheduleModule } from '@nestjs/schedule/dist';
     AppraisalModule,
     KpiModule,
     ReportModule,
+    PuppeteerModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+    PipModule,
   ],
-  controllers: [AppController, UploadsController, NotificationController, CategoryController],
+  controllers: [
+    AppController,
+    UploadsController,
+    NotificationController,
+    CategoryController,
+  ],
   providers: [AppService, UploadsService, NotificationService, CategoryService],
 })
-export class AppModule { }
+export class AppModule {}
