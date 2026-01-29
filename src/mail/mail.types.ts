@@ -29,6 +29,10 @@ export const MAIL_SUBJECT = {
     APPRAISAL_CREATED: 'New Appraisal Created',
     APPRAISAL_SUBMITTED: 'Appraisal Submitted',
     APPRAISAL_REVIEWED: 'Appraisal Reviewed',
+    PIP_RECOMMENDED: 'New PIP Recommendation',
+    PIP_APPROVED: 'PIP Approved',
+    PIP_REJECTED: 'PIP Rejected',
+    PIP_COMPLETED: 'PIP Completed',
 }
 
 export class ProspectInviteDto {
@@ -494,4 +498,27 @@ export class AppraisalMailDto {
 
     @IsString()
     companyName?: string;
+}
+
+export class PipMailDto {
+    @IsEmail()
+    email: string;
+
+    @IsString()
+    name: string;
+
+    @IsOptional()
+    @IsString()
+    recommenderName?: string;
+
+    @IsOptional()
+    @IsString()
+    approverName?: string;
+
+    @IsOptional()
+    @IsString()
+    rejectorName?: string;
+
+    @IsString()
+    dashboardUrl: string;
 }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Task Created</title>
+    <title>New PIP Recommendation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
@@ -245,23 +245,24 @@
         <div class="content-wrapper">
             <div class="content">
                <h1 style="line-height: 0.7; margin: 0;">
-                  Appraisal Submitted
-               </h1>
-
+                 New PIP Recommendation
+           </h1>
+                           
                 <p class="greeting">Hi <span class="Name">{{name}}</span>,</p>
                 
-                 <p>
-                    <strong>{{employeeName}}</strong> has submitted their appraisal for your review.
-                 </p>
-                            
-                <p class="message2">Please log in to the employee management system to view the feedback and ratings.
+                <p>
+                    A new Performance Improvement Plan (PIP) has been recommended for you by {{recommenderName}}.
+                    Please log in to the system to review the details.
                 </p>
                 
-                <a href="{{dashboardUrl}}" class="btn">View Submitted Appraisal</a>
+                <p class="message2">You can view the PIP details in your dashboard.
+                </p>
+                
+                <a href="{{dashboardUrl}}" class="btn">View PIP</a>
              
                 <div class="signature">
                     <span class="cheeers">Best regards,</span><br>
-                    <span class="ID">The Appraisal Team</span>
+                    <span class="ID">The HR Team</span>
                 </div>
             </div>
         </div>
