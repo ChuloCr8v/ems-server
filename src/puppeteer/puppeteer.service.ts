@@ -69,8 +69,6 @@ export class PuppeteerService implements OnModuleDestroy {
           timeout: 30_000,
         });
 
-        await page.emulateMediaType('screen');
-
         const pdfUint8 = await page.pdf({
           format: 'A4',
           printBackground: true,
