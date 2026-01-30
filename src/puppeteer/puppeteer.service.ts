@@ -41,7 +41,7 @@ export class PuppeteerService implements OnModuleDestroy {
     this.browser = await puppeteer.launch({
       headless,
       // dev only
-      executablePath: "/usr/bin/google-chrome-stable",
+      // executablePath: "/usr/bin/google-chrome-stable",
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
