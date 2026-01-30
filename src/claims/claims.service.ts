@@ -24,7 +24,7 @@ export class ClaimsService {
     private prisma: PrismaService,
     private mail: MailService,
     private event: EventEmitter2,
-  ) {}
+  ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
     try {
@@ -45,8 +45,8 @@ export class ClaimsService {
           },
           proofUrls: createClaimDto.proofUrls
             ? {
-                connect: createClaimDto.proofUrls.map((id) => ({ id })),
-              }
+              connect: createClaimDto.proofUrls.map((id) => ({ id })),
+            }
             : undefined,
         },
         include: {
@@ -280,7 +280,7 @@ export class ClaimsService {
         where: { id },
         data: {
           status,
-          notes,
+          notes: notes || undefined,
           updatedAt: new Date(),
         },
         include: { user: true },
