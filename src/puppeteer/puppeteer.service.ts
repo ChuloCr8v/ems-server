@@ -30,7 +30,6 @@ export class PuppeteerService implements OnModuleDestroy {
       this.browser = null;
     });
   }
-
   async getBrowser(headless = true): Promise<Browser> {
     if (this.browser && this.browser.connected) {
       return this.browser;
@@ -40,8 +39,6 @@ export class PuppeteerService implements OnModuleDestroy {
 
     this.browser = await puppeteer.launch({
       headless,
-      // dev only
-      // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -71,8 +68,6 @@ export class PuppeteerService implements OnModuleDestroy {
           waitUntil: ['domcontentloaded', 'networkidle0'],
           timeout: 30_000,
         });
-
-        await page.emulateMediaType('screen');
 
         const pdfUint8 = await page.pdf({
           format: 'A4',

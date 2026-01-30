@@ -592,6 +592,8 @@ model Payroll {
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   component     PayrollComponent[]
   payslip       Payslip[]
+
+  payslipComponents PayslipComponent[]
 }
 
 model PayrollComponent {
@@ -612,24 +614,51 @@ model PayrollComponent {
   userId        String?               @db.Uuid
   payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  payslip Payslip[]
 }
 
 model Payslip {
-  id        String  @id @default(uuid()) @db.Uuid
-  name      String
-  userId    String  @db.Uuid
-  month     String
-  payrollId String  @db.Uuid
-  year      Int
-  amount    Float
-  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String  @id @default(uuid()) @db.Uuid
+  name       String
+  userId     String  @db.Uuid
+  month      String
+  payrollId  String  @db.Uuid
+  year       Int
+  amount     Float
+  gross      Float?
+  deductions Float?
+  earnings   Float?
+  net        Float?
+  payroll    Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  components PayrollComponent[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
 
   @@unique([payrollId, month, year])
   @@index([userId])
+}
+
+model PayslipComponent {
+  id            String                @id @default(uuid()) @db.Uuid
+  amount        Float
+  type          SalaryType
+  title         String
+  calculations  SalaryCalculationType
+  category      ComponentCategory
+  monthlyAmount Float
+  annualAmount  Float
+  duration      Int?
+  startDate     DateTime?
+  isActive      Boolean               @default(true)
+  payslipId     String                @db.Uuid
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  userId        String?               @db.Uuid
+  payslip       Payroll               @relation(fields: [payslipId], references: [id], onDelete: Cascade)
 }
 
 model Deductions {

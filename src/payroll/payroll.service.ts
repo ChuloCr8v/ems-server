@@ -25,6 +25,7 @@ import {
   User,
   Payslip,
   Role,
+  PayrollComponent,
 } from '@prisma/client';
 import { CalculateComponentDto } from './dto/payroll.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
@@ -52,7 +53,7 @@ export class PayrollService {
     private readonly event: EventEmitter2,
     private readonly payslipTemplate: PayslipTemplateService,
     private readonly puppeteerService: PuppeteerService,
-  ) {}
+  ) { }
 
   async calculatePayRoll(data: PayrollDto) {
     try {
@@ -680,6 +681,11 @@ export class PayrollService {
       const payrolls = await this.prisma.payroll.findMany({
         include: {
           user: true,
+          component: {
+            include: {
+              user: true,
+            },
+          },
         },
       });
 
@@ -712,44 +718,93 @@ export class PayrollService {
     }
   }
 
-  private async savePayslip(payroll: Payroll, user: User): Promise<void> {
-    const date = new Date().toLocaleDateString('en-US', {
+  private async savePayslip(
+    payroll: Payroll & { component: PayrollComponent[] },
+    user: User,
+  ): Promise<void> {
+    const now = new Date();
+
+    const dateLabel = now.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
     });
 
-    const currentMonth = new Date()
+    const month = now
       .toLocaleString('default', { month: 'long' })
       .toLowerCase();
-    const year = new Date().getFullYear();
+
+    const year = now.getFullYear();
+
+    const componentsData = payroll.component.map((c) => ({
+      title: c.title,
+      type: c.type,
+      category: c.category,
+      amount: c.amount,
+      monthlyAmount: c.monthlyAmount,
+      annualAmount: c.annualAmount,
+      duration: c.duration,
+      startDate: c.startDate,
+      calculations: c.calculations,
+      payrollId: payroll.id,
+      userId: payroll.userId,
+    }));
+
+    const deductions = payroll.component
+      .filter(c => c.type === 'DEDUCTION')
+      .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
+
+    const earnings = payroll.component
+      .filter(c => c.type === 'EARNING')
+      .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
 
     await this.prisma.payslip.upsert({
       where: {
         payrollId_month_year: {
           payrollId: payroll.id,
-          month: currentMonth,
-          year: year,
+          month,
+          year,
         },
       },
+
       update: {
-        name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+        name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
         amount: payroll.net,
+        gross: payroll.gross,
+        deductions,
+        earnings,
+        net: payroll.net,
+
+        components: {
+          deleteMany: {},
+          create: componentsData,
+        },
       },
+
       create: {
-        name: `${user.firstName} ${user.lastName} Payslip (${date})`,
+        name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
         amount: payroll.net,
+        gross: payroll.gross,
+        deductions,
+        earnings,
+        net: payroll.net,
+
         userId: payroll.userId,
         payrollId: payroll.id,
-        month: currentMonth,
-        year: year,
+        month,
+        year,
+
+        components: {
+          create: componentsData,
+        },
       },
     });
 
     this.event.emit(
       'payroll.generated',
-      new PayslipGeneratedEvent(user.id, payroll.id, currentMonth, year),
+      new PayslipGeneratedEvent(user.id, payroll.id, month, year),
     );
   }
+
 
   async listUserPayslips(userId?: string) {
     try {
@@ -766,6 +821,7 @@ export class PayrollService {
           userId,
         },
         include: {
+          components: true,
           user: {
             select: {
               id: true,
@@ -780,9 +836,6 @@ export class PayrollService {
             },
           },
         },
-        // omit: {
-        //     data: true
-        // },
         orderBy: { createdAt: 'desc' },
       });
 
@@ -844,6 +897,7 @@ export class PayrollService {
       const allPayslips = await this.prisma.payslip.findMany({
         include: {
           user: true,
+          components: true,
           payroll: {
             include: {
               component: true,
@@ -857,8 +911,8 @@ export class PayrollService {
 
       const filterByRole =
         user.userRole.includes(Role.ADMIN) ||
-        user.userRole.includes(Role.SUPERADMIN) ||
-        user.userRole.includes(Role.HR)
+          user.userRole.includes(Role.SUPERADMIN) ||
+          user.userRole.includes(Role.HR)
           ? allPayslips
           : allPayslips.filter((payslip) => payslip.userId === user.id);
       return Object.values(groupByMonth(filterByRole));
