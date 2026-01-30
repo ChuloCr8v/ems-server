@@ -10,8 +10,8 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
       transport: {
         host: process.env.EMAIL_HOST,
         port: +process.env.EMAIL_PORT,
-        secure: true, // true for 465, false for other ports
-        // ignoreTLS: true,
+        secure: false, // true for 465, false for other ports
+        ignoreTLS: true,
         auth: {
           user: process.env.EMAIL_ID, // generated ethereal user
           pass: process.env.EMAIL_PASS, // generated ethereal password
@@ -32,4 +32,4 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
   providers: [MailService],
   exports: [MailService],
 })
-export class MailModule {}
+export class MailModule { }
