@@ -8,14 +8,8 @@ import { PuppeteerModule } from 'src/puppeteer/puppeteer.module';
 import { MailService } from 'src/mail/mail.service';
 
 @Module({
-  imports: [
-    PrismaModule,
-    PuppeteerModule,
-  ],
+  imports: [PrismaModule, PuppeteerModule],
   controllers: [PayrollController],
-  providers: [PayrollService, TaxService, PayslipTemplateService,
-    MailService
-
-  ],
+  providers: [PayrollService, TaxService, PayslipTemplateService, MailService],
 })
-export class PayrollModule { }
+export class PayrollModule {}
