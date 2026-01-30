@@ -40,7 +40,8 @@ export class PuppeteerService implements OnModuleDestroy {
 
     this.browser = await puppeteer.launch({
       headless,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
+      // dev only
+      // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
