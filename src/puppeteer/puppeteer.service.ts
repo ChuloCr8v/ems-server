@@ -30,7 +30,6 @@ export class PuppeteerService implements OnModuleDestroy {
       this.browser = null;
     });
   }
-
   async getBrowser(headless = true): Promise<Browser> {
     if (this.browser && this.browser.connected) {
       return this.browser;
@@ -40,8 +39,6 @@ export class PuppeteerService implements OnModuleDestroy {
 
     this.browser = await puppeteer.launch({
       headless,
-      // dev only
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/chromium",
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
