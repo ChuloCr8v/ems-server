@@ -592,8 +592,6 @@ model Payroll {
   user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   component     PayrollComponent[]
   payslip       Payslip[]
-
-  payslipComponents PayslipComponent[]
 }
 
 model PayrollComponent {
@@ -614,8 +612,6 @@ model PayrollComponent {
   userId        String?               @db.Uuid
   payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  payslip Payslip[]
 }
 
 model Payslip {
@@ -633,7 +629,7 @@ model Payslip {
   payroll    Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
   user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  components PayrollComponent[]
+  components PayslipComponent[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
@@ -658,7 +654,8 @@ model PayslipComponent {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   userId        String?               @db.Uuid
-  payslip       Payroll               @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  payslip Payslip? @relation(fields: [payslipId], references: [id], onDelete: Cascade)
 }
 
 model Deductions {
@@ -667,13 +664,13 @@ model Deductions {
   data Bytes
 
   month   String
-  pension Int
-  tax     Int
+  pension Decimal @db.Decimal(15, 2)
+  tax     Decimal @db.Decimal(15, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([id, month])
+  @@index([month])
 }
 
 /////////////////////////////////////////// CLAIMS ///////////////////////////////////////////
