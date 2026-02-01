@@ -26,6 +26,7 @@ import {
   Payslip,
   Role,
   PayrollComponent,
+  Prisma,
 } from '@prisma/client';
 import { CalculateComponentDto } from './dto/payroll.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
@@ -41,6 +42,7 @@ import { MailService } from 'src/mail/mail.service';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Readable } from 'stream';
+import fetch from 'node-fetch';
 
 const templates = resolve(__dirname, '../payroll/templates');
 
@@ -661,21 +663,23 @@ export class PayrollService {
     });
 
     // === 6. Save deductions record
-    await (this.prisma as any).deductions.create({
+    await this.prisma.deductions.create({
       data: {
         name: `Deductions-${monthInWords}`,
-        tax,
-        pension,
+        tax: new Prisma.Decimal(tax),
+        pension: new Prisma.Decimal(pension),
         month: monthInWords,
         data: excelBuffer,
       },
     });
   }
 
-  async queuePayslipsForPeriod(userId: string) {
+  async queuePayslipsForPeriod(userId: string, month: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    const month = monthInWords + ' ' + new Date().getFullYear();
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    const currentMonth = months[month - 1] + ' ' + new Date().getFullYear();
 
     try {
       const payrolls = await this.prisma.payroll.findMany({
@@ -695,13 +699,13 @@ export class PayrollService {
 
       await Promise.allSettled(
         payrolls.map((p) => {
-          this.savePayslip(p, p.user);
+          this.savePayslip(p, p.user, months[month - 1]);
         }),
       );
 
       // Send final payslip generation completed mail
       await this.mail.sendPayslipsGenerated({
-        month,
+        month: currentMonth,
         date: new Date().getFullYear().toString(),
         email: user.email,
         dashboardUrl: 'https://ems.miro.zoracom.com',
@@ -721,88 +725,90 @@ export class PayrollService {
   private async savePayslip(
     payroll: Payroll & { component: PayrollComponent[] },
     user: User,
+    month: string,
   ): Promise<void> {
-    const now = new Date();
+    try {
 
-    const dateLabel = now.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-    });
 
-    const month = now
-      .toLocaleString('default', { month: 'long' })
-      .toLowerCase();
+      const year = new Date().getFullYear();
+      const dateLabel = `${month} ${year}`;
 
-    const year = now.getFullYear();
+      // 1️⃣ Prepare component snapshot data (NO payslipId yet)
+      const componentsData = payroll.component.map((c) => ({
+        title: c.title,
+        type: c.type,
+        category: c.category,
+        amount: c.amount,
+        monthlyAmount: c.monthlyAmount,
+        annualAmount: c.annualAmount,
+        duration: c.duration,
+        startDate: c.startDate,
+        calculations: c.calculations,
+        userId: payroll.userId,
+      }));
 
-    const componentsData = payroll.component.map((c) => ({
-      title: c.title,
-      type: c.type,
-      category: c.category,
-      amount: c.amount,
-      monthlyAmount: c.monthlyAmount,
-      annualAmount: c.annualAmount,
-      duration: c.duration,
-      startDate: c.startDate,
-      calculations: c.calculations,
-      payrollId: payroll.id,
-      userId: payroll.userId,
-    }));
+      // 2️⃣ Compute totals (safe, in-memory)
+      const deductions = payroll.component
+        .filter((c) => c.type === 'DEDUCTION')
+        .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
 
-    const deductions = payroll.component
-      .filter(c => c.type === 'DEDUCTION')
-      .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
+      const earnings = payroll.component
+        .filter((c) => c.type === 'EARNING')
+        .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
 
-    const earnings = payroll.component
-      .filter(c => c.type === 'EARNING')
-      .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
-
-    await this.prisma.payslip.upsert({
-      where: {
-        payrollId_month_year: {
+      // 3️⃣ Upsert ONLY the payslip row (NO relations)
+      const payslip = await this.prisma.payslip.upsert({
+        where: {
+          payrollId_month_year: {
+            payrollId: payroll.id,
+            month,
+            year,
+          },
+        },
+        update: {
+          name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
+          amount: payroll.net,
+          gross: payroll.gross,
+          deductions,
+          earnings,
+          net: payroll.net,
+        },
+        create: {
+          name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
+          amount: payroll.net,
+          gross: payroll.gross,
+          deductions,
+          earnings,
+          net: payroll.net,
+          userId: payroll.userId,
           payrollId: payroll.id,
           month,
           year,
         },
-      },
+      });
 
-      update: {
-        name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
-        amount: payroll.net,
-        gross: payroll.gross,
-        deductions,
-        earnings,
-        net: payroll.net,
+      // 4️⃣ Replace payslip components SAFELY (batched)
+      await this.prisma.payslipComponent.deleteMany({
+        where: { payslipId: payslip.id },
+      });
 
-        components: {
-          deleteMany: {},
-          create: componentsData,
-        },
-      },
+      const data = componentsData.map((c) => ({
+        ...c,
+        payslipId: payslip.id,
+      }));
 
-      create: {
-        name: `${user.firstName} ${user.lastName} Payslip (${dateLabel})`,
-        amount: payroll.net,
-        gross: payroll.gross,
-        deductions,
-        earnings,
-        net: payroll.net,
+      await this.prisma.payslipComponent.createMany({
+        data,
+      });
 
-        userId: payroll.userId,
-        payrollId: payroll.id,
-        month,
-        year,
-
-        components: {
-          create: componentsData,
-        },
-      },
-    });
-
-    this.event.emit(
-      'payroll.generated',
-      new PayslipGeneratedEvent(user.id, payroll.id, month, year),
-    );
+      // 5️⃣ Emit event AFTER successful persistence
+      this.event.emit(
+        'payroll.generated',
+        new PayslipGeneratedEvent(user.id, payroll.id, month, year),
+      );
+    } catch (error) {
+      bad(error);
+    }
   }
 
 
@@ -927,12 +933,7 @@ export class PayrollService {
       where: { id: payslipId },
       include: {
         user: { include: { departments: true } },
-        payroll: {
-          include: {
-            component: true,
-            user: { include: { departments: true } },
-          },
-        },
+        components: true,
       },
     });
 
@@ -941,29 +942,32 @@ export class PayrollService {
     }
 
     const html = this.payslipTemplate.generateHTML(
-      payslip.payroll,
-      payslip.payroll.component,
+      payslip,
     );
 
-    let pdfBuffer: Buffer;
+    const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': "sk_f17c3407847a7a7aab14d627290d143a4694bd19",
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: html,
+        format: 'A4',
 
-    try {
-      pdfBuffer = await this.puppeteerService.renderPdfFromHtml(html);
-    } catch (err) {
-      console.error('[Payslip PDF]', err);
-      bad('Failed to generate payslip PDF: ' + err);
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text(); // 👈 important
+      throw new Error(`PDFShift failed: ${response.status} - ${errorText}`);
     }
 
-    this.validatePDFBuffer(pdfBuffer);
+    const pdfBuffer = Buffer.from(await response.arrayBuffer());
 
-    const stream = new Readable();
-    stream.push(pdfBuffer);
-    stream.push(null);
-
-    return new StreamableFile(stream, {
+    return new StreamableFile(pdfBuffer, {
       type: 'application/pdf',
-      disposition: `attachment; filename="${payslip.name}.pdf"`,
-      length: pdfBuffer.length,
+      disposition: `attachment; filename="payslip-${payslipId}.pdf"`,
     });
   }
 
@@ -1270,164 +1274,7 @@ export class PayrollService {
     }
   }
 
-  // private async generateIndividualPayslip(browser: any, payroll: Payroll, user: any): Promise<void> {
-  //     const components = await this.prisma.payrollComponent.findMany({
-  //         where: {
-  //             payrollId: payroll.id,
-  //             userId: user.id,
-  //         },
-  //     });
 
-  //     const page = await browser.newPage();
-  //     const html = this.payslipTemplate.generateHTML(payroll, user, components);
-
-  //     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-
-  //     const pdfBuffer = await page.pdf({
-  //         format: 'A4',
-  //         printBackground: true,
-  //         preferCSSPageSize: true,
-  //         timeout: 30000,
-  //     });
-
-  //     this.validatePDFBuffer(pdfBuffer);
-  //     await this.savePayslip(Buffer.from(pdfBuffer), payroll, user);
-
-  //     await page.close();
-  // }
-
-  // private async generateDeductionSummary(payroll: Payroll): Promise<void> {
-  //     const now = new Date();
-  //     const month = now.getMonth() + 1;
-  //     const year = now.getFullYear();
-  //     const monthInWords = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  //     const monthStart = startOfMonth(now);
-  //     const monthEnd = endOfMonth(now);
-
-  //     // === 1. Get deductions (tax + pension)
-  //     const comps = await this.prisma.payrollComponent.findMany({
-  //         where: {
-  //             payrollId: payroll.id,
-  //             category: { in: ['STATIC_DEDUCTION'] },
-  //             createdAt: { gte: monthStart, lte: monthEnd },
-  //         },
-  //         include: { user: true },
-  //     });
-
-  //     // === 2. Get earnings (for employer pension calc)
-  //     const earningComponents = await this.prisma.payrollComponent.findMany({
-  //         where: {
-  //             payrollId: payroll.id,
-  //             category: { in: ['STATIC_EARNING'] },
-  //             createdAt: { gte: monthStart, lte: monthEnd },
-  //         },
-  //         include: { user: true },
-  //     });
-
-  //     // === 3. Aggregate totals across company
-  //     const tax = comps
-  //         .filter(x => x.title === 'PAYE Tax')
-  //         .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
-
-  //     const pension = comps
-  //         .filter(x => x.title === 'Pension Contribution')
-  //         .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
-
-  //     // === 4. Group data per employee
-  //     const employeeMap = new Map<string, any>();
-
-  //     // First, calculate employer pension for each user based on their earnings
-  //     for (const earning of earningComponents) {
-  //         const id = earning.user.eId;
-
-  //         if (!employeeMap.has(id)) {
-  //             employeeMap.set(id, {
-  //                 employeeId: id,
-  //                 employeeName: `${earning.user.firstName} ${earning.user.lastName}`,
-  //                 // monthInWords,
-  //                 tax: 0,
-  //                 employeePension: 0,
-  //                 employerPension: 0,
-  //                 totalPension: 0,
-  //             });
-  //         }
-
-  //         const emp = employeeMap.get(id);
-
-  //         // Normalize title matching
-  //         const title = earning.title.toLowerCase();
-  //         console.log(title)
-  //         if (['basic', 'housing', 'transport'].includes(title)) {
-  //             emp.employerPension += 0.6 * (earning.monthlyAmount || 0);
-  //         }
-  //     }
-
-  //     // Then, add deductions (employee pension + tax)
-  //     for (const c of comps) {
-  //         const id = c.user.eId;
-
-  //         if (!employeeMap.has(id)) {
-  //             employeeMap.set(id, {
-  //                 employeeId: id,
-  //                 employeeName: `${c.user.firstName} ${c.user.lastName}`,
-  //                 // monthInWords,
-  //                 tax: 0,
-  //                 employeePension: pension,
-  //                 employerPension: 0,
-  //                 totalPension: 0,
-  //             });
-  //         }
-
-  //         const emp = employeeMap.get(id);
-
-  //         if (c.title === 'PAYE Tax') emp.tax = c.monthlyAmount || 0;
-  //         if (c.title === 'Pension Contribution') emp.employeePension = c.monthlyAmount || 0;
-
-  //         // Compute total pension per employee
-  //         emp.totalPension = (emp.employeePension || 0) + (emp.employerPension || 0);
-  //     }
-
-  //     const structuredData = Array.from(employeeMap.values());
-
-  //     // === 5. Generate Excel and save
-  //     const excelBuffer = await this.generateDeductionsExcel({
-  //         deductions: structuredData,
-  //         month,
-  //         year,
-  //     });
-
-  //     await this.prisma.deductions.create({
-  //         data: {
-  //             name: `Deductions-${monthInWords}`,
-  //             tax,
-  //             pension,
-  //             month: monthInWords,
-  //             data: excelBuffer,
-  //         },
-  //     });
-  // }
-
-  // private async generatePayslip(payroll: Payroll): Promise<void> {
-  //     const browser = await this.launchBrowser();
-
-  //     try {
-  //         const users = await this.prisma.user.findMany({
-  //             where: {
-  //                 payroll: { is: { id: payroll.id } },
-  //             },
-  //         });
-
-  //         for (const user of users) {
-  //             await this.generateIndividualPayslip(browser, payroll, user);
-  //         }
-
-  //         // await this.generateDeductionSummary(payroll);
-
-  //     } finally {
-  //         await browser.close();
-  //     }
-  // }
 
   private async generateDeductionsExcel({
     deductions,
@@ -1496,4 +1343,7 @@ export class PayrollService {
       throw error;
     }
   }
+
+
+
 }
