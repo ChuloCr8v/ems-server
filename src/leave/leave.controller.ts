@@ -19,7 +19,7 @@ import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('leave')
 export class LeaveController {
-  constructor(private readonly leave: LeaveService) {}
+  constructor(private readonly leave: LeaveService) { }
 
   @Post(':userId')
   async createLeaveRequest(
@@ -64,7 +64,7 @@ export class LeaveController {
     return this.leave.checkLeaveBalance(req.sub, typeId);
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER])
+  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER, Role.SUPERADMIN])
   @Post('approve/:approvalId/:userId')
   async approveLeaveRequest(
     @Param('approvalId') approvalId: string,
