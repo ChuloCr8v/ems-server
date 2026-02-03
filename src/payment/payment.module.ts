@@ -1,19 +1,26 @@
-// src/payment/payment.module.ts
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { PaystackService } from './paystack.service';
+import * as https from 'https';
 import { ConfigModule } from '@nestjs/config';
-import { PaymentController } from './payment.controller';
-import { ClaimsModule } from '../claims/claims.module';
-import { PrismaModule } from '../prisma/prisma.module';
-import { PaystackService } from './payment.service';
+import { PrismaModule } from '../prisma/prisma.module'
 
 @Module({
   imports: [
-    forwardRef(() => ClaimsModule),
     ConfigModule,
-    PrismaModule, // If you have a PrismaModule, otherwise remove this
+    PrismaModule,
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 5,
+      // This is the fix: explicitly define the HTTPS Agent
+      httpsAgent: new https.Agent({ 
+        keepAlive: true,
+        rejectUnauthorized: true 
+      }),
+      proxy: false, // Disables system-level proxies that cause SSL mismatches
+    }),
   ],
-  controllers: [PaymentController],
   providers: [PaystackService],
-  exports: [PaystackService], // Export so other modules can use it
+  exports: [PaystackService],
 })
 export class PaymentModule {}

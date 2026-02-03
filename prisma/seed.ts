@@ -1,6 +1,6 @@
 // prisma/seed.ts
 import { PrismaClient, JobType, Role, Status, MaritalStatus } from '@prisma/client';
-
+ 
 const prisma = new PrismaClient();
 
 async function main() {
@@ -10,11 +10,11 @@ async function main() {
       firstName: "Victor",
       lastName: "Ogunwehin",
       email: "victor@zoracom.com",
-      phone: "09062431702",
+      phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
       address: "123 Zoracom Street",
-      // userRole: Role.ADMIN,
+      userRole: [Role.ADMIN],
       maritalStatus: MaritalStatus.SINGLE,
       gender: "Male",
       role: "System Engineer",
@@ -43,7 +43,7 @@ async function main() {
       },
     },
   });
-
+ 
   const users = [
     {
       firstName: "Benedict",
@@ -64,7 +64,7 @@ async function main() {
       role: "UI/UX Designer",
     },
   ]
-
+ 
   // 10 More Users
   // const users = [
   //   {
@@ -158,7 +158,7 @@ async function main() {
   //     role: "Business Analyst",
   //   },
   // ];
-
+ 
   let counter = 1;
   for (const u of users) {
     await prisma.user.create({
@@ -197,10 +197,10 @@ async function main() {
     });
     counter++;
   }
-
-  console.log("✅ Seeded Stephanie + 10 real users");
+ 
+  console.log("✅ Seeded Victor + 10 real users");
 }
-
+ 
 main()
   .catch((e) => {
     console.error('❌ Error seeding data:', e);
@@ -209,3 +209,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+ 

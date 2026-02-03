@@ -72,47 +72,109 @@ export class EntitlementService {
         }
     }
 
-    async getEmployeeLeaveEntitlement(id: string, context: "CLAIMS" | "LEAVE") {
+    // async getEmployeeLeaveEntitlement(id: string, context: "CLAIMS" | "LEAVE") {
 
-        const isLeave = context === "LEAVE"
-        try {
-            const employee = await this.prisma.user.findUnique({
-                where: { id }, include: {
-                    level: {
-                        include: {
-                            entitlements: {
-                                include: { entitlement: true }
-                            },
+    //     const isLeave = context === "LEAVE"
+    //     try {
+    //         const employee = await this.prisma.user.findUnique({
+    //             where: { id }, include: {
+    //                 level: {
+    //                     include: {
+    //                         entitlements: {
+    //                             include: { entitlement: true }
+    //                         },
 
-                        }
-                    },
-                    departments: {
-                        include: {
-                            entitlements: {
-                                include: { entitlement: true }
-                            },
+    //                     }
+    //                 },
+    //                 departments: {
+    //                     include: {
+    //                         entitlements: {
+    //                             include: { entitlement: true }
+    //                         },
 
-                        }
-                    }
-                }
-            })
-            if (!employee) mustHave(employee, "Account not found", 404)
+    //                     }
+    //                 }
+    //             }
+    //         })
+    //         if (!employee) mustHave(employee, "Account not found", 404)
 
-            const leaveEntitlements = employee.level?.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
+    //         const leaveEntitlements = employee.level?.entitlements.filter(e => e.entitlement.type === (isLeave ? "LEAVE" : "CLAIMS") || e.entitlement.unit === "AMOUNT")
 
-            const isMale = employee.gender?.trim().toLowerCase().startsWith("m");
+    //         const isMale = employee.gender?.trim().toLowerCase().startsWith("m");
 
-            const finalReturn = isMale
-                ? leaveEntitlements.filter(e =>
-                    !e.entitlement.name.toLowerCase().includes("maternity")
-                )
-                : leaveEntitlements;
+    //         const finalReturn = isMale
+    //             ? leaveEntitlements.filter(e =>
+    //                 !e.entitlement.name.toLowerCase().includes("maternity")
+    //             )
+    //             : leaveEntitlements;
 
-            return finalReturn
-        } catch (error) {
-            bad(error)
-        }
-    }
+    //         return finalReturn
+    //     } catch (error) {
+    //         bad(error)
+    //     }
+    // }
+
+    async getEmployeeLeaveEntitlement(
+  id: string,
+  context: 'CLAIMS' | 'LEAVE',
+) {
+  const isLeave = context === 'LEAVE';
+
+  try {
+    const employee = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        level: {
+          include: {
+            entitlements: {
+              include: { entitlement: true },
+            },
+          },
+        },
+        departments: {
+          include: {
+            entitlements: {
+              include: { entitlement: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!employee) mustHave(employee, 'Account not found', 404);
+
+    // ✅ SAFETY: normalize to empty arrays
+    const levelEntitlements = employee.level?.entitlements ?? [];
+    const departmentEntitlements =
+      employee.departments?.flatMap(d => d.entitlements) ?? [];
+
+    // ✅ merge both scopes if needed
+    const allEntitlements = [...levelEntitlements, ...departmentEntitlements];
+
+    const filtered = allEntitlements.filter(
+      e =>
+        e.entitlement.type === (isLeave ? 'LEAVE' : 'CLAIMS') ||
+        e.entitlement.unit === 'AMOUNT',
+    );
+
+    const isMale = employee.gender
+      ?.trim()
+      .toLowerCase()
+      .startsWith('m');
+
+    return isMale
+      ? filtered.filter(
+          e =>
+            !e.entitlement.name
+              .toLowerCase()
+              .includes('maternity'),
+        )
+      : filtered;
+  } catch (error) {
+    bad(error);
+  }
+}
+
 
     async updateEntitlement(id: string, dto: UpdateEntitlementDto) {
         const { name, unit, levels, departments, scope } = dto;

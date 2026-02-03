@@ -8,7 +8,7 @@ import { MailService } from 'src/mail/mail.service';
 import { promises } from 'dns';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClaimApprovedEvent, ClaimCreatedEvent, ClaimPaidEvent, ClaimRejectedEvent } from 'src/events/claim.event';
-import { PaystackService } from 'src/payment/payment.service';
+import { PaystackService } from 'src/payment/paystack.service';
 
 @Injectable()
 export class ClaimsService {
