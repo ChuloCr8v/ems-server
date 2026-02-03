@@ -5,9 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
 
 @Module({
-    imports: [CloudinaryModule],
-    controllers: [UploadsController],
-    providers: [UploadsService, PrismaService],
-    exports: [UploadsService],
+  imports: [CloudinaryModule],
+  controllers: [UploadsController],
+  providers: [UploadsService, PrismaService],
+  exports: [UploadsService],
 })
-export class UploadsModule { }
+export class UploadsModule {}

@@ -1,7 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ClaimsService } from './claims.service';
 import { ClaimsController } from './claims.controller';
-import { UploadsModule } from '../uploads/uploads.module'; 
+import { UploadsModule } from '../uploads/uploads.module';
 import { MailModule } from 'src/mail/mail.module';
 import { PaymentModule } from 'src/payment/payment.module';
 import { PaystackService } from 'src/payment/payment.service';

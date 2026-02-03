@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { JobType, PayrollComponent, Prisma } from '@prisma/client';
+import { JobType, PayrollComponent, Payslip, PayslipComponent, Prisma } from '@prisma/client';
 import { ToWords } from 'to-words';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -13,17 +13,36 @@ export class PayslipTemplateService {
   });
 
   generateHTML(
-    payroll: Prisma.PayrollGetPayload<{
+    payslip: Prisma.PayslipGetPayload<{
       include: {
         user: { include: { departments: true } };
-        component: true;
+        components: true;
       };
     }>,
-    components: PayrollComponent[],
   ): string {
-    const user = payroll.user;
+    const user = payslip.user;
+    const components = payslip.components;
 
-    const templatePath = path.join(__dirname, 'templates', 'payslip.html');
+    const templatePath = fs.existsSync(
+      path.join(
+        process.cwd(),
+        'dist',
+        'src',
+        'payroll',
+        'templates',
+        'payslip.html',
+      ),
+    )
+      ? path.join(
+        process.cwd(),
+        'dist',
+        'src',
+        'payroll',
+        'templates',
+        'payslip.html',
+      )
+      : path.join(process.cwd(), 'src', 'payroll', 'templates', 'payslip.html');
+
     let html = fs.readFileSync(templatePath, 'utf8');
 
     const date = new Date().toLocaleDateString('en-US', {
@@ -31,7 +50,7 @@ export class PayslipTemplateService {
       month: 'long',
     });
 
-    const netToWords = this.toWords.convert(payroll.net / 12);
+    const netToWords = this.toWords.convert(payslip.net / 12);
 
     const earnings = components.filter((c) => c.type === 'EARNING');
     const deductions = components.filter((c) => c.type === 'DEDUCTION');
@@ -41,8 +60,8 @@ export class PayslipTemplateService {
 
     const tableRows = this.generateTableRows(earnings, deductions);
 
-    const netPay = payroll.net
-    const netMonthly = netPay / 12
+    const netPay = payslip.net;
+    const netMonthly = netPay / 12;
 
     // console.log({ grossMonthly, netMonthly })
 
@@ -52,7 +71,14 @@ export class PayslipTemplateService {
 
     html = html
       .replace(/{{employeeName}}/g, `${user.firstName} ${user.lastName}`)
-      .replace(/{{designation}}/g, user.jobType === JobType.FULL_TIME ? 'Full Time' : user.jobType === JobType.CONTRACT ? 'Contract' : user.jobType || 'Not Specified')
+      .replace(
+        /{{designation}}/g,
+        user.jobType === JobType.FULL_TIME
+          ? 'Full Time'
+          : user.jobType === JobType.CONTRACT
+            ? 'Contract'
+            : user.jobType || 'Not Specified',
+      )
       .replace(/{{employeeId}}/g, user.eId || 'N/A')
       .replace(/{{payPeriod}}/g, date)
       .replace(/{{department}}/g, user.departments?.[0]?.name || 'N/A')
@@ -62,7 +88,6 @@ export class PayslipTemplateService {
       .replace(/{{grossTotal}}/g, this.formatNumber(totalEarnings))
       .replace(/{{deductionsTotal}}/g, this.formatNumber(totalDeductions))
       .replace(/{{netToWords}}/g, netToWords);
-
 
     return html;
   }
@@ -76,8 +101,8 @@ export class PayslipTemplateService {
   }
 
   private generateTableRows(
-    earnings: PayrollComponent[],
-    deductions: PayrollComponent[],
+    earnings: PayslipComponent[],
+    deductions: PayslipComponent[],
   ): string {
     const max = Math.max(earnings.length, deductions.length);
 

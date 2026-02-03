@@ -35,14 +35,9 @@ export class ClaimsController {
   ) { }
 
   @Post()
-  async createClaim(
-    @AuthUser() req: IAuthUser,
-    @Body() data: CreateClaimDto,
-  ) {
+  async createClaim(@AuthUser() req: IAuthUser, @Body() data: CreateClaimDto) {
     return this.claimsService.addClaim(req.sub, data);
   }
-
-
 
   @Get()
   async findAll(
@@ -70,28 +65,45 @@ export class ClaimsController {
     return this.claimsService.updateClaim(id, userRole, updateClaimDto);
   }
 
-
   // Delete claim
   @Auth()
   @Delete(':id')
   async remove(@Param('id') id: string, @AuthUser() req: IAuthUser) {
     const userId = req.sub;
-    const userRole = req.role
+    const userRole = req.role;
     return this.claimsService.removeClaim(id, userId, userRole);
   }
 
   // Update claim status (Managers/Admins only)
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Patch(':id/approve')
-  async approveClaim(@Param('id') id: string, @AuthUser() user: IAuthUser, @Body() body: { notes?: string }) {
-    return this.claimsService.updateStatus(id, 'APPROVED', user.sub, body.notes);
+  async approveClaim(
+    @Param('id') id: string,
+    @AuthUser() user: IAuthUser,
+    @Body() body: { notes?: string },
+  ) {
+    return this.claimsService.updateStatus(
+      id,
+      'APPROVED',
+      user.sub,
+      body.notes,
+    );
   }
 
   @Auth()
   @Patch(':id/reject')
   @Roles(Role.DEPT_MANAGER, Role.ADMIN)
-  async rejectClaim(@Param('id') id: string, @AuthUser() user: IAuthUser, @Body() body: { notes?: string }) {
-    return this.claimsService.updateStatus(id, 'REJECTED', user.sub, body.notes);
+  async rejectClaim(
+    @Param('id') id: string,
+    @AuthUser() user: IAuthUser,
+    @Body() body: { notes?: string },
+  ) {
+    return this.claimsService.updateStatus(
+      id,
+      'REJECTED',
+      user.sub,
+      body.notes,
+    );
   }
 
   //Comments
@@ -101,9 +113,9 @@ export class ClaimsController {
   async commentOnTask(
     @Param('id') id: string,
     @Req() req: ReqPayload,
-    @Body() dto: { comment: string, uploads?: string[] },
+    @Body() dto: { comment: string; uploads?: string[] },
   ) {
-    const userId = req.user.id
+    const userId = req.user.id;
     return this.claimsService.comment(id, userId, dto);
   }
 

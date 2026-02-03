@@ -17,7 +17,7 @@ import {
   IsNumber,
   IsInt,
   Min,
-  Max
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApprovalStatus, TaskStatus } from '@prisma/client';
@@ -26,7 +26,7 @@ export enum TaskPriority {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',
-  URGENT = 'URGENT'
+  URGENT = 'URGENT',
 }
 
 export class CreateTaskDto {
@@ -66,7 +66,6 @@ export class CreateTaskDto {
   @IsBoolean()
   @Type(() => Boolean)
   requiresApproval?: boolean;
-
 
   @IsOptional()
   @IsArray()
@@ -129,11 +128,13 @@ export class UpdateTaskDto {
   uploads?: string[];
 
   // Custom validation: rejectionReason is required when status is CANCELLED
-  @ValidateIf(o => o.status === TaskStatus.CANCELLED)
-  @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
+  @ValidateIf((o) => o.status === TaskStatus.CANCELLED)
+  @IsNotEmpty({
+    message: 'Rejection reason is required when cancelling a task',
+  })
   requireRejectionReason?: string;
 
-  @ValidateIf(o => o.status === TaskStatus.ISSUES)
+  @ValidateIf((o) => o.status === TaskStatus.ISSUES)
   @IsNotEmpty({ message: 'Issue is required' })
   issue?: string;
 }
@@ -290,7 +291,9 @@ export class ApprovalRequestDto {
   taskId: string;
 
   @IsArray()
-  @ArrayMinSize(1, { message: 'At least one assignee is required for approval request' })
+  @ArrayMinSize(1, {
+    message: 'At least one assignee is required for approval request',
+  })
   @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
   @IsNotEmpty({ each: true, message: 'Assignee IDs cannot be empty' })
   assignees: string[];
@@ -360,4 +363,3 @@ export class TaskQueryDto {
   @Type(() => String)
   sortOrder?: 'asc' | 'desc' = 'desc';
 }
-

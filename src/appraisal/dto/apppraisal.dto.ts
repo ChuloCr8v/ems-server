@@ -1,39 +1,50 @@
-import { AppraisalStatus } from "@prisma/client";
-import { Type } from "class-transformer";
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from "class-validator";
+import { AppraisalStatus } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class KpiRatingDto {
-    @IsString()
-    @IsNotEmpty()
-    objectiveId: string;
+  @IsString()
+  @IsNotEmpty()
+  objectiveId: string;
 
-    @IsNumber()
-    @Min(1)
-    @Max(5)
-    rating: number;
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  rating: number;
 
-    @IsString()
-    @IsOptional()
-    comment?: string;
+  @IsString()
+  @IsOptional()
+  comment?: string;
 }
 
 export class UpdateKpiRatingDto {
-    @IsNumber()
-    @IsOptional()
-    rating?: number;
+  @IsNumber()
+  @IsOptional()
+  rating?: number;
 
-    @IsString()
-    @IsOptional()
-    comment?: string;
+  @IsString()
+  @IsOptional()
+  comment?: string;
 }
 
 export class GoalsAndAchievementDto {
-  @IsArray() 
+  @IsArray()
   @IsString({ each: true })
   achievements: string[];
 
   @IsArray()
-  @IsString({ each: true }) 
+  @IsString({ each: true })
   goals: string[];
 }
 
@@ -42,14 +53,14 @@ export class FeedbackQuestionDto {
   @IsNotEmpty()
   questionId: string;
 
-  @IsOptional() 
-  @IsString() 
+  @IsOptional()
+  @IsString()
   response?: string;
 }
 
 export class FeedbackDto {
-  @IsArray() 
-  @ValidateNested({ each: true }) 
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => FeedbackQuestionDto)
   questions: FeedbackQuestionDto[];
 }

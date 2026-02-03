@@ -34,6 +34,8 @@ import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
 import { PuppeteerModule } from './puppeteer/puppeteer.module';
 import { PaymentModule } from './payment/payment.module';
+import { PipModule } from './pip/pip.module';
+import { PdfshiftService } from './pdfshift/pdfshift.service';
 
 @Module({
   imports: [
@@ -63,9 +65,14 @@ import { PaymentModule } from './payment/payment.module';
     PaymentModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-
+    PipModule,
   ],
-  controllers: [AppController, UploadsController, NotificationController, CategoryController],
-  providers: [AppService, UploadsService, NotificationService, CategoryService],
+  controllers: [
+    AppController,
+    UploadsController,
+    NotificationController,
+    CategoryController,
+  ],
+  providers: [AppService, UploadsService, NotificationService, CategoryService, PdfshiftService],
 })
-export class AppModule { }
+export class AppModule {}

@@ -12,7 +12,12 @@ export class UploadValidationUtil {
     options: UploadValidationOptions = {},
   ): void {
     const {
-      allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'],
+      allowedMimeTypes = [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/jpg',
+      ],
       maxFileSize = 10 * 1024 * 1024, // 10MB
     } = options;
 
@@ -36,7 +41,11 @@ export class UploadValidationUtil {
     }
 
     // Validate file name (optional security check)
-    if (!file.originalname || file.originalname.includes('..') || file.originalname.includes('/')) {
+    if (
+      !file.originalname ||
+      file.originalname.includes('..') ||
+      file.originalname.includes('/')
+    ) {
       throw new BadRequestException('Invalid file name');
     }
   }
@@ -45,9 +54,7 @@ export class UploadValidationUtil {
     files: Express.Multer.File[],
     options: UploadValidationOptions = {},
   ): void {
-    const {
-      maxFiles = 10,
-    } = options;
+    const { maxFiles = 10 } = options;
 
     // Check if files exist
     if (!files || files.length === 0) {
