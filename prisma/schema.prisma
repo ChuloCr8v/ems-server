@@ -260,6 +260,7 @@ model Bank {
   bankName      String
   accountName   String
   accountNumber String
+  bankCode      String?
   userId        String?  @unique @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -692,7 +693,9 @@ model Claim {
   entitlementId String?      @db.Uuid
 
   comments Comment[]
-
+  claimPayments   ClaimPayment[]
+  paymentAttempts PaymentAttempt[]
+  
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt
 
@@ -1036,6 +1039,35 @@ model RecommendedPip {
   updatedAt        DateTime  @updatedAt
 }
 
+model ClaimPayment {
+  id                 String    @id @default(uuid()) @db.Uuid
+  claim              Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId            String    @unique
+  amount             Float
+  recipientName      String
+  recipientAccountNumber String
+  recipientBankCode  String
+  transferReference  String?
+  recipientCode      String?
+  status             String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  paymentMethod      String    @default("PAYSTACK")
+  processedAt        DateTime  @default(now())
+  verifiedAt         DateTime?
+  verificationResponse Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model PaymentAttempt {
+  id          String   @id @default(uuid()) @db.Uuid
+  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId     String
+  amount      Float
+  error       String?
+  attemptedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
 
 enum ApproverRole {
@@ -1253,6 +1285,7 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+  PAID
 }
 
 enum Priority {
