@@ -25,7 +25,7 @@ export class LeaveService {
     private readonly mail: MailService,
     private readonly approver: ApproverService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
     const { typeId, doaId, reason, startDate, endDate, uploads } = data;
@@ -170,6 +170,28 @@ export class LeaveService {
 
       if (!user) mustHave(user, 'User not found', 404);
 
+      if (
+        [Role.ADMIN, Role.LEAVE_MANAGER, Role.HR, Role.SUPERADMIN, Role.ADMIN].some((role) =>
+          user.userRole.includes(role),
+        )
+      ) {
+        return await this.prisma.leaveRequest.findMany({
+          include: {
+            user: {
+              include: { approver: true },
+            },
+            type: true,
+            uploads: true,
+            approvals: {
+              include: {
+                approver: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
       const leaveRequests = await this.prisma.leaveRequest.findMany({
         where: {
           approvals: {
@@ -193,12 +215,7 @@ export class LeaveService {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (
-        user.userRole.includes(Role.ADMIN) ||
-        user.userRole.includes(Role.LEAVE_MANAGER)
-      ) {
-        return leaveRequests;
-      }
+
       if (user.approver.length) {
         return leaveRequests.filter((l) =>
           l.approvals.filter((a) => a.approverId === userId),
