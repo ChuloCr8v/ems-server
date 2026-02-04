@@ -860,6 +860,7 @@ export class PayrollService {
 
             if (!acc[month]) {
               acc[month] = {
+                id: payslip.id,
                 month,
                 title: `Payslips - month ${month}`,
                 payslips: [],
@@ -873,6 +874,7 @@ export class PayrollService {
           {} as Record<
             number,
             {
+              id: string;
               month: number;
               title: string;
               payslips: Payslip[];
@@ -933,10 +935,10 @@ export class PayrollService {
       date
     );
 
-    const response = await fetch("https://api.pdfshift.io/v3/convert/pdf", {
+    const response = await fetch(process.env.PDFSHIFT_URL, {
       method: 'POST',
       headers: {
-        'X-API-Key': "sk_f17c3407847a7a7aab14d627290d143a4694bd19",
+        'X-API-Key': process.env.PDFSHIFT_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -956,6 +958,34 @@ export class PayrollService {
     return new StreamableFile(pdfBuffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="payslip-${payslipId}.pdf"`,
+    });
+  }
+
+  async notify(id: string) {
+
+    const payslip = await this.prisma.payslip.findUnique({
+      where: { id },
+    });
+
+    if (!payslip) {
+      throw new NotFoundException('Payslip not found');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+      },
+    });
+
+
+    users.forEach((user) => {
+      this.mail.sendPayslipsGenerated({
+        month: payslip.month,
+        date: payslip.month + " " + payslip.year,
+        email: user.email,
+        dashboardUrl: 'https://ems.miro.zoracom.com',
+      });
+
     });
   }
 
