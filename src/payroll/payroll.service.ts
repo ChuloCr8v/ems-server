@@ -577,17 +577,14 @@ export class PayrollService {
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
 
-    // === 1. Fetch all deductions for the month (across all payrolls)
     const comps = await this.prisma.payrollComponent.findMany({
       where: {
         payrollId: { in: payrolls.map((p) => p.id) },
         category: { in: ['STATIC_DEDUCTION'] },
-        // createdAt: { gte: monthStart, lte: monthEnd },
       },
       include: { user: true },
     });
 
-    // === 2. Fetch all earnings (for employer pension calc)
     const earningComponents = await this.prisma.payrollComponent.findMany({
       where: {
         payrollId: { in: payrolls.map((p) => p.id) },
@@ -597,7 +594,6 @@ export class PayrollService {
       include: { user: true },
     });
 
-    // === 3. Aggregate total tax + pension across company
     const tax = comps
       .filter((x) => x.title === 'PAYE Tax')
       .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
@@ -606,10 +602,8 @@ export class PayrollService {
       .filter((x) => x.title === 'Pension Contribution')
       .reduce((total, item) => total + (item.monthlyAmount || 0), 0);
 
-    // === 4. Group data per employee
     const employeeMap = new Map<string, any>();
 
-    // Employer pension (based on earnings)
     for (const earning of earningComponents) {
       const id = earning.user.eId;
       if (!employeeMap.has(id)) {
@@ -630,7 +624,6 @@ export class PayrollService {
       }
     }
 
-    // Employee pension + tax deductions
     for (const c of comps) {
       const id = c.user.eId;
       if (!employeeMap.has(id)) {
@@ -655,14 +648,12 @@ export class PayrollService {
 
     const structuredData = Array.from(employeeMap.values());
 
-    // === 5. Generate Excel file
     const excelBuffer = await this.generateDeductionsExcel({
       deductions: structuredData,
       month: monthInWords,
       year,
     });
 
-    // === 6. Save deductions record
     await this.prisma.deductions.create({
       data: {
         name: `Deductions-${monthInWords}`,
@@ -703,7 +694,6 @@ export class PayrollService {
         }),
       );
 
-      // Send final payslip generation completed mail
       await this.mail.sendPayslipsGenerated({
         month: currentMonth,
         date: new Date().getFullYear().toString(),
@@ -711,7 +701,6 @@ export class PayrollService {
         dashboardUrl: 'https://ems.miro.zoracom.com',
       });
 
-      // Generate deduction summary
       await this.generateConsolidatedDeductionSummary(payrolls);
 
       return {
@@ -733,7 +722,6 @@ export class PayrollService {
       const year = new Date().getFullYear();
       const dateLabel = `${month} ${year}`;
 
-      // 1️⃣ Prepare component snapshot data (NO payslipId yet)
       const componentsData = payroll.component.map((c) => ({
         title: c.title,
         type: c.type,
@@ -747,7 +735,6 @@ export class PayrollService {
         userId: payroll.userId,
       }));
 
-      // 2️⃣ Compute totals (safe, in-memory)
       const deductions = payroll.component
         .filter((c) => c.type === 'DEDUCTION')
         .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
@@ -756,7 +743,6 @@ export class PayrollService {
         .filter((c) => c.type === 'EARNING')
         .reduce((t, c) => t + (c.monthlyAmount || 0), 0);
 
-      // 3️⃣ Upsert ONLY the payslip row (NO relations)
       const payslip = await this.prisma.payslip.upsert({
         where: {
           payrollId_month_year: {
@@ -787,7 +773,6 @@ export class PayrollService {
         },
       });
 
-      // 4️⃣ Replace payslip components SAFELY (batched)
       await this.prisma.payslipComponent.deleteMany({
         where: { payslipId: payslip.id },
       });
@@ -801,7 +786,6 @@ export class PayrollService {
         data,
       });
 
-      // 5️⃣ Emit event AFTER successful persistence
       this.event.emit(
         'payroll.generated',
         new PayslipGeneratedEvent(user.id, payroll.id, month, year),
@@ -941,14 +925,18 @@ export class PayrollService {
       throw new NotFoundException('Payslip not found');
     }
 
+
+    const date = `${payslip.month} ${payslip.year}`;
+
     const html = this.payslipTemplate.generateHTML(
       payslip,
+      date
     );
 
-    const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+    const response = await fetch(process.env.PDFSHIFT_URL, {
       method: 'POST',
       headers: {
-        'X-API-Key': "sk_f17c3407847a7a7aab14d627290d143a4694bd19",
+        'X-API-Key': process.env.PDFSHIFT_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
