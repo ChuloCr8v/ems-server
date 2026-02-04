@@ -1,20 +1,20 @@
 // prisma/seed.ts
 import { PrismaClient, JobType, Role, Status, MaritalStatus } from '@prisma/client';
- 
+
 const prisma = new PrismaClient();
 
 async function main() {
   // Bona (ADMIN)
   await prisma.user.create({
     data: {
-      firstName: "Victor",
-      lastName: "Ogunwehin",
-      email: "victor@zoracom.com",
+      firstName: "Bonaventure",
+      lastName: "Nkematu",
+      email: "bonaventure@zoracom.com",
       phone: "09087654321",
       country: "Nigeria",
       state: "Lagos",
       address: "123 Zoracom Street",
-      userRole: [Role.ADMIN],
+      // userRole: Role.ADMIN,
       maritalStatus: MaritalStatus.SINGLE,
       gender: "Male",
       role: "System Engineer",
@@ -43,28 +43,28 @@ async function main() {
       },
     },
   });
- 
+
   const users = [
-    {
-      firstName: "Benedict",
-      lastName: "Nwosu",
-      email: "benedict@zoracom.com",
-      phone: "08011112221",
-      gender: "Male",
-      maritalStatus: MaritalStatus.MARRIED,
-      role: "Software Engineer",
-    },
-    {
-      firstName: "Amaka",
-      lastName: "Eze",
-      email: "amaka.eze@zoracom.com",
-      phone: "08011112222",
-      gender: "Female",
-      maritalStatus: MaritalStatus.SINGLE,
-      role: "UI/UX Designer",
-    },
+    // {
+    //   firstName: "Benedict",
+    //   lastName: "Nwosu",
+    //   email: "benedict@zoracom.com",
+    //   phone: "08011112221",
+    //   gender: "Male",
+    //   maritalStatus: MaritalStatus.MARRIED,
+    //   role: "Software Engineer",
+    // },
+    // {
+    //   firstName: "Amaka",
+    //   lastName: "Eze",
+    //   email: "amaka.eze@zoracom.com",
+    //   phone: "08011112222",
+    //   gender: "Female",
+    //   maritalStatus: MaritalStatus.SINGLE,
+    //   role: "UI/UX Designer",
+    // },
   ]
- 
+
   // 10 More Users
   // const users = [
   //   {
@@ -158,7 +158,7 @@ async function main() {
   //     role: "Business Analyst",
   //   },
   // ];
- 
+
   let counter = 1;
   for (const u of users) {
     await prisma.user.create({
@@ -197,10 +197,10 @@ async function main() {
     });
     counter++;
   }
- 
-  console.log("✅ Seeded Victor + 10 real users");
+
+  console.log("✅ Seeded Stephanie + 10 real users");
 }
- 
+
 main()
   .catch((e) => {
     console.error('❌ Error seeding data:', e);
@@ -209,4 +209,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
- 

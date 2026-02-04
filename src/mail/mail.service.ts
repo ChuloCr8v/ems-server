@@ -25,8 +25,7 @@ import {
   WelcomeEmailDto,
   TaskDueDateChangeDto,
   AppraisalMailDto,
-  PaymentConfirmationDto,
-  PipMailDto
+  PipMailDto,
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -492,34 +491,6 @@ export class MailService {
     });
   }
 
-    async sendPaymentConfirmationMail(data: PaymentConfirmationDto) {
-    const { email, name, claimTitle, amount, paymentReference, date } = data;
-
-    await this.mailerService.sendMail({
-      to: email,
-      subject: MAIL_SUBJECT.PAYMENT_CONFIRMED,
-      template: 'paymentConfirmation', // You'll need to create this template
-      context: { 
-        name, 
-        claimTitle, 
-        amount, 
-        paymentReference, 
-        date,
-        formattedDate: new Date(date).toLocaleDateString('en-US', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }),
-        currentYear: new Date().getFullYear(),
-        companyName: this.config.get('COMPANY_NAME') || 'Your Company',
-        supportEmail: this.config.get('SUPPORT_EMAIL') || 'support@yourcompany.com',
-      }
-    });
-  }
-
-
-
   async sendPipRecommendedMail(data: PipMailDto) {
     const { email, name, recommenderName, dashboardUrl } = data;
     await this.mailerService.sendMail({
@@ -559,6 +530,4 @@ export class MailService {
       context: { name, dashboardUrl },
     });
   }
-
-
 }

@@ -24,13 +24,3 @@ export class ClaimRejectedEvent {
     public readonly reason?: string,
   ) {}
 }
-
-export class ClaimPaidEvent {
-  constructor(
-    public readonly claimId: string,
-    public readonly userId: string,
-    public readonly recipients: string[],
-    public readonly paymentReference: string,
-    public readonly amount: number,
-  ) {}
-}
