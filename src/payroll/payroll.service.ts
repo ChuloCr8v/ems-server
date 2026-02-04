@@ -933,10 +933,10 @@ export class PayrollService {
       date
     );
 
-    const response = await fetch(process.env.PDFSHIFT_URL, {
+    const response = await fetch("https://api.pdfshift.io/v3/convert/pdf", {
       method: 'POST',
       headers: {
-        'X-API-Key': process.env.PDFSHIFT_API_KEY,
+        'X-API-Key': "sk_f17c3407847a7a7aab14d627290d143a4694bd19",
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
