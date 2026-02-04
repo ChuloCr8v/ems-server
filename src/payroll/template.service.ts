@@ -19,6 +19,7 @@ export class PayslipTemplateService {
         components: true;
       };
     }>,
+    date: string
   ): string {
     const user = payslip.user;
     const components = payslip.components;
@@ -44,11 +45,6 @@ export class PayslipTemplateService {
       : path.join(process.cwd(), 'src', 'payroll', 'templates', 'payslip.html');
 
     let html = fs.readFileSync(templatePath, 'utf8');
-
-    const date = new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-    });
 
     const netToWords = this.toWords.convert(payslip.net / 12);
 

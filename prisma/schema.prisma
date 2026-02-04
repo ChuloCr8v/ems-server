@@ -242,6 +242,9 @@ model Upload {
   recomPip          RecommendedPip?   @relation(fields: [recomPipId], references: [id])
   userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
   prospectDocuments User[]            @relation("ProspectDocuments")
+
+  logs  Logs?   @relation(fields: [logId], references: [id], onDelete: Cascade)
+  logId String? @db.Uuid
 }
 
 model Contacts {
@@ -865,6 +868,19 @@ model UserTask {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
+}
+
+model Logs {
+  id          String   @id @default(uuid()) @db.Uuid
+  action      String
+  actionAt    DateTime @default(now())
+  actionBy    String
+  actionById  String   @db.Uuid
+  comment     String?
+  attachments Upload[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 //////////////////////////////////////////  APPRAISAL  ///////////////////////////////////////////

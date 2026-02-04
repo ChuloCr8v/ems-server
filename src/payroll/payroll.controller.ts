@@ -127,6 +127,12 @@ export class PayrollController {
   }
 
   @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
+  @Post("/notify/:id")
+  async notify(@Param('id') id: string) {
+    return this.payroll.notify(id);
+  }
+
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
   @Delete('delete/payslip')
   async delete() {
     await this.prisma.payslip.deleteMany();
