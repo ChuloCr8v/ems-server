@@ -961,8 +961,8 @@ export class PayrollService {
     });
   }
 
-  async notify(id: string) {
 
+  async notify(id: string) {
     const payslip = await this.prisma.payslip.findUnique({
       where: { id },
     });
@@ -972,22 +972,22 @@ export class PayrollService {
     }
 
     const users = await this.prisma.user.findMany({
-      where: {
-        status: "ACTIVE",
-      },
+      where: { status: 'ACTIVE' },
+      select: { email: true },
     });
 
-
-    users.forEach((user) => {
-      this.mail.sendPayslipsGenerated({
-        month: payslip.month,
-        date: payslip.month + " " + payslip.year,
-        email: user.email,
-        dashboardUrl: 'https://ems.miro.zoracom.com',
-      });
-
-    });
+    await Promise.allSettled(
+      users.map((user) =>
+        this.mail.sendPayslipsGenerated({
+          month: payslip.month,
+          date: `${payslip.month} ${payslip.year}`,
+          email: user.email,
+          dashboardUrl: 'https://ems.miro.zoracom.com',
+        })
+      )
+    );
   }
+
 
   async downloadDeductionsExcel(
     deductionId: string,
