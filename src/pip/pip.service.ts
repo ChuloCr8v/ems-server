@@ -218,6 +218,7 @@ export class PipService {
             },
           },
           include: {
+            user: true,
             teams: {
               include: {
                 members: true,
@@ -228,8 +229,8 @@ export class PipService {
         if (!department) {
           throw bad('Department Not Found');
         }
-        const members = department.teams.flatMap((team) => team.members);
-        targetUser = members.find((member) => member.id === teamMemberId);
+
+        targetUser = department.user.find((member) => member.id === teamMemberId);
 
         if (!targetUser) {
           throw bad('Selected user is not in your department');
