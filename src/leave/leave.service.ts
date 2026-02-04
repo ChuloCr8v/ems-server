@@ -25,7 +25,7 @@ export class LeaveService {
     private readonly mail: MailService,
     private readonly approver: ApproverService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
     const { typeId, doaId, reason, startDate, endDate, uploads } = data;
@@ -170,6 +170,28 @@ export class LeaveService {
 
       if (!user) mustHave(user, 'User not found', 404);
 
+      if (
+        [Role.ADMIN, Role.LEAVE_MANAGER, Role.HR, Role.SUPERADMIN, Role.ADMIN].some((role) =>
+          user.userRole.includes(role),
+        )
+      ) {
+        return await this.prisma.leaveRequest.findMany({
+          include: {
+            user: {
+              include: { approver: true },
+            },
+            type: true,
+            uploads: true,
+            approvals: {
+              include: {
+                approver: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
       const leaveRequests = await this.prisma.leaveRequest.findMany({
         where: {
           approvals: {
@@ -193,12 +215,7 @@ export class LeaveService {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (
-        user.userRole.includes(Role.ADMIN) ||
-        user.userRole.includes(Role.LEAVE_MANAGER)
-      ) {
-        return leaveRequests;
-      }
+
       if (user.approver.length) {
         return leaveRequests.filter((l) =>
           l.approvals.filter((a) => a.approverId === userId),
@@ -476,108 +493,106 @@ export class LeaveService {
     note?: string,
   ) {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const approval = await tx.approval.findUnique({
-          where: { id: approvalId },
-          include: {
-            leaveRequest: {
-              include: {
-                user: true,
-              },
+      const approval = await this.prisma.approval.findUnique({
+        where: { id: approvalId },
+        include: {
+          leaveRequest: {
+            include: {
+              user: true,
             },
           },
+        },
+      });
+
+      if (!approval) {
+        bad('Approval not found');
+      }
+
+      // Check if the user can approve this request
+      const canApprove = await this.approver.canUserApprove(
+        approverId,
+        approval.leaveRequest.userId,
+      );
+
+      if (!canApprove) {
+        bad('You are not authorized to approve this request');
+      }
+
+      if (approval.status !== 'PENDING') {
+        bad('This request has already been processed');
+      }
+
+      // Approve current phase
+      await this.prisma.approval.update({
+        where: { id: approvalId },
+        data: {
+          status: 'APPROVED',
+          note: note,
+          actionDate: new Date(),
+        },
+      });
+
+      // Check if there's a next approval
+      const nextApproval = await this.prisma.approval.findFirst({
+        where: {
+          leaveRequestId: approval.leaveRequestId,
+          phase: approval.phase + 1,
+          status: 'PENDING',
+        },
+      });
+
+      if (nextApproval) {
+        // Update to next approval phase
+        await this.prisma.leaveRequest.update({
+          where: { id: approval.leaveRequestId },
+          data: { currentApprovalId: nextApproval.id },
         });
 
-        if (!approval) {
-          bad('Approval not found');
-        }
-
-        // Check if the user can approve this request
-        const canApprove = await this.approver.canUserApprove(
-          approverId,
-          approval.leaveRequest.userId,
-        );
-
-        if (!canApprove) {
-          bad('You are not authorized to approve this request');
-        }
-
-        if (approval.status !== 'PENDING') {
-          bad('This request has already been processed');
-        }
-
-        // Approve current phase
-        await tx.approval.update({
-          where: { id: approvalId },
-          data: {
-            status: 'APPROVED',
-            note: note,
-            actionDate: new Date(),
-          },
-        });
-
-        // Check if there's a next approval
-        const nextApproval = await tx.approval.findFirst({
-          where: {
-            leaveRequestId: approval.leaveRequestId,
-            phase: approval.phase + 1,
-            status: 'PENDING',
-          },
-        });
-
-        if (nextApproval) {
-          // Update to next approval phase
-          await tx.leaveRequest.update({
-            where: { id: approval.leaveRequestId },
-            data: { currentApprovalId: nextApproval.id },
-          });
-
-          // // Notify next approver
-          // setTimeout(() => {
-          //     this.event.emit(
-          //         'leave.approved',
-          //         new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
-          //     );
-          // }, 0);
-
-          return {
-            approval: nextApproval,
-            isFinal: false,
-            message: 'Approval moved to next phase',
-          };
-        } else {
-          // No more phases, approve the entire leave request
-          await tx.leaveRequest.update({
-            where: { id: approval.leaveRequestId },
-            data: {
-              status: 'APPROVED',
-              currentApprovalId: null,
-            },
-          });
-        }
-
+        // // Notify next approver
         // setTimeout(() => {
-        await this.sendApprovalMail(approval.leaveRequestId).catch(
-          console.error,
-        );
-
-        this.event.emit(
-          'leave.approved',
-          new LeaveApprovedEvent(
-            approval.leaveRequest.userId,
-            [approval.leaveRequest.userId],
-            approval.leaveRequestId,
-            approverId,
-          ),
-        );
+        //     this.event.emit(
+        //         'leave.approved',
+        //         new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
+        //     );
         // }, 0);
 
         return {
-          approval: null,
-          isFinal: true,
-          message: 'Leave request fully approved',
+          approval: nextApproval,
+          isFinal: false,
+          message: 'Approval moved to next phase',
         };
-      });
+      } else {
+        // No more phases, approve the entire leave request
+        await this.prisma.leaveRequest.update({
+          where: { id: approval.leaveRequestId },
+          data: {
+            status: 'APPROVED',
+            currentApprovalId: null,
+          },
+        });
+      }
+
+      // setTimeout(() => {
+      await this.sendApprovalMail(approval.leaveRequestId).catch(
+        console.error,
+      );
+
+      this.event.emit(
+        'leave.approved',
+        new LeaveApprovedEvent(
+          approval.leaveRequest.userId,
+          [approval.leaveRequest.userId],
+          approval.leaveRequestId,
+          approverId,
+        ),
+      );
+      // }, 0);
+
+      return {
+        approval: null,
+        isFinal: true,
+        message: 'Leave request fully approved',
+      };
     } catch (error) {
       // if (error instanceof BadRequestException ||
       //     error instanceof NotFoundException ||

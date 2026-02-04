@@ -45,7 +45,7 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private readonly event: EventEmitter2,
-  ) {}
+  ) { }
 
   private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
@@ -85,10 +85,10 @@ export class TasksService {
       },
       approvedBy: task.approvedBy
         ? {
-            id: task.approvedBy.id,
-            name: `${task.approvedBy.firstName} ${task.approvedBy.lastName}`,
-            email: task.approvedBy.email,
-          }
+          id: task.approvedBy.id,
+          name: `${task.approvedBy.firstName} ${task.approvedBy.lastName}`,
+          email: task.approvedBy.email,
+        }
         : undefined,
       assignees: task.assignees.map((at) => ({
         id: at.user.id,
@@ -128,30 +128,28 @@ export class TasksService {
       const userRole = await this.getUserRole(createdById);
       const isManager = this.isManager(userRole);
 
-      // if (isManager) {
-      //   if (!assignees)
-      //     return bad("Please provide at least one assignee");
-
-      //   const { startDate, dueDate } = createTaskDto;
-
-      //   if (!startDate)
-      //     return bad("Please provide a start date");
-
-      //   if (!dueDate)
-      //     return bad("Please provide a due date");
-      // }
-
-      const taskStatus = createTaskDto.status
-        ? createTaskDto.status
-        : isManager
-          ? 'IN_PROGRESS'
-          : 'PENDING_APPROVAL';
+      const taskStatus = () => {
+        if (createTaskDto.status) {
+          if (createTaskDto.status === 'COMPLETED') {
+            if (isManager) {
+              return 'COMPLETED';
+            }
+            return 'PENDING_REVIEW';
+          }
+          return createTaskDto.status;
+        }
+        if (isManager) {
+          return 'IN_PROGRESS';
+        } else {
+          return 'PENDING_APPROVAL';
+        }
+      };
 
       const createData: any = {
         title: taskData.title,
         description: taskData.description,
         priority: taskData.priority,
-        status: taskStatus,
+        status: taskStatus(),
         approvalStatus: isManager ? 'APPROVED' : 'PENDING',
         createdById,
       };
@@ -207,11 +205,11 @@ export class TasksService {
         (taskCreator.defaultDepartment
           ? taskCreator.defaultDepartment.id
           : (
-              await this.prisma.user.findUnique({
-                where: { id: createdById },
-                include: { departments: true },
-              })
-            )?.departments[0].id);
+            await this.prisma.user.findUnique({
+              where: { id: createdById },
+              include: { departments: true },
+            })
+          )?.departments[0].id);
 
       if (taskCreator.team) {
         createData.teamId = taskCreator.team.id;
@@ -224,17 +222,17 @@ export class TasksService {
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
-                uploads: {
-                  connect: uploads.map((id) => ({ id })),
-                },
-              }
+              uploads: {
+                connect: uploads.map((id) => ({ id })),
+              },
+            }
             : {}),
           ...(category && category.length > 0
             ? {
-                category: {
-                  connect: category.map((id) => ({ id })),
-                },
-              }
+              category: {
+                connect: category.map((id) => ({ id })),
+              },
+            }
             : {}),
         },
         // include: this.getTaskInclude(),
@@ -946,13 +944,6 @@ export class TasksService {
       const findTask = await this.getOneTask(id);
       if (!findTask) mustHave(findTask, 'Task not found', 404);
 
-      //Store previous state for event emission
-      const previousState = {
-        status: findTask.status,
-        assignees: findTask.assignees.map((a) => a.userId),
-        priority: findTask.priority,
-        dueDate: findTask.dueDate,
-      };
 
       const user = await this.prisma.user.findUnique({
         where: {
@@ -1061,21 +1052,21 @@ export class TasksService {
           data:
             status === 'ISSUES'
               ? {
-                  hasIssues: true,
-                  status,
-                  taskIssues: {
-                    create: {
-                      issue: issue,
-                      reportedBy: {
-                        connect: { id: userId },
-                      },
+                hasIssues: true,
+                status,
+                taskIssues: {
+                  create: {
+                    issue: issue,
+                    reportedBy: {
+                      connect: { id: userId },
                     },
                   },
-                }
-              : {
-                  status: completedStatus(),
-                  hasIssues: false,
                 },
+              }
+              : {
+                status: completedStatus(),
+                hasIssues: false,
+              },
         });
 
         // --- Update Task Base Data ---

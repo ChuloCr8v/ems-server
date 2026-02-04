@@ -29,7 +29,7 @@ export class InviteService {
     private eventEmitter: EventEmitter2,
     private uploadService: UploadsService,
     private jwt: JwtService,
-  ) {}
+  ) { }
 
   async sendInvite(
     input: SendInviteDto & { uploads: Express.Multer.File[] },
@@ -109,6 +109,14 @@ export class InviteService {
 
       existingProspect && bad('Prospect with this email already exists');
 
+      const existingUser = await this.prisma.user.findUnique({
+        where: {
+          personalEmail: personalEmail,
+        },
+      });
+
+      existingUser && bad('User with this email already exists');
+
       const prospect = await this.prisma.$transaction(async (prisma) => {
         const sender = await prisma.user.findUnique({
           where: {
@@ -133,10 +141,10 @@ export class InviteService {
             startDate,
             ...(departments?.length
               ? {
-                  departments: {
-                    connect: departments.map((id) => ({ id })),
-                  },
-                }
+                departments: {
+                  connect: departments.map((id) => ({ id })),
+                },
+              }
               : {}),
             ...(jobType === JobType.CONTRACT ? { duration } : {}),
           },
@@ -187,100 +195,105 @@ export class InviteService {
   }
 
   async acceptInvite(token: string) {
-    const currentDate = new Date();
+    try {
+      const currentDate = new Date();
 
-    //Find the invite by token
-    const invite = await this.prisma.invite.findUnique({
-      where: { token },
-      include: {
-        prospect: {
-          include: {
-            departments: true,
-            upload: true,
-            invite: {
-              orderBy: {
-                createdAt: 'desc',
+      //Find the invite by token
+      const invite = await this.prisma.invite.findUnique({
+        where: { token },
+        include: {
+          prospect: {
+            include: {
+              departments: true,
+              upload: true,
+              invite: {
+                orderBy: {
+                  createdAt: 'desc',
+                },
+                take: 1,
               },
-              take: 1,
             },
           },
+          sentBy: true,
         },
-        sentBy: true,
-      },
-    });
+      });
 
-    const prospect = invite.prospect;
+      const prospect = invite.prospect;
 
-    if (!invite || invite.expiresAt < currentDate) {
-      bad('Invalid or Expired Invitation');
+      if (!invite || invite.expiresAt < currentDate) {
+        bad('Invalid or Expired Invitation');
+      }
+
+      if (invite.status !== 'PENDING')
+        bad('Invitation Has Already Been Accepted or Declined');
+
+      //Update the invite status to ACCEPTED
+      const updatedInvite = await this.prisma.invite.update({
+        where: { token },
+        data: {
+          status: 'ACCEPTED',
+          acceptedAt: currentDate,
+        },
+        include: {
+          prospect: true,
+          sentBy: true,
+        },
+      });
+
+      const user = await this.prisma.user.create({
+        data: {
+          firstName: prospect.firstName,
+          lastName: prospect.lastName,
+          personalEmail: prospect.email,
+          phone: prospect.phone,
+          gender: prospect.gender,
+          jobType: prospect.jobType,
+          duration: prospect.duration ?? null,
+          startDate: prospect.startDate,
+          role: prospect.role,
+          prospect: { connect: { id: prospect.id } },
+          prospectDocuments: {
+            connect: prospect.upload.map((x) => ({ id: x.id })),
+          },
+          departments: {
+            connect: prospect.departments.map((dept: { id: string }) => ({
+              id: dept.id,
+            })),
+          },
+        },
+      });
+
+      const payload = { sub: user.id, email: user.email, role: user.userRole };
+
+      const recipients = await this.prisma.user.findMany({
+        where: {
+          userRole: {
+            hasSome: [Role.ADMIN],
+          },
+        },
+      });
+
+      const recipientIds = recipients.map((r) => r.id);
+
+      this.eventEmitter.emit(
+        'employment.accepted',
+        new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
+      );
+
+      await this.mail.sendAcceptanceMail({
+        email: updatedInvite.sentBy.email,
+        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+      });
+
+      return {
+        user,
+        updatedInvite,
+        access_token: this.jwt.sign(payload),
+      };
+    } catch (error) {
+      bad(error);
     }
 
-    if (invite.status !== 'PENDING')
-      bad('Invitation Has Already Been Accepted or Declined');
-
-    //Update the invite status to ACCEPTED
-    const updatedInvite = await this.prisma.invite.update({
-      where: { token },
-      data: {
-        status: 'ACCEPTED',
-        acceptedAt: currentDate,
-      },
-      include: {
-        prospect: true,
-        sentBy: true,
-      },
-    });
-
-    const user = await this.prisma.user.create({
-      data: {
-        firstName: prospect.firstName,
-        lastName: prospect.lastName,
-        personalEmail: prospect.email,
-        phone: prospect.phone,
-        gender: prospect.gender,
-        jobType: prospect.jobType,
-        duration: prospect.duration ?? null,
-        startDate: prospect.startDate,
-        role: prospect.role,
-        prospect: { connect: { id: prospect.id } },
-        prospectDocuments: {
-          connect: prospect.upload.map((x) => ({ id: x.id })),
-        },
-        departments: {
-          connect: prospect.departments.map((dept: { id: string }) => ({
-            id: dept.id,
-          })),
-        },
-      },
-    });
-
-    const payload = { sub: user.id, email: user.email, role: user.userRole };
-
-    const recipients = await this.prisma.user.findMany({
-      where: {
-        userRole: {
-          hasSome: [Role.ADMIN],
-        },
-      },
-    });
-
-    const recipientIds = recipients.map((r) => r.id);
-
-    this.eventEmitter.emit(
-      'employment.accepted',
-      new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
-    );
-
-    await this.mail.sendAcceptanceMail({
-      email: updatedInvite.sentBy.email,
-      name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-    });
-
-    return {
-      user,
-      updatedInvite,
-      access_token: this.jwt.sign(payload),
-    };
   }
 
   async declineInvite(token: string, reasons?: Array<string>) {
