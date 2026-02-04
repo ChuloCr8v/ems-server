@@ -1,4 +1,3 @@
-// src/claims/claims.service.ts
 import {
   Injectable,
   NotFoundException,
@@ -10,7 +9,6 @@ import { ClaimStatus, Prisma, Role } from '@prisma/client';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { promises } from 'dns';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClaimApprovedEvent,

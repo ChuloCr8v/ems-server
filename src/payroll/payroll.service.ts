@@ -860,6 +860,7 @@ export class PayrollService {
 
             if (!acc[month]) {
               acc[month] = {
+                id: payslip.id,
                 month,
                 title: `Payslips - month ${month}`,
                 payslips: [],
@@ -873,6 +874,7 @@ export class PayrollService {
           {} as Record<
             number,
             {
+              id: string;
               month: number;
               title: string;
               payslips: Payslip[];
@@ -956,6 +958,34 @@ export class PayrollService {
     return new StreamableFile(pdfBuffer, {
       type: 'application/pdf',
       disposition: `attachment; filename="payslip-${payslipId}.pdf"`,
+    });
+  }
+
+  async notify(id: string) {
+
+    const payslip = await this.prisma.payslip.findUnique({
+      where: { id },
+    });
+
+    if (!payslip) {
+      throw new NotFoundException('Payslip not found');
+    }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+      },
+    });
+
+
+    users.forEach((user) => {
+      this.mail.sendPayslipsGenerated({
+        month: payslip.month,
+        date: payslip.month + " " + payslip.year,
+        email: user.email,
+        dashboardUrl: 'https://ems.miro.zoracom.com',
+      });
+
     });
   }
 
