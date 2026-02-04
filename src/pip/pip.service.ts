@@ -25,7 +25,7 @@ export class PipService {
     private readonly prisma: PrismaService,
     private readonly department: DepartmentService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async createPip(userId: string, data: CreatePipDto) {
     try {
@@ -73,8 +73,8 @@ export class PipService {
           },
           rPip: data.rPipId
             ? {
-                connect: { id: data.rPipId },
-              }
+              connect: { id: data.rPipId },
+            }
             : undefined,
         },
       });
@@ -213,12 +213,8 @@ export class PipService {
       else {
         const department = await this.prisma.department.findFirst({
           where: {
-            teams: {
-              some: {
-                members: {
-                  some: { id: user.id },
-                },
-              },
+            user: {
+              some: { id: user.id },
             },
           },
           include: {
@@ -258,8 +254,8 @@ export class PipService {
           },
           uploads: data.uploads
             ? {
-                connect: data.uploads.map((id) => ({ id })),
-              }
+              connect: data.uploads.map((id) => ({ id })),
+            }
             : undefined,
         },
       });
@@ -393,8 +389,8 @@ export class PipService {
           },
           uploads: data.uploads
             ? {
-                connect: data.uploads.map((id) => ({ id })),
-              }
+              connect: data.uploads.map((id) => ({ id })),
+            }
             : undefined,
         },
       });
@@ -419,8 +415,8 @@ export class PipService {
           },
           uploads: data.uploads
             ? {
-                connect: data.uploads.map((id) => ({ id })),
-              }
+              connect: data.uploads.map((id) => ({ id })),
+            }
             : undefined,
         },
       });
@@ -477,8 +473,8 @@ export class PipService {
           },
           uploads: data.uploads
             ? {
-                connect: data.uploads.map((id) => ({ id })),
-              }
+              connect: data.uploads.map((id) => ({ id })),
+            }
             : undefined,
         },
         // select: { rejectedById: true, rejecteAt: true, user: true, id: true },
@@ -497,8 +493,8 @@ export class PipService {
           },
           uploads: data.uploads
             ? {
-                connect: data.uploads.map((id) => ({ id })),
-              }
+              connect: data.uploads.map((id) => ({ id })),
+            }
             : undefined,
         },
       });
@@ -549,8 +545,8 @@ export class PipService {
         },
         uploads: data.uploads
           ? {
-              connect: data.uploads.map((id) => ({ id })),
-            }
+            connect: data.uploads.map((id) => ({ id })),
+          }
           : undefined,
       },
     });
