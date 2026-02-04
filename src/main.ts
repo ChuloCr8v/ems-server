@@ -34,6 +34,16 @@ async function bootstrap() {
     )
     .build();
 
+   process.on('uncaughtException', err => {
+  console.error('UNCAUGHT EXCEPTION:', err.stack);
+});
+
+process.on('unhandledRejection', err => {
+  console.error('UNHANDLED REJECTION:', err);
+});
+
+
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document, {
     swaggerOptions: {
