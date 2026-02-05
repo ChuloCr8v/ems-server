@@ -33,7 +33,6 @@ import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
 import { PuppeteerModule } from './puppeteer/puppeteer.module';
-import { PaymentModule } from './payment/payment.module';
 import { PipModule } from './pip/pip.module';
 import { PdfshiftService } from './pdfshift/pdfshift.service';
 
@@ -62,7 +61,6 @@ import { PdfshiftService } from './pdfshift/pdfshift.service';
     KpiModule,
     ReportModule,
     PuppeteerModule,
-    PaymentModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     PipModule,
