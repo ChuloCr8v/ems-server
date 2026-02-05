@@ -49,7 +49,7 @@ export class NotificationListener {
     private gateway: NotificationGateway,
     private prisma: PrismaService,
     private mailService: MailService,
-  ) {}
+  ) { }
 
   @OnEvent('employment.accepted')
   async handleEmploymentAccepted(event: EmploymentAcceptedEvent) {
@@ -132,14 +132,11 @@ export class NotificationListener {
   }
 
   //Manager or HR approves leave
-  @OnEvent('leave_approved')
+  @OnEvent('leave.approved')
   async handleApprovedLeave(event: LeaveApprovedEvent) {
     const approver = await this.prisma.user.findUnique({
       where: { id: event.approverId },
       // include: { requests: { include: { user: true, } } },
-    });
-    const employee = await this.prisma.user.findUnique({
-      where: { id: event.employeeId },
     });
 
     const recipientIds = Array.isArray(event.employeeId)
@@ -147,7 +144,7 @@ export class NotificationListener {
       : [event.employeeId];
     const notifications = recipientIds.map((recipientId: string) => ({
       recipientId,
-      actorId: event.approverId,
+      actorId: approver.id,
       type: 'LEAVE_APPROVED',
       title: 'Leave Request Approved',
       message: `Your leave request has been successfully approved. Enjoy your time off!`,

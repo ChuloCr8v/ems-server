@@ -70,7 +70,7 @@ export class AcceptanceInviteDto {
   name: string;
 }
 
-export class DeclinedInviteDto extends AcceptanceInviteDto {}
+export class DeclinedInviteDto extends AcceptanceInviteDto { }
 
 export class UpdateProspectInfoDto {
   @IsEmail()
@@ -116,6 +116,9 @@ export class LeaveRequest {
 
   @IsString()
   name: string;
+
+  @IsString()
+  approverName: string
 
   @IsString()
   leaveType: string;
