@@ -89,7 +89,13 @@ export class ApproverService {
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
-      return await this.getApproversForDepartmentHead();
+      return await this.prisma.user.findMany({
+        where: {
+          userRole: {
+            hasSome: [Role.SUPERADMIN]
+          }
+        }
+      })
     }
 
     // Regular employees get department approvers + global approvers
@@ -101,11 +107,11 @@ export class ApproverService {
     return [...departmentApprovers, ...globalApprovers];
   }
 
-  private async getApproversForDepartmentHead() {
-    const globalApprovers = await this.getGlobalApprovers();
+  // private async getApproversForDepartmentHead() {
+  //   const globalApprovers = await this.getGlobalApprovers();
 
-    return globalApprovers;
-  }
+  //   return globalApprovers;
+  // }
 
   async canUserApprove(
     approverUserId: string,
@@ -119,6 +125,8 @@ export class ApproverService {
         approver: true,
       },
     });
+
+    if (approverUser.userRole.includes(Role.SUPERADMIN)) return true
 
     // Prevent self-approval
     if (approverUserId === targetUserId && !approverUser.userRole.includes(Role.SUPERADMIN)) return false;

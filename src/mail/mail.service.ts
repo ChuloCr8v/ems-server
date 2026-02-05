@@ -154,14 +154,18 @@ export class MailService {
   }
 
   async sendLeaveRequestMail(data: LeaveRequest) {
-    const { email, leaveType, leaveValue, name, startDate, endDate, reason } =
+    const { email, leaveType, leaveValue, name, startDate, endDate, reason, approverName } =
       data;
+
+    const date = new Date().getFullYear()
 
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
       template: 'leaveRequest',
-      context: { name, leaveType, leaveValue, startDate, endDate, reason },
+      context: {
+        name, leaveType, leaveValue, startDate, endDate, reason, approverName, reviewLink: 'https://ems.miro.zoracom.com/leave/approval-desk', Date: date
+      },
     });
   }
 
@@ -256,12 +260,12 @@ export class MailService {
       context: { month, date, email, name, dashboardUrl },
       attachments: attachment
         ? [
-            {
-              filename: attachment.filename,
-              content: attachment.content,
-              contentType: attachment.contentType,
-            },
-          ]
+          {
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType,
+          },
+        ]
         : [],
     });
   }
