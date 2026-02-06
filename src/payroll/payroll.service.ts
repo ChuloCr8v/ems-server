@@ -674,7 +674,13 @@ export class PayrollService {
 
     try {
       const payrolls = await this.prisma.payroll.findMany({
+        where: {
+          user: {
+            status: "ACTIVE"
+          }
+        },
         include: {
+
           user: true,
           component: {
             include: {
@@ -683,6 +689,8 @@ export class PayrollService {
           },
         },
       });
+
+      console.log({ payrolls })
 
       if (!payrolls.length) {
         return { message: 'No payroll records found' };
