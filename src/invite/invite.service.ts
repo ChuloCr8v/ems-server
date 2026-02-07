@@ -14,7 +14,7 @@ import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { JobType, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EmploymentAcceptedEvent } from 'src/events/employment.event';
+import { EmploymentAcceptedEvent, InviteSentEvent } from 'src/events/employment.event';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { v4 as uuidv4 } from 'uuid';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -50,11 +50,10 @@ export class InviteService {
           expiresAt,
           token,
           prospectId: prospect.id,
-          sentById: adminUser, //This will track the who is sending the invite
+          sentById: adminUser,
         },
       });
 
-      // Send email
       const allAttachments =
         uploads?.map((upload) => ({
           filename: upload.originalname,
@@ -62,12 +61,11 @@ export class InviteService {
           contentType: upload.mimetype,
         })) || [];
 
-      await this.mail.sendProspectMail({
-        email: prospect.email,
-        firstName: `${prospect.firstName}`,
-        token,
-        attachments: allAttachments,
-      });
+      // Send email
+      this.eventEmitter.emit(
+        'invite.sent',
+        new InviteSentEvent(prospect.id, token, allAttachments),
+      );
 
       return true;
     } catch (error) {
@@ -280,11 +278,6 @@ export class InviteService {
         new EmploymentAcceptedEvent(updatedInvite.prospectId, recipientIds),
       );
 
-      await this.mail.sendAcceptanceMail({
-        email: updatedInvite.sentBy.email,
-        name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
-      });
-
       return {
         user,
         updatedInvite,
@@ -330,7 +323,7 @@ export class InviteService {
       });
 
       await this.mail.sendDeclinedMail({
-        email: invite.sentBy.email,
+        email: "talent@zoracom.com",
         name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
       });
 
