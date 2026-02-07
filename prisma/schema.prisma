@@ -1124,7 +1124,8 @@ enum Status {
 
 enum PipStatus {
   PENDING
-  APPROVED
+  MANAGER_APPROVED
+  HR_APPROVED
   REJECTED
   COMPLETED
 }

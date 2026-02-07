@@ -426,7 +426,7 @@ export class PipService {
         const approvedPip = await this.prisma.pip.update({
                 where: { id: pip.id },
                 data: {
-                    status: 'APPROVED',
+                    status: 'MANAGER_APPROVED',
                     comment: {
                         create: {
                             comment: data.comment
@@ -495,7 +495,7 @@ export class PipService {
             const pips = await this.prisma.pip.findMany({
                 where: {
                     userId: { in: memeberIds },
-                    status: 'APPROVED',
+                    status: 'MANAGER_APPROVED',
                 },
             });
             if(pips.length === 0){
@@ -507,7 +507,7 @@ export class PipService {
             )
             await this.prisma.department.update({
                 where: { id: department.id },
-                data: { pipStatus: 'APPROVED'}
+                data: { pipStatus: 'HR_APPROVED'}
             });
 
             //Notify Users
@@ -637,7 +637,7 @@ export class PipService {
             const pips = await this.prisma.pip.findMany({
                 where: {
                     userId: { in: memeberIds },
-                    status: 'APPROVED',
+                    status: 'MANAGER_APPROVED',
                 },
             });
             if(pips.length === 0){
