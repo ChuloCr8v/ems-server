@@ -10,4 +10,4 @@ import { CategoryModule } from 'src/category/category.module';
   providers: [TasksService],
   exports: [TasksService],
 })
-export class TasksModule { }
+export class TasksModule {}

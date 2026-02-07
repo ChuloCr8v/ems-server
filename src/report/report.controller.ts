@@ -7,30 +7,30 @@ import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('report')
 export class ReportController {
+  constructor(
+    private readonly report: ReportService,
+    private readonly prisma: PrismaService,
+  ) {}
 
-    constructor(private readonly report: ReportService, private readonly prisma: PrismaService) { }
+  @Post('generate')
+  generateReport() {
+    return this.report.generateWeeklyReports();
+  }
 
-    @Post("generate")
-    generateReport() {
-        return this.report.generateWeeklyReports();
+  @Auth()
+  @Get('')
+  listReports(@Req() req: ReqPayload) {
+    const userId = req.user.id;
+    return this.report.listWeeklyReports(userId);
+  }
+
+  @Delete('')
+  async deleteReport() {
+    try {
+      await this.prisma.report.deleteMany();
+      return { message: 'Reports deleted successfully' };
+    } catch (error) {
+      bad(error);
     }
-
-    @Auth()
-    @Get("")
-    listReports(
-        @Req() req: ReqPayload
-    ) {
-        const userId = req.user.id;
-        return this.report.listWeeklyReports(userId)
-    }
-
-    @Delete("")
-    async deleteReport() {
-        try {
-            await this.prisma.report.deleteMany()
-            return { message: "Reports deleted successfully" }
-        } catch (error) {
-            bad(error)
-        }
-    }
+  }
 }

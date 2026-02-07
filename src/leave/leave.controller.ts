@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { LeaveService } from './leave.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { Response } from 'express';
@@ -10,7 +21,7 @@ import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 export class LeaveController {
   constructor(private readonly leave: LeaveService) { }
 
-  @Post(":userId")
+  @Post(':userId')
   async createLeaveRequest(
     @Param('userId') userId: string,
     @Body() data: CreateLeaveRequestDto,
@@ -21,27 +32,26 @@ export class LeaveController {
   }
 
   @Auth()
-  @Get("/entitlements")
-  async getAvailableLeaveTypes(@AuthUser() req: IAuthUser,) {
+  @Get('/entitlements')
+  async getAvailableLeaveTypes(@AuthUser() req: IAuthUser) {
     return this.leave.getAvailableLeaveTypes(req.sub);
   }
 
-  @Auth
-    (["ADMIN", "DEPT_MANAGER", "LEAVE_MANAGER", "HR"])
-  @Get("")
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'LEAVE_MANAGER', 'HR'])
+  @Get('')
   async listLeaveRequests(@AuthUser() req: IAuthUser) {
     return this.leave.listLeaveRequests(req.sub);
   }
 
   @Auth()
-  @Get("/user")
+  @Get('/user')
   async listUserLeaveRequests(@AuthUser() req: IAuthUser) {
     return this.leave.listUserLeaveRequests(req.sub);
   }
 
   @Auth()
-  @Get("/:id/request")
-  async getLeaveRequest(@Param("id") id: string) {
+  @Get('/:id/request')
+  async getLeaveRequest(@Param('id') id: string) {
     return this.leave.getLeaveRequest(id);
   }
 
@@ -49,23 +59,30 @@ export class LeaveController {
   @Get('balance/:typeId')
   async getLeaveBalance(
     @AuthUser() req: IAuthUser,
-    @Param('typeId') typeId: string
+    @Param('typeId') typeId: string,
   ) {
     return this.leave.checkLeaveBalance(req.sub, typeId);
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER])
+  @Auth([Role.ADMIN, Role.DEPT_MANAGER, Role.LEAVE_MANAGER, Role.SUPERADMIN])
   @Post('approve/:approvalId/:userId')
-  async approveLeaveRequest(@Param('approvalId') approvalId: string, @Param('userId') userId: string, @Body() body?: { note: string }) {
-    const note = body.note
+  async approveLeaveRequest(
+    @Param('approvalId') approvalId: string,
+    @Param('userId') userId: string,
+    @Body() body?: { note: string },
+  ) {
+    const note = body.note;
     return this.leave.approveLeaveRequest(approvalId, userId, note);
   }
 
   @Post('reject/:approvalId/:userId')
-  async rejectLeaveRequest(@Param('approvalId') approvalId: string, @Param('userId') userId: string, @Body() body?: { note: string }) {
-    const { note } = body
+  async rejectLeaveRequest(
+    @Param('approvalId') approvalId: string,
+    @Param('userId') userId: string,
+    @Body() body?: { note: string },
+  ) {
+    const { note } = body;
     return this.leave.rejectLeaveRequest(approvalId, userId, note);
-
   }
 
   @Get('history/:leaveRequestId')
@@ -73,22 +90,23 @@ export class LeaveController {
     return this.leave.getApprovalHistory(leaveRequestId);
   }
 
-
   @Auth()
   @Delete('delete/:leaveRequestId')
-  async deleteLeaveRequest(@Param('leaveRequestId') leaveRequestId: string,
-    @AuthUser() req: IAuthUser) {
+  async deleteLeaveRequest(
+    @Param('leaveRequestId') leaveRequestId: string,
+    @AuthUser() req: IAuthUser,
+  ) {
     return this.leave.deleteLeaveRequest(leaveRequestId, req.sub);
   }
 
-
   @Auth()
   @Patch('cancel/:leaveRequestId')
-  async cancelLeavequest(@Param('leaveRequestId') leaveRequestId: string,
-    @AuthUser() req: IAuthUser) {
+  async cancelLeavequest(
+    @Param('leaveRequestId') leaveRequestId: string,
+    @AuthUser() req: IAuthUser,
+  ) {
     return this.leave.cancelLeaveRequest(leaveRequestId, req.sub);
   }
-
 
   //Comments
 
@@ -97,7 +115,7 @@ export class LeaveController {
   async commentOnRequest(
     @Param('id') id: string,
     @AuthUser() req: IAuthUser,
-    @Body() dto: { comment: string, uploads?: string[] }
+    @Body() dto: { comment: string; uploads?: string[] },
   ) {
     return this.leave.comment(id, req.sub, dto);
   }

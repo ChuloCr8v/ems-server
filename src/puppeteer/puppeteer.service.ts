@@ -8,15 +8,9 @@ import PQueue from 'p-queue';
 export class PuppeteerService implements OnModuleDestroy {
   private browser: Browser | null = null;
 
-  /**
-   * Hard cap PDF rendering concurrency.
-   * This protects CPU & memory even if BullMQ concurrency is high.
-   */
   private readonly pdfQueue = new PQueue({
-    concurrency: 2, // 🔒 safe default for PDF rendering
+    concurrency: 2,
   });
-
-  /* ---------------- Browser lifecycle ---------------- */
 
   private async teardownBrowser() {
     if (!this.browser) return;
@@ -36,7 +30,6 @@ export class PuppeteerService implements OnModuleDestroy {
       this.browser = null;
     });
   }
-
   async getBrowser(headless = true): Promise<Browser> {
     if (this.browser && this.browser.connected) {
       return this.browser;
@@ -46,7 +39,6 @@ export class PuppeteerService implements OnModuleDestroy {
 
     this.browser = await puppeteer.launch({
       headless,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -66,12 +58,6 @@ export class PuppeteerService implements OnModuleDestroy {
 
   /* ---------------- PDF rendering ---------------- */
 
-  /**
-   * Render HTML to PDF safely under concurrency.
-   * Uses:
-   * - one browser
-   * - limited number of pages
-   */
   async renderPdfFromHtml(html: string): Promise<Buffer> {
     return this.pdfQueue.add(async () => {
       const browser = await this.getBrowser(true);
@@ -82,8 +68,6 @@ export class PuppeteerService implements OnModuleDestroy {
           waitUntil: ['domcontentloaded', 'networkidle0'],
           timeout: 30_000,
         });
-
-        await page.emulateMediaType('screen');
 
         const pdfUint8 = await page.pdf({
           format: 'A4',
@@ -97,7 +81,6 @@ export class PuppeteerService implements OnModuleDestroy {
       }
     });
   }
-
 
   /* ---------------- Shutdown ---------------- */
 

@@ -4,6 +4,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { TasksService } from 'src/tasks/tasks.service';
 
 @Module({
-  providers: [PrismaService, TasksService, CategoryService,]
+  providers: [PrismaService, TasksService, CategoryService],
 })
-export class CategoryModule { }
+export class CategoryModule {}

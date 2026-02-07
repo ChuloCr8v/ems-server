@@ -1,6 +1,15 @@
 import {
-  Controller, Post, Body, UploadedFiles, UseInterceptors, Get, Param, Res, Put, Request,
-  Delete
+  Controller,
+  Post,
+  Body,
+  UploadedFiles,
+  UseInterceptors,
+  Get,
+  Param,
+  Res,
+  Put,
+  Request,
+  Delete,
 } from '@nestjs/common';
 import { InviteService } from './invite.service';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -8,13 +17,20 @@ import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { CreateProspectDto, DeclineComment } from './dto/invite.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBody, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiConsumes,
+  ApiBody,
+  ApiParam,
+} from '@nestjs/swagger';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
 @ApiTags('Invite')
 @Controller('invite')
 export class InviteController {
-  constructor(private inviteService: InviteService) { }
+  constructor(private inviteService: InviteService) {}
 
   @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @Post('send')
@@ -29,38 +45,39 @@ export class InviteController {
   async create(
     @Body() input: CreateProspectDto,
     @UploadedFiles() uploads: Express.Multer.File[],
-    @AuthUser() req: IAuthUser
+    @AuthUser() req: IAuthUser,
   ) {
-
-    return this.inviteService.createProspect(input, uploads,
-      req
-    );
+    return this.inviteService.createProspect(input, uploads, req);
   }
 
   @Put('accept/:token')
   @ApiOperation({ summary: 'Accept an invitation' })
   @ApiParam({ name: 'token', required: true, description: 'Invitation token' })
-  @ApiResponse({ status: 200, description: 'Prospect Has Accepted The Invitation' })
-  async acceptInvite(
-    @Param('token') token: string,
-  ) {
+  @ApiResponse({
+    status: 200,
+    description: 'Prospect Has Accepted The Invitation',
+  })
+  async acceptInvite(@Param('token') token: string) {
     return this.inviteService.acceptInvite(token);
-
   }
 
   @Put('decline/:token')
   @ApiOperation({ summary: 'Decline an invitation' })
   @ApiParam({ name: 'token', required: true, description: 'Invitation token' })
   @ApiBody({ type: DeclineComment })
-  @ApiResponse({ status: 200, description: 'Prospect Has Declined The Invitation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Prospect Has Declined The Invitation',
+  })
   async declineInvite(
     @Param('token') token: string,
     @Body() reasons: Array<string> | undefined,
     @Res() res: Response,
-
   ) {
     const prospect = await this.inviteService.declineInvite(token, reasons);
-    return res.status(200).json({ message: `Prospect Has Declined The Invitation`, prospect });
+    return res
+      .status(200)
+      .json({ message: `Prospect Has Declined The Invitation`, prospect });
   }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
@@ -87,14 +104,15 @@ export class InviteController {
     return await this.inviteService.getOneProspect(id);
   }
 
-
-  @Delete(":id")
+  @Delete(':id')
   @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
   @ApiOperation({ summary: 'Delete a prospect by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Prospect ID' })
   @ApiResponse({ status: 200, description: 'Prospect deleted successfully' })
   async deleteProspect(@Param('id') id: string, @Res() res: Response) {
     await this.inviteService.deleteProspect(id);
-    return res.status(200).json({ message: `Prospect with ID ${id} has been deleted successfully` });
+    return res.status(200).json({
+      message: `Prospect with ID ${id} has been deleted successfully`,
+    });
   }
 }

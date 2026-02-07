@@ -243,6 +243,9 @@ model Upload {
   recomPip          RecommendedPip?   @relation(fields: [recomPipId], references: [id])
   userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
   prospectDocuments User[]            @relation("ProspectDocuments")
+
+  logs  Logs?   @relation(fields: [logId], references: [id], onDelete: Cascade)
+  logId String? @db.Uuid
 }
 
 model Contacts {
@@ -616,15 +619,21 @@ model PayrollComponent {
 }
 
 model Payslip {
-  id        String  @id @default(uuid()) @db.Uuid
-  name      String
-  userId    String  @db.Uuid
-  month     String
-  payrollId String  @db.Uuid
-  year      Int
-  amount    Float
-  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String  @id @default(uuid()) @db.Uuid
+  name       String
+  userId     String  @db.Uuid
+  month      String
+  payrollId  String  @db.Uuid
+  year       Int
+  amount     Float
+  gross      Float?
+  deductions Float?
+  earnings   Float?
+  net        Float?
+  payroll    Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  components PayslipComponent[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime? @updatedAt
@@ -633,19 +642,39 @@ model Payslip {
   @@index([userId])
 }
 
+model PayslipComponent {
+  id            String                @id @default(uuid()) @db.Uuid
+  amount        Float
+  type          SalaryType
+  title         String
+  calculations  SalaryCalculationType
+  category      ComponentCategory
+  monthlyAmount Float
+  annualAmount  Float
+  duration      Int?
+  startDate     DateTime?
+  isActive      Boolean               @default(true)
+  payslipId     String                @db.Uuid
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  userId        String?               @db.Uuid
+
+  payslip Payslip? @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+}
+
 model Deductions {
   id   String @id @default(uuid()) @db.Uuid
   name String
   data Bytes
 
   month   String
-  pension Int
-  tax     Int
+  pension Decimal @db.Decimal(15, 2)
+  tax     Decimal @db.Decimal(15, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([id, month])
+  @@index([month])
 }
 
 /////////////////////////////////////////// CLAIMS ///////////////////////////////////////////
@@ -837,6 +866,19 @@ model UserTask {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
+}
+
+model Logs {
+  id          String   @id @default(uuid()) @db.Uuid
+  action      String
+  actionAt    DateTime @default(now())
+  actionBy    String
+  actionById  String   @db.Uuid
+  comment     String?
+  attachments Upload[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 //////////////////////////////////////////  APPRAISAL  ///////////////////////////////////////////

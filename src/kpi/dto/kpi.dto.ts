@@ -1,6 +1,16 @@
 import { KpiCategoryType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsNumber, Min, Max, IsBoolean, IsUUID, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+  IsBoolean,
+  IsUUID,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreateKpiObjectiveDto {
   @IsString()
@@ -21,7 +31,6 @@ export class CreateKpiObjectiveDto {
   categoryId?: string;
 }
 
-
 export class CreateKpiCategoryDto {
   @IsString()
   name: string;
@@ -38,15 +47,15 @@ export class CreateKpiCategoryDto {
   @IsOptional()
   departmentId?: string;
 
-  @IsArray() 
-  @ValidateNested({ each: true }) 
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => CreateKpiObjectiveDto)
   objectives: CreateKpiObjectiveDto[];
 }
 
 export class CreateKpiDto {
-  @IsArray() 
-  @ValidateNested({ each: true }) 
+  @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => CreateKpiCategoryDto)
   categories: CreateKpiCategoryDto[];
 }

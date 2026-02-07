@@ -4,11 +4,9 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors();
-
 
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe());
@@ -19,7 +17,9 @@ async function bootstrap() {
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('Employee Management System API')
-    .setDescription('API for managing onboarding and exit, leave, payroll, performance and reporting')
+    .setDescription(
+      'API for managing onboarding and exit, leave, payroll, performance and reporting',
+    )
     .setVersion('1.0')
     .addBearerAuth(
       {

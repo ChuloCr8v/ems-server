@@ -2,7 +2,13 @@ import { Body, Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
 import { PipService } from './pip.service';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { ApprovePipDto, CreatePipDto, MarkPipAsCompletedDto, RecommendPipDto, RejectPipDto } from './dto/pip.dto';
+import {
+  ApprovePipDto,
+  CreatePipDto,
+  MarkPipAsCompletedDto,
+  RecommendPipDto,
+  RejectPipDto,
+} from './dto/pip.dto';
 import { Response } from 'express';
 import { Role } from '@prisma/client';
 
@@ -11,7 +17,11 @@ export class PipController {
   constructor(private readonly pipService: PipService) {}
   @Auth()
   @Post()
-  async createPip(@AuthUser() user: IAuthUser, @Body() data: CreatePipDto, @Res() res: Response) {
+  async createPip(
+    @AuthUser() user: IAuthUser,
+    @Body() data: CreatePipDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const pip = await this.pipService.createPip(userId, data);
     return res.status(200).json({ message: 'A New PIP Has Been Created', pip });
@@ -40,12 +50,18 @@ export class PipController {
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
   @Post('recommend')
-  async recommendPip(@AuthUser() user: IAuthUser, @Body() data: RecommendPipDto, @Res() res: Response) {
+  async recommendPip(
+    @AuthUser() user: IAuthUser,
+    @Body() data: RecommendPipDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const recommendedPip = await this.pipService.recommendPip(userId, data);
-    return res.status(200).json({ message: 'A New PIP Has Been Recommended', recommendedPip });
+    return res
+      .status(200)
+      .json({ message: 'A New PIP Has Been Recommended', recommendedPip });
   }
-  
+
   @Auth()
   @Get('recommend')
   async getAllRecommendedPips(@AuthUser() user: IAuthUser) {
@@ -55,7 +71,12 @@ export class PipController {
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
   @Patch(':pipId/approve')
-  async approvePip(@AuthUser() user: IAuthUser, @Param('pipId') pipId: string, @Body() data: ApprovePipDto, @Res() res: Response) {
+  async approvePip(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: ApprovePipDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const pip = await this.pipService.approvePip(userId, pipId, data);
     return res.status(200).json({ message: 'PIP Has Been Approved', pip });
@@ -71,7 +92,12 @@ export class PipController {
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
   @Patch(':pipId/reject')
-  async rejectPip(@AuthUser() user: IAuthUser,  @Param('pipId') pipId: string, @Body() data: RejectPipDto, @Res() res: Response) {
+  async rejectPip(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: RejectPipDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const pip = await this.pipService.rejectPip(userId, pipId, data);
     return res.status(200).json({ message: 'PIP Has Been Rejected', pip });
@@ -79,9 +105,16 @@ export class PipController {
 
   @Auth()
   @Patch(':pipId/complete')
-  async markPipAsCompleted(@AuthUser() user: IAuthUser, @Param('pipId') pipId: string, @Body() data: MarkPipAsCompletedDto, @Res() res: Response) {
+  async markPipAsCompleted(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: MarkPipAsCompletedDto,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const pip = await this.pipService.markPipAsCompleted(userId, pipId, data);
-    return res.status(200).json({ message: 'PIP Has Been Marked As Completed', pip });
+    return res
+      .status(200)
+      .json({ message: 'PIP Has Been Marked As Completed', pip });
   }
 }

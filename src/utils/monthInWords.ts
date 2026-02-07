@@ -1,3 +1,3 @@
-export const monthInWords = new Date().toLocaleDateString("en-US", {
-    month: "long",
+export const monthInWords = new Date().toLocaleDateString('en-US', {
+  month: 'long',
 });
