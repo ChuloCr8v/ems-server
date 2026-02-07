@@ -1,0 +1,199 @@
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Document Submission Notification</title>
+
+    <link rel='preconnect' href='https://fonts.googleapis.com' />
+    <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
+    <link
+      href='https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;800&display=swap'
+      rel='stylesheet'
+    />
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #ffffff;
+        font-family: 'Raleway', Arial, sans-serif;
+      }
+
+      table {
+        border-collapse: collapse;
+      }
+
+      img {
+        border: 0;
+        display: block;
+      }
+
+      a {
+        color: #0066cc;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <table width='100%' bgcolor='#ffffff' cellpadding='0' cellspacing='0'>
+      <tr>
+        <td align='center'>
+
+          <table width='800' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
+
+            <!-- Header -->
+            <tr>
+              <td style='padding: 42px 48px;'>
+                <table width='100%'>
+                  <tr>
+                    <td align='left'>
+                      <img
+                        src='https://ems.miro.zoracom.com/logo.png'
+                        alt='Zoracom Limited'
+                        width='161'
+                      />
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Content Card -->
+            <tr>
+              <td align='center'>
+                <table
+                  width='705'
+                  cellpadding='0'
+                  cellspacing='0'
+                  bgcolor='#ffffff'
+                  style='border-radius: 12px;'
+                >
+                  <tr>
+                    <td style='padding: 40px 48px;'>
+
+                      <h1
+                        style='
+                          text-align: center;
+                          font-size: 24px;
+                          font-weight: 800;
+                          margin: 0 0 24px;
+                          color: #000000;
+                        '
+                      >
+                        New Document Submission
+                      </h1>
+
+                      <p
+                        style='font-size: 16px; color: #384860; margin: 0 0 16px;'
+                      >
+                        Hello,
+                      </p>
+
+                      <p
+                        style='
+                          font-size: 16px;
+                          color: #5e5e5e;
+                          line-height: 1.5;
+                          margin: 0 0 24px;
+                        '
+                      >
+                        This is to notify you that a prospect has successfully
+                        submitted their onboarding documents.
+                      </p>
+
+                      <table
+                        width='100%'
+                        cellpadding='0'
+                        cellspacing='0'
+                        style='margin-bottom: 24px;'
+                      >
+                        <tr>
+                          <td style='font-size: 15px; color: #384860;'>
+                            <strong>Prospect Name:</strong>
+                            {{prospectName}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='font-size: 15px; color: #384860; padding-top: 8px;'
+                          >
+                            <strong>Position:</strong>
+                            {{role}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='font-size: 15px; color: #384860; padding-top: 8px;'
+                          >
+                            <strong>Date Submitted:</strong>
+                            {{submittedAt}}
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p
+                        style='
+                          font-size: 16px;
+                          color: #5e5e5e;
+                          line-height: 1.5;
+                          margin: 0 0 32px;
+                        '
+                      >
+                        Please review the submitted documents and proceed with
+                        the next steps in the onboarding process.
+                      </p>
+
+                      <!-- Button -->
+                      <table align='center' cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td
+                            bgcolor='#0a96cc'
+                            style='border-radius: 200px; text-align: center;'
+                          >
+                            <a
+                              href='{{adminLink}}'
+                              style='
+                                display: inline-block;
+                                padding: 12px 45px;
+                                font-size: 14px;
+                                color: #ffffff;
+                                font-weight: 600;
+                              '
+                            >
+                              View Submission
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style='margin-top: 40px; font-size: 14px;'>
+                        Regards,<br />
+                        <strong>Onboarding System</strong>
+                      </p>
+
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td bgcolor='#ecf8ee' style='padding: 40px 48px;'>
+                <p style='font-size: 14px; margin: 0 0 8px;'>
+                  Zora Communications Limited
+                </p>
+                <p style='font-size: 14px; margin: 0;'>
+                  NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
+                  Expressway, Lagos, Nigeria
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

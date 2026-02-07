@@ -26,6 +26,7 @@ import {
   TaskDueDateChangeDto,
   AppraisalMailDto,
   PipMailDto,
+  InviteDocumentUploadDto,
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -101,7 +102,9 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       template: 'acceptance',
-      context: { name },
+      context: {
+        name, date: new Date().getFullYear()
+      },
     });
   }
 
@@ -111,7 +114,22 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.DECLINE_OFFER,
       template: 'decline',
-      context: { name },
+      context: { name, date: new Date().getFullYear() },
+    });
+  }
+
+  async sendDocumentUploadMail(data: InviteDocumentUploadDto) {
+    const { email, name, role } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.INVITE_DOCUMENT_UPLOAD,
+      template: 'inviteDocumentUpload',
+      context: {
+        prospectName: name, prospectEmail: email, role, submittedAt: new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        }), adminLink: 'https://ems.miro.zoracom.com/login' },
     });
   }
 

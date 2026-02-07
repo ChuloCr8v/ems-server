@@ -4,8 +4,12 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { MailListener } from 'src/listeners/mail.listener';
+
 @Module({
   imports: [
+    PrismaModule,
     MailerModule.forRoot({
 
       transport: {
@@ -31,7 +35,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
       },
     }),
   ],
-  providers: [MailService],
+  providers: [MailService, MailListener],
   exports: [MailService],
 })
 export class MailModule { }
