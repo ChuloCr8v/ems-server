@@ -120,6 +120,7 @@ model Department {
   name              String                  @unique
   createdById       String?                 @unique @db.Uuid
   status            DepartmentStatus?       @default(ACTIVE)
+  pipStatus         PipStatus?              @default(PENDING)
   approver          Approver[]
   createdBy         User?                   @relation("departmentCreator", fields: [createdById], references: [id])
   prospects         Prospect[]              @relation("DepartmentToProspect")
@@ -1015,6 +1016,7 @@ model RatingSummary {
 //////////////////////////////////////////  PIP ///////////////////////////////////////////
 model Pip {
   id           String          @id @default(uuid()) @db.Uuid
+  pipId        String          @unique
   title        String
   platform     String
   url          String
@@ -1038,7 +1040,7 @@ model Pip {
 
 model RecommendedPip {
   id               String    @id @default(uuid()) @db.Uuid
-  rPipId           String
+  rPipId           String    @unique
   aoi              String
   recommendedById  String    @db.Uuid
   recommendedBy    User      @relation("PipRecommendedBy", fields: [recommendedById], references: [id])
