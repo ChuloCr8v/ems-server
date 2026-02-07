@@ -6,6 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   EmploymentAcceptedEvent,
   EmploymentApprovedEvent,
+  InviteDocumentsSubmittedEvent,
 } from 'src/events/employment.event';
 import {
   LeaveApprovedEvent,
@@ -75,6 +76,11 @@ export class NotificationListener {
         message: `${prospect.firstName} ${prospect.lastName} has accepted the employment invitation. You can now proceed with the onboarding process.`,
       });
     }
+
+    await this.mailService.sendAcceptanceMail({
+      email: "talent@zoracom.com",
+      name: `${prospect.firstName} ${prospect.lastName}`.trim(),
+    });
   }
 
   @OnEvent('employment.approved')
@@ -100,6 +106,37 @@ export class NotificationListener {
         message: `${user.firstName} ${user.lastName} has been officially added to the system. Please visit the employee page to assign necessary properties and complete the setup.`,
       });
     }
+  }
+
+  @OnEvent('invite.documents.submitted')
+  async handleInviteDocumentsSubmitted(event: InviteDocumentsSubmittedEvent) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: event.employeeId },
+    });
+
+    const notifications = event.recipientIds.map((recipientId) => ({
+      recipientId,
+      actorId: event.employeeId,
+      type: 'EMPLOYMENT_INVITE_DOCUMENTS_SUBMITTED',
+      title: 'Documents Submitted',
+      message: `${user.firstName} ${user.lastName} has submitted the required documents.`,
+    }));
+
+    await this.notificationService.createMany(notifications);
+
+    for (const recipientId of event.recipientIds) {
+      this.gateway.sendToUser(recipientId, {
+        type: 'EMPLOYMENT_INVITE_DOCUMENTS_SUBMITTED',
+        title: 'Documents Submitted',
+        message: `${user.firstName} ${user.lastName} has submitted the required documents.`,
+      });
+    }
+
+    await this.mailService.sendDocumentUploadMail({
+      email: "talent@zoracom.com",
+      name: `${user.firstName} ${user.lastName}`,
+      role: user.role
+    });
   }
 
   //Employee submits leave request
