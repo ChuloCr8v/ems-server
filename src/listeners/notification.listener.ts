@@ -79,6 +79,7 @@ export class NotificationListener {
 
     await this.mailService.sendAcceptanceMail({
       email: "talent@zoracom.com",
+      // email: "bonaventure@zoracom.com",
       name: `${prospect.firstName} ${prospect.lastName}`.trim(),
     });
   }
@@ -134,6 +135,7 @@ export class NotificationListener {
 
     await this.mailService.sendDocumentUploadMail({
       email: "talent@zoracom.com",
+      // email: "bonaventure@zoracom.com",
       name: `${user.firstName} ${user.lastName}`,
       role: user.role
     });
