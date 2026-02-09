@@ -185,8 +185,6 @@ export class ReportService {
   private groupByWeekAndDepartment(reports: any[]) {
     const weeks = new Map<number, any>();
 
-    console.log({ reports })
-
     for (const report of reports) {
       if (!weeks.has(report.week)) {
         weeks.set(report.week, {

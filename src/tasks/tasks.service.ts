@@ -515,7 +515,7 @@ export class TasksService {
         orderBy: { createdAt: 'desc' },
       };
 
-      if (user.userRole.includes(Role.ADMIN)) {
+      if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.SUPERADMIN)) {
         return this.prisma.task.findMany(baseFindArgs);
       }
 
@@ -539,7 +539,16 @@ export class TasksService {
               },
               {
                 team: {
-                  id: user.team?.id,
+                  OR: [
+                    { id: user.team?.id },
+                    {
+                      approver: {
+                        some: {
+                          userId: userId,
+                        }
+                      }
+                    }
+                  ]
                 },
               },
               {
