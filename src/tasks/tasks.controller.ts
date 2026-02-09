@@ -20,7 +20,7 @@ import { CreateCategoryDto } from 'src/category/category.dto';
 
 @Controller('tasks')
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(private readonly tasksService: TasksService) { }
 
   //Categories
 
@@ -101,10 +101,13 @@ export class TasksController {
     return this.tasksService.deleteTask(id, userId, userRole);
   }
 
+  @Auth()
   @Post('approval-request')
-  async requestApproval(@Body() approvalRequestDto: ApprovalRequestDto) {
-    // In a real app, you'd get this from the auth token
-    const requestedById = 'user-id-from-token'; // Replace with actual user ID from auth
+  async requestApproval(
+    @Body() approvalRequestDto: ApprovalRequestDto,
+    @Req() req: ReqPayload,
+  ) {
+    const requestedById = req.user.id;
     return this.tasksService.requestApproval(
       approvalRequestDto.taskId,
       approvalRequestDto,
@@ -112,13 +115,14 @@ export class TasksController {
     );
   }
 
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
   @Post(':id/approve')
   async approveTask(
     @Param('id') id: string,
     @Body() body: { assignees?: string[] },
+    @Req() req: ReqPayload,
   ) {
-    // In a real app, you'd get this from the auth token
-    const approvedById = 'user-id-from-token'; // Replace with actual user ID from auth
+    const approvedById = req.user.id;
     return this.tasksService.approveTask(id, approvedById, body.assignees);
   }
 
@@ -177,6 +181,7 @@ export class TasksController {
   ) {
     return this.tasksService.acceptExtensionRequest(
       id,
+      req.user.id,
       req.user.userRole,
       dto.newDeliveryDate,
     );
@@ -188,7 +193,7 @@ export class TasksController {
     @Param('id') id: string,
     @Req() req: ReqPayload,
   ) {
-    return this.tasksService.rejectExtensionRequest(id, req.user.userRole);
+    return this.tasksService.rejectExtensionRequest(id, req.user.id, req.user.userRole);
   }
 
   @Auth()
@@ -216,13 +221,14 @@ export class TasksController {
     return this.tasksService.listTaskComments(id);
   }
 
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
   @Post(':id/reject')
   async rejectTask(
     @Param('id') id: string,
     @Body() body: { rejectionReason: string },
+    @Req() req: ReqPayload,
   ) {
-    // In a real app, you'd get this from the auth token
-    const rejectedById = 'user-id-from-token'; // Replace with actual user ID from auth
+    const rejectedById = req.user.id;
     return this.tasksService.rejectTask(id, rejectedById, body.rejectionReason);
   }
 }
