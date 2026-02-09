@@ -170,6 +170,7 @@ export class ReportService {
       const deptUsers = await this.prisma.user.findMany({
         where: {
           departments: { some: { id: { in: deptIds } } },
+          NOT: { userRole: { hasSome: ['SUPERADMIN'] } },
         },
         select: { id: true },
       });
