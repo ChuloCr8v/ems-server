@@ -101,9 +101,10 @@ model User {
   taskIssues    TaskIssues[]
   taskTransfers TaskTransfer[]
 
-  pip     Pip[]
-  rPipBy  RecommendedPip[] @relation("PipRecommendedBy")
-  rPipFor RecommendedPip[] @relation("PipRecommendedFor")
+  pip                   Pip[]
+  rPipBy                RecommendedPip[]       @relation("PipRecommendedBy")
+  rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
+  hrDepartmentApprovals HrDepartmentApproval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -118,24 +119,26 @@ model User {
 }
 
 model Department {
-  id                String                  @id @default(uuid()) @db.Uuid
-  name              String                  @unique
-  createdById       String?                 @unique @db.Uuid
-  status            DepartmentStatus?       @default(ACTIVE)
-  pipStatus         PipStatus?              @default(PENDING)
-  approver          Approver[]
-  createdBy         User?                   @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects         Prospect[]              @relation("DepartmentToProspect")
-  taskCategories    Category[]
-  user              User[]                  @relation("DepartmentToUser")
-  defaultDepartment User[]                  @relation("default")
-  kpiCategories     KpiCategory[]
-  appraisals        Appraisal[]
-  tasks             Task[]
-  entitlements      DepartmentEntitlement[]
-  teams             Team[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @default(now()) @updatedAt
+  id                    String                  @id @default(uuid()) @db.Uuid
+  name                  String                  @unique
+  createdById           String?                 @unique @db.Uuid
+  status                DepartmentStatus?       @default(ACTIVE)
+  pipStatus             PipStatus?              @default(PENDING)
+  approver              Approver[]
+  createdBy             User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects             Prospect[]              @relation("DepartmentToProspect")
+  taskCategories        Category[]
+  user                  User[]                  @relation("DepartmentToUser")
+  defaultDepartment     User[]                  @relation("default")
+  kpiCategories         KpiCategory[]
+  appraisals            Appraisal[]
+  tasks                 Task[]
+  entitlements          DepartmentEntitlement[]
+  teams                 Team[]
+  pip                   Pip[]
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @default(now()) @updatedAt
+  hrDepartmentApprovals HrDepartmentApproval[]
 }
 
 model Team {
@@ -1026,7 +1029,7 @@ model RatingSummary {
 //////////////////////////////////////////  PIP ///////////////////////////////////////////
 model Pip {
   id           String          @id @default(uuid()) @db.Uuid
-  pipId        String          @unique
+  pId          String          @unique
   title        String
   platform     String
   url          String
@@ -1037,10 +1040,12 @@ model Pip {
   reason       String
   status       PipStatus       @default(PENDING)
   comment      Comment[]
-  rPipId       String?         @unique @db.Uuid
-  rPip         RecommendedPip? @relation("RecommendationToPip", fields: [rPipId], references: [id], onDelete: SetNull)
+  rPId         String?         @unique @db.Uuid
+  rP           RecommendedPip? @relation("RecommendationToPip", fields: [rPId], references: [id], onDelete: SetNull)
   userId       String          @db.Uuid
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String?         @db.Uuid
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   uploads      Upload[]
   rejectedById String?         @db.Uuid
   rejecteAt    DateTime?
@@ -1062,6 +1067,24 @@ model RecommendedPip {
   pip              Pip?      @relation("RecommendationToPip")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model HrDepartmentApproval {
+  id String @id @default(uuid()) @db.Uuid
+
+  departmentId String     @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  approvedById String @db.Uuid
+  approvedBy   User   @relation(fields: [approvedById], references: [id])
+
+  totalCost Float
+
+  status PipStatus // APPROVED | REJECTED
+
+  createdAt DateTime @default(now())
+
+  @@index([departmentId])
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -1136,6 +1159,7 @@ enum PipStatus {
   PENDING
   MANAGER_APPROVED
   HR_APPROVED
+  SENT
   REJECTED
   COMPLETED
 }
