@@ -1,7 +1,8 @@
 // src/payment/paystack.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import * as crypto from 'crypto';
 
 export interface PaystackTransferRecipient {
   type: string;
@@ -39,6 +40,34 @@ export interface PaymentDetails {
   claimId: string;
 }
 
+// Helper function to safely extract error messages
+function getAxiosErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError;
+    const responseData = axiosError.response?.data as any;
+    return responseData?.message || axiosError.message || 'Axios error occurred';
+  }
+  
+  if (error instanceof Error) {
+    return error.message;
+  }
+  
+  if (typeof error === 'string') {
+    return error;
+  }
+  
+  return 'An unknown error occurred';
+}
+
+// Helper function to safely extract response data
+function getAxiosErrorResponse(error: unknown): any {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError;
+    return axiosError.response?.data || null;
+  }
+  return null;
+}
+
 @Injectable()
 export class PaystackService {
   private readonly baseUrl = 'https://api.paystack.co';
@@ -73,9 +102,12 @@ export class PaystackService {
       );
 
       return response.data;
-    } catch (error) {
-      this.logger.error('Failed to create transfer recipient', error.response?.data);
-      throw new Error(`Paystack transfer recipient creation failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to create transfer recipient', errorResponse);
+      throw new Error(`Paystack transfer recipient creation failed: ${errorMessage}`);
     }
   }
 
@@ -100,13 +132,16 @@ export class PaystackService {
       );
 
       return response.data;
-    } catch (error) {
-      this.logger.error('Failed to initiate transfer', error.response?.data);
-      throw new Error(`Paystack transfer initiation failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to initiate transfer', errorResponse);
+      throw new Error(`Paystack transfer initiation failed: ${errorMessage}`);
     }
   }
 
-  async verifyTransfer(transferReference: string) {
+  async verifyTransfer(transferReference: string): Promise<any> {
     try {
       const response = await axios.get(
         `${this.baseUrl}/transfer/${transferReference}`,
@@ -114,16 +149,19 @@ export class PaystackService {
       );
 
       return response.data;
-    } catch (error) {
-      this.logger.error('Failed to verify transfer', error.response?.data);
-      throw new Error(`Paystack transfer verification failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to verify transfer', errorResponse);
+      throw new Error(`Paystack transfer verification failed: ${errorMessage}`);
     }
   }
 
   async processPayment(paymentDetails: PaymentDetails): Promise<{
     success: boolean;
-    transferReference: string;
-    recipientCode: string;
+    transferReference: string | null;
+    recipientCode: string | null;
     message: string;
   }> {
     try {
@@ -158,73 +196,179 @@ export class PaystackService {
         recipientCode,
         message: 'Payment processed successfully',
       };
-    } catch (error) {
-      this.logger.error(`Payment processing failed for claim ${paymentDetails.claimId}`, error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      this.logger.error(`Payment processing failed for claim ${paymentDetails.claimId}`, errorMessage);
       return {
         success: false,
         transferReference: null,
         recipientCode: null,
-        message: error.message,
+        message: errorMessage,
       };
     }
   }
 
-  // Add these methods to your existing PaystackService class
-async getBanks(): Promise<any[]> {
-  try {
-    const response = await axios.get(
-      `${this.baseUrl}/bank`,
-      { 
-        headers: this.getHeaders(),
-        params: {
-          country: 'nigeria',
-          perPage: 100,
+  async getBanks(): Promise<any[]> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/bank`,
+        { 
+          headers: this.getHeaders(),
+          params: {
+            country: 'nigeria',
+            perPage: 100,
+          }
         }
-      }
-    );
+      );
 
-    if (response.data.status) {
-      return response.data.data;
+      if (response.data.status) {
+        return response.data.data;
+      }
+      throw new Error('Failed to fetch banks from Paystack');
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to fetch banks', errorResponse || errorMessage);
+      throw new Error(`Failed to fetch banks: ${errorMessage}`);
     }
-    throw new Error('Failed to fetch banks from Paystack');
-  } catch (error) {
-    this.logger.error('Failed to fetch banks', error.response?.data || error.message);
-    throw new Error(`Failed to fetch banks: ${error.message}`);
   }
-}
 
-async resolveBankAccount(accountNumber: string, bankCode: string) {
-  try {
-    const response = await axios.get(
-      `${this.baseUrl}/bank/resolve`,
-      {
-        headers: this.getHeaders(),
-        params: {
-          account_number: accountNumber,
-          bank_code: bankCode,
-        },
+  async resolveBankAccount(accountNumber: string, bankCode: string): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/bank/resolve`,
+        {
+          headers: this.getHeaders(),
+          params: {
+            account_number: accountNumber,
+            bank_code: bankCode,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to resolve bank account', errorResponse);
+      throw new Error(`Bank account resolution failed: ${errorMessage}`);
+    }
+  }
+
+  // Alternative method with more specific typing
+  async resolveBankAccountSafe(
+    accountNumber: string, 
+    bankCode: string
+  ): Promise<{ status: boolean; message: string; data?: { account_name: string; account_number: string } }> {
+    try {
+      const response = await axios.get<{
+        status: boolean;
+        message: string;
+        data?: { account_name: string; account_number: string };
+      }>(
+        `${this.baseUrl}/bank/resolve`,
+        {
+          headers: this.getHeaders(),
+          params: {
+            account_number: accountNumber,
+            bank_code: bankCode,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: unknown) {
+      const errorResponse = getAxiosErrorResponse(error);
+      const errorMessage = getAxiosErrorMessage(error);
+      
+      this.logger.error('Failed to resolve bank account', errorResponse);
+      return {
+        status: false,
+        message: `Bank account resolution failed: ${errorMessage}`,
+      };
+    }
+  }
+
+  // Helper method for webhook signature validation
+  validateWebhookSignature(signature: string, body: any, secret: string): boolean {
+    try {
+      const hash = crypto
+        .createHmac('sha512', secret)
+        .update(JSON.stringify(body))
+        .digest('hex');
+      
+      return hash === signature;
+    } catch (error: unknown) {
+      this.logger.error('Webhook signature validation failed', error);
+      return false;
+    }
+  }
+
+  // Additional helper methods
+  async getBalance(): Promise<{ balance: number; currency: string }> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/balance`,
+        { headers: this.getHeaders() }
+      );
+
+      if (response.data.status) {
+        return {
+          balance: response.data.data.balance / 100, // Convert from kobo to naira
+          currency: response.data.data.currency,
+        };
       }
-    );
-
-    return response.data;
-  } catch (error) {
-    this.logger.error('Failed to resolve bank account', error.response?.data);
-    throw new Error(`Bank account resolution failed: ${error.message}`);
+      throw new Error('Failed to fetch balance from Paystack');
+    } catch (error: unknown) {
+      const errorMessage = getAxiosErrorMessage(error);
+      throw new Error(`Failed to fetch balance: ${errorMessage}`);
+    }
   }
-}
 
-// Helper method for webhook signature validation
-validateWebhookSignature(signature: string, body: any, secret: string): boolean {
-  // Implement Paystack webhook signature validation
-  // Refer to Paystack documentation for proper implementation
-  const crypto = require('crypto');
-  const hash = crypto
-    .createHmac('sha512', secret)
-    .update(JSON.stringify(body))
-    .digest('hex');
-  
-  return hash === signature;
-}
+  async listTransfers(params?: {
+    page?: number;
+    perPage?: number;
+    status?: string;
+  }): Promise<any[]> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/transfer`,
+        {
+          headers: this.getHeaders(),
+          params,
+        }
+      );
 
+      if (response.data.status) {
+        return response.data.data;
+      }
+      throw new Error('Failed to fetch transfers from Paystack');
+    } catch (error: unknown) {
+      const errorMessage = getAxiosErrorMessage(error);
+      throw new Error(`Failed to fetch transfers: ${errorMessage}`);
+    }
+  }
 
+  // Method to enable or disable transfer recipient
+  async manageTransferRecipient(
+    recipientCode: string,
+    active: boolean
+  ): Promise<boolean> {
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/transferrecipient/${recipientCode}`,
+        { active },
+        { headers: this.getHeaders() }
+      );
+
+      return response.data.status;
+    } catch (error: unknown) {
+      const errorMessage = getAxiosErrorMessage(error);
+      this.logger.error(`Failed to manage transfer recipient ${recipientCode}`, errorMessage);
+      return false;
+    }
+  }
 }
