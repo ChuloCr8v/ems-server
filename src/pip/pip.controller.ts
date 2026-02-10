@@ -119,7 +119,7 @@ export class PipController {
   }
 
   @Auth([Role.DEPT_MANAGER])
-  @Post(':departmentId')
+  @Post(':departmentId/send')
   async sendToHr(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
     const userId = user.sub;
     const pip = await this.pipService.sendToHr(userId, departmentId);
