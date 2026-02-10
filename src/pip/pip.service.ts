@@ -33,9 +33,9 @@ export class PipService {
                 throw bad("User Not Found")
             }
             const { title, platform, url, startDate, endDate, duration, cost, reason } = data;
-            if(data.rPipId) {
+            if(data.rPId) {
                 const rPip = await this.prisma.recommendedPip.findUnique({
-                    where: { id: data.rPipId },
+                    where: { id: data.rPId },
                     include: { pip: true } 
                 });
                 if(!rPip) {
@@ -48,6 +48,17 @@ export class PipService {
                     throw bad ("A PIP has already been created for this Recommended PIP");
                 }
             }
+               if (data.uploads && data.uploads.length > 0) {
+                const existingUploads = await this.prisma.upload.findMany({
+                    where: { id: { in: data.uploads } },
+                    select: { id: true },
+                });
+                const existingIds = existingUploads.map((u) => u.id);
+                const missing = data.uploads.filter((id) => !existingIds.includes(id));
+                if (missing.length) {
+                    throw bad(`Uploads not found: ${missing.join(', ')}`);
+                }
+            }
             return await this.prisma.pip.create({
                 data: {
                     pId: `Pip${this.generateShortId(4)}`,
@@ -58,13 +69,16 @@ export class PipService {
                     endDate,
                     duration,
                     cost,
+                    department: {
+                        connect: { id: user.team.departmentId },
+                    },
                     reason,
                     user: {
                         connect: { id: user.id },
                     },
-                    rP: data.rPipId
+                    rP: data.rPId
                     ? {
-                        connect: { id: data.rPipId },
+                        connect: { id: data.rPId },
                     }
                     : undefined,
                     uploads: data.uploads
@@ -197,9 +211,9 @@ export class PipService {
                     duration,
                     cost,
                     reason,
-                    rP: data.rPipId
+                    rP: data.rPId
                     ? {
-                        connect: { id: data.rPipId },
+                        connect: { id: data.rPId },
                     }
                     : undefined,
                      uploads: data.uploads
@@ -490,6 +504,7 @@ export class PipService {
                 },
             });
             if(pips.length === 0) throw bad ("No manager approved PIP to send");
+            console.log(pips.length)
 
             //Calculate total cost
             const totalCost = pips.reduce(
@@ -697,7 +712,7 @@ export class PipService {
         const userRoles = user.userRole || [];
         const isManager = userRoles.includes(Role.DEPT_MANAGER);
 
-        if (isManager || pip.status !== 'PENDING') {
+        if (!isManager || pip.status !== 'PENDING') {
             throw bad("You are unauthorized to reject this PIP at this stage");
         }
 
