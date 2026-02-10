@@ -4,7 +4,7 @@ import { Department, Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getApproversForDepartment(user: any) {
     const departments = user.defaultDepartment
@@ -89,7 +89,13 @@ export class ApproverService {
 
     if (isDepartmentHead) {
       // Department heads need different approval logic
-      return await this.getApproversForDepartmentHead();
+      return await this.prisma.user.findMany({
+        where: {
+          userRole: {
+            hasSome: [Role.SUPERADMIN]
+          }
+        }
+      })
     }
 
     // Regular employees get department approvers + global approvers
@@ -101,20 +107,17 @@ export class ApproverService {
     return [...departmentApprovers, ...globalApprovers];
   }
 
-  private async getApproversForDepartmentHead() {
-    const globalApprovers = await this.getGlobalApprovers();
+  // private async getApproversForDepartmentHead() {
+  //   const globalApprovers = await this.getGlobalApprovers();
 
-    return globalApprovers;
-  }
+  //   return globalApprovers;
+  // }
 
   async canUserApprove(
     approverUserId: string,
     targetUserId: string,
   ): Promise<boolean> {
-    // Prevent self-approval
-    if (approverUserId === targetUserId) return false;
 
-    // Fetch approver user with roles + departments
     const approverUser = await this.prisma.user.findUnique({
       where: { id: approverUserId },
       include: {
@@ -122,6 +125,13 @@ export class ApproverService {
         approver: true,
       },
     });
+
+    if (approverUser.userRole.includes(Role.SUPERADMIN)) return true
+
+    // Prevent self-approval
+    if (approverUserId === targetUserId && !approverUser.userRole.includes(Role.SUPERADMIN)) return false;
+
+    // Fetch approver user with roles + departments
 
     if (!approverUser) return false;
 
@@ -138,6 +148,8 @@ export class ApproverService {
 
     // 1. Leave manager can approve anyone
     if (approverUser.userRole.includes(Role.LEAVE_MANAGER)) return true;
+    if (approverUser.userRole.includes(Role.HR)) return true;
+    if (approverUser.userRole.includes(Role.SUPERADMIN)) return true;
 
     // 2. Department approvers can approve members of their department
     const approverDeptIds = approverUser.departments.map((d) => d.id);

@@ -10,8 +10,8 @@ import {
   Query,
   UseGuards,
   Req,
-  BadRequestException,
   HttpCode,
+  BadRequestException,
   HttpStatus,
   Request,
 } from '@nestjs/common';
@@ -23,16 +23,15 @@ import { RolesGuard } from 'src/auth/guards/roles.guards';
 import { AuthGuard } from 'src/auth/guards/auth.guard';
 import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { PaystackService } from 'src/payment/payment.service';
 import { ProcessPaymentDto, VerifyBankAccountDto } from 'src/payment/payment.dto';
-import { PaystackService } from 'src/payment/paystack.service'
 
 @Controller('claims')
 @UseGuards(AuthGuard, RolesGuard)
 export class ClaimsController {
-  constructor(
-    private readonly claimsService: ClaimsService,
-    private readonly paystackService: PaystackService
-  ) { }
+  constructor(private readonly claimsService: ClaimsService,
+    private paystackService: PaystackService,
+  ) {}
 
   @Post()
   async createClaim(@AuthUser() req: IAuthUser, @Body() data: CreateClaimDto) {

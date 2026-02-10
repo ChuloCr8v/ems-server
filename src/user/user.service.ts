@@ -4,7 +4,7 @@ import { JobType, Prisma, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { EmploymentApprovedEvent } from 'src/events/employment.event';
+import { EmploymentApprovedEvent, InviteDocumentsSubmittedEvent } from 'src/events/employment.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 @Injectable()
 export class UserService {
@@ -12,8 +12,9 @@ export class UserService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly mail: MailService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async getMe(sub: string) {
     try {
@@ -72,12 +73,12 @@ export class UserService {
 
           ...(data.userDocuments?.length
             ? {
-                userDocuments: {
-                  set: data.userDocuments.map((docId: string) => ({
-                    id: docId,
-                  })),
-                },
-              }
+              userDocuments: {
+                set: data.userDocuments.map((docId: string) => ({
+                  id: docId,
+                })),
+              },
+            }
             : {}),
 
           contacts: {
@@ -104,10 +105,10 @@ export class UserService {
                   relationship: contact.relationship,
                   ...(contact.document?.length
                     ? {
-                        document: {
-                          connect: contact.document.map((d) => ({ id: d })),
-                        },
-                      }
+                      document: {
+                        connect: contact.document.map((d) => ({ id: d })),
+                      },
+                    }
                     : {}),
                 })),
               },
@@ -265,6 +266,21 @@ export class UserService {
         updateData.userDocuments = {
           connect: data.userDocuments.map((docId: string) => ({ id: docId })),
         };
+
+        const recipients = await this.prisma.user.findMany({
+          where: {
+            userRole: {
+              hasSome: [Role.ADMIN, Role.SUPERADMIN],
+            },
+          },
+        });
+
+        const recipientIds = recipients.map((r) => r.id);
+
+        this.eventEmitter.emit(
+          'invite.documents.submitted',
+          new InviteDocumentsSubmittedEvent(user.id, recipientIds),
+        );
       }
     }
 
@@ -472,10 +488,10 @@ export class UserService {
             contactId: contact.id,
             ...(g.document?.length
               ? {
-                  document: {
-                    connect: g.document.map((docId) => ({ id: docId })),
-                  },
-                }
+                document: {
+                  connect: g.document.map((docId) => ({ id: docId })),
+                },
+              }
               : {}),
           },
         });

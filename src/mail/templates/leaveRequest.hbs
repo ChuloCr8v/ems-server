@@ -2,345 +2,260 @@
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <title>Leave Request Email</title>
+    <title>Leave Request Notification</title>
+
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
     <link
-      href='https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap'
+      href='https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;800&display=swap'
       rel='stylesheet'
     />
+
     <style>
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Raleway', sans-serif;
         background-color: #ffffff;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        font-family: 'Raleway', Arial, sans-serif;
       }
-
-      .wrapper {
-        width: 780px;
-        background-color: #f8fafc;
-        position: relative;
-        overflow: visible;
-        margin: 20px;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      table {
+        border-collapse: collapse;
       }
-
-      .Name {
-        font-weight: 600;
-        font-size: 16px;
-        line-height: 1.5;
-        color: #384860;
+      img {
+        border: 0;
+        display: block;
       }
-
-      .header {
-        width: 100%;
-        height: 104px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 42.46px 48px;
-        box-sizing: border-box;
-      }
-
-      .zoracom-logo {
-        width: 161px;
-        height: 30px;
-        margin-left: 10px;
-        background-color: #ddd;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #384860;
-        font-weight: 600;
-      }
-
-      .social-icons {
-        display: flex;
-        gap: 24px;
-        margin-right: 9px;
-      }
-
-      .social-icon {
-        width: 24px;
-        height: 24px;
-        background-color: #ddd;
-        border-radius: 4px;
-      }
-
-      .content-wrapper {
-        width: 660px;
-        margin: 0 auto;
-        background-color: #ffffff;
-        padding: 0 48px;
-        box-sizing: border-box;
-        position: relative;
-        z-index: 2;
-        border-radius: 4px;
-        margin-bottom: 20px;
-      }
-
-      .content {
-        color: #333333;
-        font-weight: 400;
-        font-size: 16px;
-        line-height: 1.5;
-        padding: 24px 0 40px;
-        white-space: pre-line;
-      }
-
-      h1 {
-        font-size: 24px;
-        font-weight: 600;
-        margin: 0 0 24px 0;
-        line-height: 1;
-      }
-
-      .greeting {
-        font-size: 16px;
-        margin-top: 24px;
-        font-weight: 400;
-        color: #384860;
-      }
-
-      .message1 {
-        font-size: 14px;
-        margin-top: 24px;
-        color: #5e5e5e;
-      }
-
-      .signature {
-        margin-top: 40px;
-        line-height: 1;
-      }
-
-      .footer {
-        font-size: 12px;
-        color: #666666;
-        padding: 40px 48px 24px;
-        border-top: 1px solid #eeeeee;
-        line-height: 1.5;
-        background-color: #e7f5fa;
-        position: relative;
-        z-index: 1;
-        margin-top: 20px;
-      }
-
-      .footer p {
-        margin: 4px 0;
-      }
-
       a {
         color: #0066cc;
         text-decoration: none;
       }
-
-      .footer-content {
-        max-width: 100%;
-        margin: 0 auto;
-      }
-
-      .fcontent1 {
-        font-size: 14px;
-      }
-
-      .fcontent2 {
-        font-size: 14px;
-        margin-top: 10px;
-        padding-top: 15px;
-        margin-bottom: 8px;
-      }
-
-      .fcontent3 {
-        font-size: 14px;
-        margin-top: 0;
-        padding-top: 0;
-      }
-
-      .ID {
-        font-weight: 500;
-        color: #5e5e5e;
-        font-size: 14px;
-        display: block;
-      }
-
-      .cheeers {
-        font-weight: 500;
-        font-size: 12px;
-        color: #5e5e5e;
-        display: block;
-        margin-top: 45px;
-      }
-
-      .company {
-        font-weight: 600;
-        color: #141414;
-      }
-
-      .appreciation {
-        font-size: 14px;
-        margin-top: 24px;
-        font-weight: 400;
-        color: #5e5e5e;
-      }
-
-      .Asset-details {
-        font-size: 16px;
-        margin-top: 24px;
-        font-weight: 500;
-      }
-
-      .message2 {
-        font-size: 14px;
-        margin-top: 24px;
-        font-weight: 400;
-        color: #5e5e5e;
-      }
-
-      .zora {
-        font-weight: 600;
-        font-size: 16px;
-        line-height: 1.5;
-      }
-
-      .Kindly {
-        font-size: 14px;
-        margin-top: 24px;
-      }
-
-      .focus {
-        font-weight: 600;
-        font-size: 14px;
-        line-height: 1.5;
-      }
-
-      .leave-details {
-        background-color: #f8fafc;
-        padding: 16px;
-        border-radius: 4px;
-        margin: 24px 0;
-        font-size: 14px;
-      }
-
-      .detail-row {
-        display: flex;
-        margin-bottom: 8px;
-      }
-
-      .detail-label {
-        font-weight: 600;
-        width: 120px;
-        color: #384860;
-      }
-
-      .detail-value {
-        color: #5e5e5e;
-      }
-
-      .status-approved {
-        color: #2e7d32;
-        font-weight: 600;
-      }
-
-      .status-pending {
-        color: #ed6c02;
-        font-weight: 600;
-      }
-
-      .button {
-        display: inline-block;
-        padding: 12px 24px;
-        background-color: #384860;
-        color: white;
-        text-decoration: none;
-        border-radius: 4px;
-        margin-top: 16px;
-        font-weight: 500;
-      }
     </style>
   </head>
+
   <body>
-    <div class='wrapper'>
-      <div class='header'>
-        <div class='zoracom-logo'>ZORACOM LOGO</div>
-        <div class='social-icons'>
-          <a href='#'><div class='social-icon'></div></a>
-          <a href='#'><div class='social-icon'></div></a>
-          <a href='#'><div class='social-icon'></div></a>
-        </div>
-      </div>
+    <!-- Outer wrapper -->
+    <table width='100%' bgcolor='#ffffff' cellpadding='0' cellspacing='0'>
+      <tr>
+        <td align='center'>
 
-      <div class='content-wrapper'>
-        <div class='content'>
-          <h1>Leave Request Notification</h1>
+          <!-- Main container -->
+          <table width='640' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
 
-          <p class='greeting'>Hello <span class='Name'></span>,</p>
+            <!-- Header -->
+            <tr>
+              <td style='padding: 32px;'>
+                <table width='100%'>
+                  <tr>
+                    <td align='left'>
+                      <img
+                        src='https://ems.miro.zoracom.com/logo.png'
+                        alt='Zoracom Limited'
+                        width='150'
+                      />
+                    </td>
+                    <td align='right'>
+                      <table cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td style='padding-left: 16px;'>
+                            <a href='https://x.com/Zoracom_'>
+                              <img
+                                src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
+                                width='28'
+                                alt='Twitter'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left: 16px;'>
+                            <a href='https://www.facebook.com/zoracom'>
+                              <img
+                                src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
+                                width='28'
+                                alt='Facebook'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left: 16px;'>
+                            <a
+                              href='https://www.linkedin.com/company/zoracom-limited/'
+                            >
+                              <img
+                                src='https://img.icons8.com/?size=48&id=114445&format=png'
+                                width='28'
+                                alt='LinkedIn'
+                              />
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-          <p class='message1'>
-            <span class='Name'>{{name}}</span>
-            has submitted a new leave request that requires your review and
-            approval.
-          </p>
+            <!-- Content Card -->
+            <tr>
+              <td align='center'>
+                <table
+                  width='560'
+                  cellpadding='0'
+                  cellspacing='0'
+                  bgcolor='#ffffff'
+                  style='border-radius: 12px;'
+                >
+                  <tr>
+                    <td style='padding: 32px;'>
 
-          <div class='leave-details'>
-            <div class='detail-row'>
-              <span class='detail-label'>Employee:</span>
-              <span class='detail-value'>{{name}}</span>
-            </div>
-            <div class='detail-row'>
-              <span class='detail-label'>Leave Type:</span>
-              <span class='detail-value'>{{leaveType}}</span>
-            </div>
-            <div class='detail-row'>
-              <span class='detail-label'>Duration:</span>
-              <span class='detail-value'>{{formatDate
-                  startDate
-                  'MMMM DD, YYYY'
-                }}
-                to
-                {{formatDate endDate 'MMMM DD, YYYY'}}</span>
-            </div>
-            <div class='detail-row'>
-              <span class='detail-label'>Status:</span>
-              <span class='detail-value status-pending'>Pending Approval</span>
-            </div>
-            <div class='detail-row'>
-              <span class='detail-label'>Reason:</span>
-              <span class='detail-value'>{{reason}}</span>
-            </div>
-          </div>
+                      <h1
+                        style='
+                          text-align: center;
+                          font-size: 22px;
+                          font-weight: 800;
+                          margin: 0 0 20px;
+                          color: #000000;
+                        '
+                      >
+                        Leave Request Notification
+                      </h1>
 
-          <p class='message2'>
-            Please review this request in the HR portal and take appropriate
-            action. The employee has been notified that their request is pending
-            approval.
-          </p>
+                      <p
+                        style='font-size: 15px; color: #384860; margin: 0 0 14px;'
+                      >
+                        Hello,
+                      </p>
 
-          <a href='#' class='button'>Review Leave Request</a>
+                      <p
+                        style='
+                          font-size: 15px;
+                          color: #5e5e5e;
+                          line-height: 1.5;
+                          margin: 0 0 24px;
+                        '
+                      >
+                        <strong>{{name}}</strong>
+                        has submitted a leave request that requires your review
+                        and approval.
+                      </p>
 
-          <div class='signature'>
-            <span class='cheeers'>Best regards,</span><br />
-            <span class='ID'>Zoracom HR System</span>
-          </div>
-        </div>
-      </div>
+                      <!-- Leave details -->
+                      <table
+                        width='100%'
+                        cellpadding='0'
+                        cellspacing='0'
+                        style='background-color: #f8fafc; margin-bottom: 24px;'
+                      >
+                        <tr>
+                          <td
+                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                          >
+                            Employee
+                          </td>
+                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                            {{name}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                          >
+                            Leave Type
+                          </td>
+                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                            {{leaveType}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                          >
+                            Duration
+                          </td>
+                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                            {{formatDate startDate 'MMMM DD, YYYY'}}
+                            –
+                            {{formatDate endDate 'MMMM DD, YYYY'}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                          >
+                            Reason
+                          </td>
+                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                            {{reason}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                          >
+                            Status
+                          </td>
+                          <td
+                            style='padding: 8px 14px; color: #ed6c02; font-weight: 600;'
+                          >
+                            Pending Approval
+                          </td>
+                        </tr>
+                      </table>
 
-      <div class='footer'>
-        <div class='footer-content'>
-          <p class='fcontent1'>
-            Questions or FAQ? Contact us at
-            <a href='mailto:hrteam@zoracom.com'>hrteam@zoracom.com</a>
-          </p>
-          <p class='fcontent2'>NSOC Building: 25 Bafaj Crescent, Ogunfayo
-            Lekki-Epe Expressway, Lagos, Nigeria</p>
-          <p class='fcontent3'>Copyright 2024 © Zora Communications Limited.
-            All Rights Reserved.</p>
-        </div>
-      </div>
-    </div>
+                      <!-- Button -->
+                      <table align='center' cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td
+                            bgcolor='#0a96cc'
+                            style='border-radius: 200px; text-align: center;'
+                          >
+                            <a
+                              href='{{reviewLink}}'
+                              style='
+                                display: inline-block;
+                                padding: 10px 36px;
+                                font-size: 13px;
+                                color: #ffffff;
+                                font-weight: 600;
+                              '
+                            >
+                              Review Leave Request
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style='margin-top: 32px; font-size: 13px;'>
+                        Cheers,<br />
+                        <strong>The HR Team</strong>
+                      </p>
+
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td bgcolor='#ecf8ee' style='padding: 32px;'>
+                <p style='font-size: 13px; margin: 0 0 12px;'>
+                  Questions or FAQ? Contact us at
+                  <a href='mailto:hrteam@zoracom.com'>hrteam@zoracom.com</a>.
+                </p>
+
+                <p style='font-size: 13px; margin: 0 0 8px;'>
+                  NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
+                  Expressway, Lagos, Nigeria
+                </p>
+
+                <p style='font-size: 13px; margin: 0;'>
+                  © 2025 Zora Communications Limited. All Rights Reserved.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>

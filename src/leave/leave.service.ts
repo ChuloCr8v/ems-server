@@ -7,7 +7,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { LeaveStatus, Prisma, PrismaClient, Role } from '@prisma/client';
+import { Approval, LeaveStatus, Prisma, PrismaClient, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MailService } from 'src/mail/mail.service';
 import { ApproverService } from 'src/approver/approver.service';
@@ -37,28 +37,30 @@ export class LeaveService {
         throw new NotFoundException('Employee not found');
       }
 
-      // // 2. Check pending requests
-      // const pending = await tx.leaveRequest.findFirst({
-      //     where: { userId, status: "PENDING" },
-      // });
-      // if (pending) {
-      //     throw new ConflictException("You already have a pending leave request");
-      // }
+      // 2. Check pending requests
+      if (!process.env.IS_DEV) {
+        const pending = await tx.leaveRequest.findFirst({
+          where: { userId, status: "PENDING" },
+        });
+        if (pending) {
+          throw new ConflictException("You already have a pending leave request");
+        }
 
-      // // 3. Check active approved leave overlap
-      // const activeLeave = await tx.leaveRequest.findFirst({
-      //     where: {
-      //         userId,
-      //         status: "APPROVED",
-      //         startDate: { lte: endDate },
-      //         endDate: { gte: startDate },
-      //     },
-      // });
-      // if (activeLeave) {
-      //     throw new ConflictException(
-      //         "You already have an active approved leave in this period"
-      //     );
-      // }
+        // 3. Check active approved leave overlap
+        const activeLeave = await tx.leaveRequest.findFirst({
+          where: {
+            userId,
+            status: "APPROVED",
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+        });
+        if (activeLeave) {
+          throw new ConflictException(
+            "You already have an active approved leave in this period"
+          );
+        }
+      }
 
       // 4. Validate entitlement
       const availableEntitlement = employee.level.entitlements.find(
@@ -439,8 +441,8 @@ export class LeaveService {
     }
 
     // Filter out self
-    const filteredApprovers = approvers.filter((a) => a.id !== userId);
-    if (filteredApprovers.length === 0) {
+    // const filteredApprovers = approvers.filter((a) => a.id !== userId);
+    if (approvers.length === 0) {
       throw new NotFoundException(
         'No valid approvers found (cannot self-approve)',
       );
@@ -450,7 +452,7 @@ export class LeaveService {
     const approvalSteps = [];
     let phase = 1;
 
-    for (const approver of filteredApprovers) {
+    for (const approver of approvers) {
       const canApprove = await this.approver.canUserApprove(
         approver.id,
         userId,
@@ -493,114 +495,140 @@ export class LeaveService {
     note?: string,
   ) {
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const approval = await tx.approval.findUnique({
-          where: { id: approvalId },
-          include: {
-            leaveRequest: {
-              include: {
-                user: true,
-              },
+      const leaveRequest = await this.prisma.leaveRequest.findFirst({
+        where: {
+          approvals: {
+            some: { id: approvalId }
+          }
+        },
+        include: {
+          approvals: true
+        }
+      })
+
+      if (!leaveRequest) mustHave(leaveRequest, "Request not found", 404)
+
+      const approver = await this.prisma.user.findUnique({
+        where: {
+          id: approverId
+        }
+      })
+
+      if (!approver) bad("Unauthorized")
+
+      const approval = await this.prisma.approval.findUnique({
+        where: { id: approvalId },
+        include: {
+          leaveRequest: {
+            include: {
+              user: true,
             },
           },
-        });
+        },
+      });
 
-        if (!approval) {
-          bad('Approval not found');
-        }
+      if (!approval) {
+        bad('Approval not found');
+      }
 
-        // Check if the user can approve this request
-        const canApprove = await this.approver.canUserApprove(
-          approverId,
-          approval.leaveRequest.userId,
-        );
-
-        if (!canApprove) {
-          bad('You are not authorized to approve this request');
-        }
-
-        if (approval.status !== 'PENDING') {
-          bad('This request has already been processed');
-        }
-
-        // Approve current phase
-        await tx.approval.update({
-          where: { id: approvalId },
-          data: {
-            status: 'APPROVED',
-            note: note,
-            actionDate: new Date(),
-          },
-        });
-
-        // Check if there's a next approval
-        const nextApproval = await tx.approval.findFirst({
+      if (approver.userRole.includes(Role.SUPERADMIN)) {
+        await this.prisma.approval.updateMany({
           where: {
-            leaveRequestId: approval.leaveRequestId,
-            phase: approval.phase + 1,
-            status: 'PENDING',
+            leaveRequestId: leaveRequest.id
           },
+          data: { status: "APPROVED" }
+        })
+
+        await this.prisma.leaveRequest.update({
+          where: {
+            id: leaveRequest.id
+          },
+          data: {
+            status: "APPROVED"
+          }
+        })
+
+        await this.leaveApprovedNotification(approval, approverId)
+
+        return { message: "Leave Request approved" }
+      }
+
+      // Check if the user can approve this request
+      const canApprove = await this.approver.canUserApprove(
+        approverId,
+        approval.leaveRequest.userId,
+      );
+
+      if (!canApprove) {
+        bad('You are not authorized to approve this request');
+      }
+
+      if (approval.status !== 'PENDING') {
+        bad('This request has already been processed');
+      }
+
+      // Approve current phase
+      await this.prisma.approval.update({
+        where: { id: approvalId },
+        data: {
+          status: 'APPROVED',
+          note: note,
+          actionDate: new Date(),
+        },
+      });
+
+      // Check if there's a next approval
+      const nextApproval = await this.prisma.approval.findFirst({
+        where: {
+          leaveRequestId: approval.leaveRequestId,
+          phase: approval.phase + 1,
+          status: 'PENDING',
+        },
+      });
+
+      if (nextApproval) {
+        // Update to next approval phase
+        await this.prisma.leaveRequest.update({
+          where: { id: approval.leaveRequestId },
+          data: { currentApprovalId: nextApproval.id },
         });
 
-        if (nextApproval) {
-          // Update to next approval phase
-          await tx.leaveRequest.update({
-            where: { id: approval.leaveRequestId },
-            data: { currentApprovalId: nextApproval.id },
-          });
-
-          // // Notify next approver
-          // setTimeout(() => {
-          //     this.event.emit(
-          //         'leave.approved',
-          //         new LeaveRequestedEvent(approval.leaveRequestId, [approval.leaveRequest.userId], nextApproval.id)
-          //     );
-          // }, 0);
-
-          return {
-            approval: nextApproval,
-            isFinal: false,
-            message: 'Approval moved to next phase',
-          };
-        } else {
-          // No more phases, approve the entire leave request
-          await tx.leaveRequest.update({
-            where: { id: approval.leaveRequestId },
-            data: {
-              status: 'APPROVED',
-              currentApprovalId: null,
-            },
-          });
-        }
-
-        // setTimeout(() => {
-        await this.sendApprovalMail(approval.leaveRequestId).catch(
-          console.error,
-        );
-
+        // Notify next approver
         this.event.emit(
-          'leave.approved',
-          new LeaveApprovedEvent(
+          'leaveRequest.created',
+          new LeaveRequestedEvent(
             approval.leaveRequest.userId,
-            [approval.leaveRequest.userId],
+            [nextApproval.approverId],
             approval.leaveRequestId,
-            approverId,
           ),
         );
-        // }, 0);
+
+        await this.sendLeaveRequestMail(approval.leaveRequestId).catch(console.error);
 
         return {
-          approval: null,
-          isFinal: true,
-          message: 'Leave request fully approved',
+          approval: nextApproval,
+          isFinal: false,
+          message: 'Approval moved to next phase',
         };
-      });
+      } else {
+        // No more phases, approve the entire leave request
+        await this.prisma.leaveRequest.update({
+          where: { id: approval.leaveRequestId },
+          data: {
+            status: 'APPROVED',
+            currentApprovalId: null,
+          },
+        });
+      }
+
+      await this.leaveApprovedNotification(approval, approvalId)
+
+      return {
+        approval: null,
+        isFinal: true,
+        message: 'Leave request fully approved',
+      };
     } catch (error) {
-      // if (error instanceof BadRequestException ||
-      //     error instanceof NotFoundException ||
-      //     error instanceof ConflictException) {
-      //     throw error;
-      // }
       bad('Failed to approve leave request: ' + error.message);
     }
   }
@@ -924,6 +952,34 @@ export class LeaveService {
     }
   }
 
+  private async leaveApprovedNotification(approval: Prisma.ApprovalGetPayload<{
+    include: {
+      leaveRequest: {
+        include: {
+          user: true,
+        },
+      },
+    };
+  }>, approverId: string) {
+    try {
+      await this.sendApprovalMail(approval.leaveRequestId).catch(
+        console.error,
+      );
+
+      this.event.emit(
+        'leave.approved',
+        new LeaveApprovedEvent(
+          approval.leaveRequest.userId,
+          [approval.leaveRequest.userId],
+          approval.leaveRequestId,
+          approverId,
+        ),
+      );
+    } catch (error) {
+      bad(error)
+    }
+  }
+
   private async sendLeaveRequestMail(leaveRequestId: string) {
     try {
       const leaveRequest = await this.prisma.leaveRequest.findUnique({
@@ -974,6 +1030,7 @@ export class LeaveService {
       await this.mail.sendLeaveRequestMail({
         email: currentApproval.approver.email,
         name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+        approverName: currentApproval.approver.firstName,
         leaveType: leaveRequest.type.name,
         startDate: leaveRequest.startDate,
         endDate: leaveRequest.endDate,

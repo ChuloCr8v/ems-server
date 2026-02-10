@@ -34,3 +34,4 @@ export class ClaimPaidEvent {
     public readonly amount: number,
   ) {}
 }
+

@@ -25,8 +25,9 @@ import {
   WelcomeEmailDto,
   TaskDueDateChangeDto,
   AppraisalMailDto,
+  PipMailDto,
+  InviteDocumentUploadDto,
   PaymentConfirmationDto,
-  PipMailDto
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -102,7 +103,9 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       template: 'acceptance',
-      context: { name },
+      context: {
+        name, date: new Date().getFullYear()
+      },
     });
   }
 
@@ -112,7 +115,22 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.DECLINE_OFFER,
       template: 'decline',
-      context: { name },
+      context: { name, date: new Date().getFullYear() },
+    });
+  }
+
+  async sendDocumentUploadMail(data: InviteDocumentUploadDto) {
+    const { email, name, role } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.INVITE_DOCUMENT_UPLOAD,
+      template: 'inviteDocumentUpload',
+      context: {
+        prospectName: name, prospectEmail: email, role, submittedAt: new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        }), adminLink: 'https://ems.miro.zoracom.com/login' },
     });
   }
 
@@ -155,14 +173,18 @@ export class MailService {
   }
 
   async sendLeaveRequestMail(data: LeaveRequest) {
-    const { email, leaveType, leaveValue, name, startDate, endDate, reason } =
+    const { email, leaveType, leaveValue, name, startDate, endDate, reason, approverName } =
       data;
+
+    const date = new Date().getFullYear()
 
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
       template: 'leaveRequest',
-      context: { name, leaveType, leaveValue, startDate, endDate, reason },
+      context: {
+        name, leaveType, leaveValue, startDate, endDate, reason, approverName, reviewLink: 'https://ems.miro.zoracom.com/leave/approval-desk', Date: date
+      },
     });
   }
 
@@ -257,12 +279,12 @@ export class MailService {
       context: { month, date, email, name, dashboardUrl },
       attachments: attachment
         ? [
-            {
-              filename: attachment.filename,
-              content: attachment.content,
-              contentType: attachment.contentType,
-            },
-          ]
+          {
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType,
+          },
+        ]
         : [],
     });
   }
@@ -561,6 +583,4 @@ export class MailService {
       context: { name, dashboardUrl },
     });
   }
-
-
 }

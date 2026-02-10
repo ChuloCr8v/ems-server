@@ -60,6 +60,33 @@ export class TasksService {
     return role?.some((r) => managerRoles.includes(r));
   }
 
+  private async logTaskAction(params: {
+    action: string;
+    userId: string;
+    taskId: string;
+    comment?: string;
+    actionToId?: string;
+    attachments?: string[];
+  }) {
+    return await this.prisma.logs.create({
+      data: {
+        action: params.action,
+        comment: params.comment,
+        actionBy: { connect: { id: params.userId } },
+        task: { connect: { id: params.taskId } },
+        ...(params.actionToId && {
+          actionTo: { connect: { id: params.actionToId } },
+        }),
+        ...(params.attachments &&
+          params.attachments.length > 0 && {
+          attachments: {
+            connect: params.attachments.map((id) => ({ id })),
+          },
+        }),
+      },
+    });
+  }
+
   private mapToTaskResponseDto(task): TaskResponseDto {
     return {
       id: task.id,
@@ -288,6 +315,15 @@ export class TasksService {
         }
       }
 
+      // log
+      await this.logTaskAction({
+        action: 'Task created',
+        userId: createdById,
+        taskId: task.id,
+        comment: task.description ?? undefined,
+        attachments: uploads,
+      });
+
       return task;
     } catch (error) {
       bad(error);
@@ -350,6 +386,13 @@ export class TasksService {
       // include: this.getTaskInclude(),
     });
 
+    await this.logTaskAction({
+      action: 'Approval requested',
+      userId: requestedById,
+      taskId: taskId,
+      comment: task.description ?? undefined,
+    });
+
     return this.mapToTaskResponseDto(updatedTask);
   }
 
@@ -377,25 +420,31 @@ export class TasksService {
     }
 
     // Update task with approval and assignees
-    // const updatedTask = await this.prisma.task.update({
-    //   where: { id: taskId },
-    //   data: {
-    //     approvalStatus: ApprovalStatus.APPROVED,
-    //     status: TaskStatus.IN_PROGRESS,
-    //     approvedById,
-    //     approvedAt: new Date(),
-    //     // Clear any existing assignees and set new ones
-    //     ...(assignees && assignees.length > 0 && {
-    //       assignees: {
-    //         deleteMany: {},
-    //         create: assignees.map(userId => ({ userId })),
-    //       },
-    //     }),
-    //   },
-    //   // include: this.getTaskInclude(),
-    // });
+    const updatedTask = await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        approvalStatus: ApprovalStatus.APPROVED,
+        status: TaskStatus.IN_PROGRESS,
+        approvedById,
+        approvedAt: new Date(),
+        // Clear any existing assignees and set new ones
+        ...(assignees && assignees.length > 0 && {
+          assignees: {
+            deleteMany: {},
+            create: assignees.map((userId) => ({ userId })),
+          },
+        }),
+      },
+      // include: this.getTaskInclude(),
+    });
 
-    // return this.mapToTaskResponseDto(updatedTask);
+    await this.logTaskAction({
+      action: 'Task approved',
+      userId: approvedById,
+      taskId: taskId,
+    });
+
+    return this.mapToTaskResponseDto(updatedTask);
   }
 
   //Comments
@@ -431,6 +480,15 @@ export class TasksService {
           user: { connect: { id: userId } },
         },
       });
+
+      await this.logTaskAction({
+        action: 'Comment added',
+        userId: userId,
+        taskId: id,
+        comment: dto.comment,
+        attachments: dto.uploads,
+      });
+
       return {
         message: 'Comment added successfully',
         data: comment,
@@ -486,6 +544,13 @@ export class TasksService {
       // include: this.getTaskInclude(),
     });
 
+    await this.logTaskAction({
+      action: 'Task rejected',
+      userId: rejectedById,
+      taskId: taskId,
+      comment: rejectionReason,
+    });
+
     //Emit task rejected event
     this.event.emit(
       'task.rejected',
@@ -515,7 +580,7 @@ export class TasksService {
         orderBy: { createdAt: 'desc' },
       };
 
-      if (user.userRole.includes(Role.ADMIN)) {
+      if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.SUPERADMIN)) {
         return this.prisma.task.findMany(baseFindArgs);
       }
 
@@ -539,7 +604,16 @@ export class TasksService {
               },
               {
                 team: {
-                  id: user.team?.id,
+                  OR: [
+                    { id: user.team?.id },
+                    {
+                      approver: {
+                        some: {
+                          userId: userId,
+                        }
+                      }
+                    }
+                  ]
                 },
               },
               {
@@ -623,6 +697,13 @@ export class TasksService {
           note: note ?? undefined,
         },
       });
+
+      await this.logTaskAction({
+        action: 'Due date extended',
+        userId: userId,
+        taskId: id,
+        comment: note ?? `New due date: ${dueDate.toISOString()}`,
+      });
     } catch (error) {
       bad(error);
     }
@@ -670,12 +751,19 @@ export class TasksService {
           requester: { connect: { id: userId } },
         },
       });
+
+      await this.logTaskAction({
+        action: 'Extension requested',
+        userId: userId,
+        taskId: id,
+        comment: note ?? `Requested due date: ${dueDate.toISOString()}`,
+      });
     } catch (error) {
       bad(error);
     }
   }
 
-  async acceptExtensionRequest(id: string, userRole: Role[], dueDate?: Date) {
+  async acceptExtensionRequest(id: string, userId: string, userRole: Role[], dueDate?: Date) {
     try {
       console.log(userRole);
       const canAccept =
@@ -710,12 +798,19 @@ export class TasksService {
           },
         });
       }
+
+      await this.logTaskAction({
+        action: 'Extension request accepted',
+        userId: userId,
+        taskId: extentionRequest.taskId,
+        comment: dueDate ? `New due date: ${dueDate.toISOString()}` : undefined,
+      });
     } catch (error) {
       bad(error);
     }
   }
 
-  async rejectExtensionRequest(id: string, userRole: Role[]) {
+  async rejectExtensionRequest(id: string, userId: string, userRole: Role[]) {
     try {
       const canReject =
         userRole.includes(Role.DEPT_MANAGER) ||
@@ -737,6 +832,12 @@ export class TasksService {
         data: {
           status: 'REJECTED',
         },
+      });
+
+      await this.logTaskAction({
+        action: 'Extension request rejected',
+        userId: userId,
+        taskId: extentionRequest.taskId,
       });
     } catch (error) {
       bad(error);
@@ -807,6 +908,14 @@ export class TasksService {
         },
       });
 
+      await this.prisma.logs.create({
+        data: {
+          action: 'Task category created',
+          actionById: userId,
+          comment: `Category: ${title}`,
+        },
+      });
+
       return {
         message: title + ' ' + 'created successfully',
         data: res,
@@ -850,6 +959,13 @@ export class TasksService {
         },
       });
 
+      await this.prisma.logs.create({
+        data: {
+          action: 'Task category updated',
+          comment: `Category: ${res.title} (ID: ${id})`,
+        },
+      });
+
       return {
         message: `${title} updated successfully`,
         data: res,
@@ -864,6 +980,13 @@ export class TasksService {
       await this.prisma.category.delete({
         where: {
           id,
+        },
+      });
+
+      await this.prisma.logs.create({
+        data: {
+          action: 'Task category deleted',
+          comment: `Category ID: ${id}`,
         },
       });
 
@@ -1014,12 +1137,38 @@ export class TasksService {
                 userId,
               })),
             });
+
+            const newAssignees = await tx.user.findMany({
+              where: { id: { in: newIds } },
+              select: { firstName: true, lastName: true },
+            });
+            const newAssigneeNames = newAssignees.map((a) => a.firstName + ' ' + a.lastName);
+
+            await this.logTaskAction({
+              action: 'Assignees updated',
+              userId: userId,
+              taskId: id,
+              comment: `New assignees: ${newAssigneeNames.join(', ')}`,
+            });
           }
 
           // Remove unselected ones
           if (removedIds.length > 0) {
             await tx.userTask.deleteMany({
               where: { taskId: id, userId: { in: removedIds } },
+            });
+
+            const removedAssignees = await tx.user.findMany({
+              where: { id: { in: removedIds } },
+              select: { firstName: true, lastName: true },
+            });
+            const removedAssigneeNames = removedAssignees.map((a) => a.firstName + ' ' + a.lastName);
+
+            await this.logTaskAction({
+              action: 'Assignees updated',
+              userId: userId,
+              taskId: id,
+              comment: `Removed assignees: ${removedAssigneeNames.join(', ')}`,
             });
           }
         }
@@ -1075,6 +1224,24 @@ export class TasksService {
           data: rest,
           include: this.getTaskInclude(),
         });
+
+        // Log significant changes in updateTask
+        if (status && status !== findTask.status) {
+          await this.logTaskAction({
+            action: `Status changed to ${status}`,
+            userId: userId,
+            taskId: id,
+            comment: issue,
+          });
+        }
+
+        if (rest.priority && rest.priority !== findTask.priority) {
+          await this.logTaskAction({
+            action: `Priority changed to ${rest.priority}`,
+            userId: userId,
+            taskId: id,
+          });
+        }
 
         return updatedTask;
       });
@@ -1206,6 +1373,14 @@ export class TasksService {
         });
       }
 
+      await this.logTaskAction({
+        action: 'Task transferred',
+        userId: userId,
+        taskId: id,
+        actionToId: ownerId,
+        comment: note,
+      });
+
       //Get current owner before transfer
       const previousOwnerId = await this.taskOwner(id);
 
@@ -1247,6 +1422,18 @@ export class TasksService {
       where: { id },
     });
 
+    await this.prisma.logs.create({
+      data: {
+        action: 'Task deleted',
+        actionById: userId,
+        taskId: id, // Even though task is deleted, it might be good to have the ID in log. 
+        // Note: logs has a relation to task with onDelete: Cascade. 
+        // If the task is deleted, the logs will be deleted too! 
+        // I should probably make taskId optional and not cascading if I want to keep deletion logs.
+        // Let me check schema.prisma again.
+      }
+    });
+
     return { message: 'Task deleted successfully' };
   }
 
@@ -1265,6 +1452,23 @@ export class TasksService {
       department: true,
       taskIssues: true,
       team: true,
+      logs: {
+        include: {
+          actionTo: true,
+          actionBy: true,
+          attachments: {
+            select: {
+              id: true,
+              name: true,
+              uri: true,
+              size: true,
+              type: true,
+              createdAt: true,
+              updatedAt: true,
+            }
+          }
+        }
+      },
       createdBy: {
         select: {
           id: true,

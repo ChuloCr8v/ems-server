@@ -13,6 +13,7 @@ export const MAIL_SUBJECT = {
   OFFER_ACCEPTANCE: 'Offer Acceptance',
   UPDATE_USER_INFO: 'Update User Information',
   DECLINE_OFFER: 'Declined Offer',
+  INVITE_DOCUMENT_UPLOAD: 'Document Upload',
   WELCOME_EMAIL: '',
   LEAVE_REQUEST: 'New Leave Request',
   NEW_CLAIM: 'New Claim Added',
@@ -71,7 +72,13 @@ export class AcceptanceInviteDto {
   name: string;
 }
 
-export class DeclinedInviteDto extends AcceptanceInviteDto {}
+export class DeclinedInviteDto extends AcceptanceInviteDto { }
+
+export class InviteDocumentUploadDto extends AcceptanceInviteDto {
+  @IsString()
+  role: string;
+}
+
 
 export class UpdateProspectInfoDto {
   @IsEmail()
@@ -117,6 +124,9 @@ export class LeaveRequest {
 
   @IsString()
   name: string;
+
+  @IsString()
+  approverName: string
 
   @IsString()
   leaveType: string;
