@@ -70,7 +70,7 @@ export class PipService {
                     duration,
                     cost,
                     department: {
-                        connect: { id: user.team.departmentId },
+                        connect: { id: user.departments[0].id },
                     },
                     reason,
                     user: {
@@ -894,7 +894,7 @@ export class PipService {
         try {
             const user = await this.prisma.user.findUnique({
                 where: { id: userId },
-                include: { team: { include: { department: true } } },
+                include: { departments: true },
             });
             return user;
         } catch (error) {
