@@ -540,4 +540,16 @@ export class PaymentConfirmationDto {
 
     @IsString()
     date: string;
+
+    @IsString()
+    paymentMethod?: string;
+
+    @IsString()
+    accountName?: string;
+
+    @IsString()
+    accountNumber?: string;
+
+    @IsString()
+    bankName?: string;
 }

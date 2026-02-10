@@ -493,7 +493,9 @@ export class MailService {
   }
 
     async sendPaymentConfirmationMail(data: PaymentConfirmationDto) {
-    const { email, name, claimTitle, amount, paymentReference, date } = data;
+    const { 
+      email, name, claimTitle, amount, paymentReference, date,  paymentMethod = 'Paystack Transfer',
+      accountName, bankName, accountNumber, } = data;
 
     await this.mailerService.sendMail({
       to: email,

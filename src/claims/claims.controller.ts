@@ -135,13 +135,13 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Failed to fetch banks',
+          // message: error.message || 'Failed to fetch banks',
           error: 'BANK_FETCH_FAILED',
         });
       }
     }
   
-    @Post('verify-account')
+    @Post('claims/:id/verify-account')
     @HttpCode(HttpStatus.OK)
     async verifyAccount(
       @Body() verifyBankAccountDto: VerifyBankAccountDto,
@@ -169,13 +169,13 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Account verification failed',
+          // message: error.message || 'Account verification failed',
           error: 'ACCOUNT_VERIFICATION_FAILED',
         });
       }
     }
   
-    @Post('claim/:claimId/process')
+    @Post('claim/:id/process-payment')
     @UseGuards(RolesGuard)
     @Roles(Role.ADMIN, Role.SUPERADMIN)
     @HttpCode(HttpStatus.OK)
@@ -200,14 +200,14 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Payment processing failed',
+          // message: error.message || 'Payment processing failed',
           error: 'PAYMENT_PROCESSING_FAILED',
           claimId,
         });
       }
     }
   
-    @Get('claim/:claimId/status')
+    @Get('claim/:id/status')
     @HttpCode(HttpStatus.OK)
     async getClaimPaymentStatus(
       @Param('claimId') claimId: string,
@@ -257,13 +257,13 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Failed to get payment status',
+          // message: error.message || 'Failed to get payment status',
           error: 'PAYMENT_STATUS_FETCH_FAILED',
         });
       }
     }
   
-    @Get('claim/:claimId/transaction')
+    @Get('claim/paystack/transaction')
     @UseGuards(RolesGuard)
     @Roles(Role.ADMIN, Role.SUPERADMIN)
     @HttpCode(HttpStatus.OK)
@@ -306,13 +306,13 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Failed to get transaction history',
+          // message: error.message || 'Failed to get transaction history',
           error: 'TRANSACTION_FETCH_FAILED',
         });
       }
     }
   
-    @Post('webhook/paystack')
+    @Post('webhooks/paystack')
     @HttpCode(HttpStatus.OK)
     async handlePaystackWebhook(
       @Body() webhookData: any,
@@ -410,7 +410,7 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Payment retry failed',
+          // message: error.message || 'Payment retry failed',
           error: 'PAYMENT_RETRY_FAILED',
           claimId,
         });
@@ -445,7 +445,7 @@ export class ClaimsController {
       } catch (error) {
         throw new BadRequestException({
           success: false,
-          message: error.message || 'Failed to get claim payments',
+          // message: error.message || 'Failed to get claim payments',
           error: 'PAYMENTS_FETCH_FAILED',
         });
       }
