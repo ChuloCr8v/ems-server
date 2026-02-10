@@ -267,6 +267,7 @@ model Contacts {
 model Bank {
   id            String   @id @default(uuid()) @db.Uuid
   bankName      String
+  bankCode      String?
   accountName   String
   accountNumber String
   userId        String?  @unique @db.Uuid
@@ -1347,6 +1348,7 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+  PAID
 }
 
 enum Priority {
