@@ -50,7 +50,7 @@ export class PipService {
             }
             return await this.prisma.pip.create({
                 data: {
-                    pipId: `Pip${this.generateShortId(4)}`,
+                    pId: `Pip${this.generateShortId(4)}`,
                     title,
                     platform,
                     url,
@@ -62,7 +62,7 @@ export class PipService {
                     user: {
                         connect: { id: user.id },
                     },
-                    rPip: data.rPipId
+                    rP: data.rPipId
                     ? {
                         connect: { id: data.rPipId },
                     }
@@ -92,7 +92,7 @@ export class PipService {
             if(isHR) {
                 return await this.prisma.pip.findMany({
                     include: {
-                        rPip: true,
+                        rP: true,
                         comment: true,
                         uploads: true,
                         user: true,
@@ -104,7 +104,7 @@ export class PipService {
                 return await this.prisma.pip.findMany({
                     where: { userId: user.id },
                     include: {
-                        rPip: true,
+                        rP: true,
                         comment: true,
                         uploads: true,
                         user: true,
@@ -143,7 +143,7 @@ export class PipService {
           ],
         },
         include: {
-          rPip: true,
+          rP: true,
           comment: true,
           uploads: true,
           user: true,
@@ -160,7 +160,7 @@ export class PipService {
             return await this.prisma.pip.findUnique({
                 where: { id: pipId },
                 include: {
-                    rPip: {
+                    rP: {
                         include: {
                             recommendedBy: true,
                             recommendedFor: true,
@@ -197,7 +197,7 @@ export class PipService {
                     duration,
                     cost,
                     reason,
-                    rPip: data.rPipId
+                    rP: data.rPipId
                     ? {
                         connect: { id: data.rPipId },
                     }
@@ -228,7 +228,7 @@ export class PipService {
             }
             return await this.prisma.pip.findMany({
                 include: {
-                    rPip: true,
+                    rP: true,
                     comment: true,
                     uploads: true,
                     user: true,
@@ -381,9 +381,9 @@ export class PipService {
             if (!department) {
                 throw bad("Department Not Found")
             }
-            const memberIds = department.teams.flatMap(team => team.members.map(member => member.id));
+            // const memberIds = department.teams.flatMap(team => team.members.map(member => member.id));
 
-      return this.prisma.recommendedPip.findMany({
+     return this.prisma.recommendedPip.findMany({
         where: {
           OR: [
             //Pips recommended by manager
@@ -420,7 +420,7 @@ export class PipService {
         const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
 
         //Manager approval: only for users in their department
-        if (isManager || pip.status !== 'PENDING') {
+        if (!isManager || pip.status !== 'PENDING') {
             throw bad("Unauthorized to approve this PIP")
         }
         const approvedPip = await this.prisma.pip.update({
@@ -457,78 +457,235 @@ export class PipService {
         }
     }
 
+    async sendToHr(userId: string, departmentId: string) {
+        try {
+            const user = await this.findUserById(userId);
+            if (!user) throw bad("User Not Found");
+
+            const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+            if(!isManager) throw bad("Only department manager can send PIPs to HR");
+
+            const department = await this.prisma.department.findUnique({
+                    where: {
+                        id: departmentId
+                    },
+                    include: {
+                        user: true,
+                        approver: true,
+                        teams: {
+                            include: {
+                                members: true,
+                            },
+                        },
+                    },
+                });
+            const department_Manager = department.approver.find(approver => approver.userId === user.id && approver.role === 'DEPT_MANAGER');
+            if(!department_Manager) throw bad("You are not the manager of this department");
+
+            //Fetch Manager Appproved PIPs
+            const pips = await this.prisma.pip.findMany({
+                where: { 
+                    departmentId, 
+                    status: 'MANAGER_APPROVED'
+                },
+            });
+            if(pips.length === 0) throw bad ("No manager approved PIP to send");
+
+            //Calculate total cost
+            const totalCost = pips.reduce(
+                (sum, pip) => sum + (pip.cost || 0),
+                0
+            );
+
+            //Update department status
+            await this.prisma.department.update({
+                where: { id: departmentId },
+                data: { pipStatus: 'SENT' },
+            })
+
+            //Update PIP status
+            await this.prisma.pip.updateMany({
+                where: {
+                    departmentId,
+                    status: 'MANAGER_APPROVED',
+                },
+                data: {
+                    status: 'SENT'
+                },
+            });
+            
+            return {
+                departmentId,
+                totalCost,
+                manager: user.id
+            }
+        } catch (error) {
+            console.log(error);
+            bad(`Failed to send pip to HR: ${error.message}`);
+        }
+    }
+
     async approveDepartmentsPip(userId: string, departmentId: string) {
         try {
             const user = await this.findUserById(userId);
-            if(!user) {
-                throw bad("User Not Found");
+            if (!user) throw bad("User Not Found");
+
+            if (!this.userHasRole(user, Role.HR)) {
+            throw bad("Only HR can approve departmental PIPs");
             }
-            const isHR = this.userHasRole(user, Role.HR)
-            if(!isHR) throw bad("Only HR can approve departmental pips");
-            
+
             const department = await this.prisma.department.findUnique({
-                where: {
-                    id: departmentId
-                },
-                include: {
-                    user: true,
-                    teams: {
-                        include: {
-                            members: true,
-                        },
-                    },
-                },
+            where: { id: departmentId },
             });
-            if(!department) {
-                throw bad("Department Not Found");
-            }
-            if(department.pipStatus !== 'PENDING') {
-                throw bad("Department PIPs already reviewed");
-            }
-            //Get all departments user IDs
-            const memeberIds = department.user.map(user => user.id);
-            if(memeberIds.length === 0) {
-                throw bad("No Users Found In The Department");
+
+            if (!department) {
+            throw bad("Department Not Found");
             }
 
-            //Fetch all manager-approved PIPs
+            if (department.pipStatus !== 'SENT') {
+            throw bad("Department PIPs are not awaiting HR approval");
+            }
+
             const pips = await this.prisma.pip.findMany({
-                where: {
-                    userId: { in: memeberIds },
-                    status: 'MANAGER_APPROVED',
-                },
+            where: {
+                departmentId,
+                status: 'SENT',
+            },
             });
-            if(pips.length === 0){
-                throw bad("No PIPs pending HR approval for deparments");
+
+            if (pips.length === 0) {
+            throw bad("No PIPs pending HR approval for this department");
             }
+
             const totalCost = pips.reduce(
-                (sum, pip) => sum + (pip.cost ?? 0),
-                0
-            )
+            (sum, pip) => sum + (pip.cost ?? 0),
+            0
+            );
+
+            //Create immutable HR approval record
+            await this.prisma.hrDepartmentApproval.create({
+            data: {
+                departmentId,
+                approvedById: user.id,
+                totalCost,
+                status: 'HR_APPROVED',
+            },
+            });
+
+            //Approve all PIPs
+            await this.prisma.pip.updateMany({
+            where: { id: { in: pips.map(p => p.id) } },
+            data: { status: 'HR_APPROVED' },
+            });
+
+            //Update department
             await this.prisma.department.update({
-                where: { id: department.id },
-                data: { pipStatus: 'HR_APPROVED'}
+            where: { id: departmentId },
+            data: { pipStatus: 'HR_APPROVED' },
             });
 
-            //Notify Users
+            //Notify users
             pips.forEach(pip => {
-                this.eventEmitter.emit(
-                    'pip.HR-Approved',
-                    new PipApprovedEvent(
-                        pip.id,
-                        user.id,
-                        pip.userId,
-                        [pip.userId]
-                    )
-                );
+            this.eventEmitter.emit(
+                'pip.HR-Approved',
+                new PipApprovedEvent(
+                pip.id,
+                user.id,
+                pip.userId,
+                [pip.userId]
+                 )
+               );
             });
 
-            return { approvedPips: pips.length, totalCost };
+            return {
+            departmentId,
+            approvedPips: pips.length,
+            totalCost,
+            };
         } catch (error) {
             console.log(error);
-            bad(`Failed to approve departmental pip: ${error.message}`);
+            bad(`Failed to approve departmental PIPs: ${error.message}`);
         }
-    }
+        }
+
+
+    // async approveDepartmentsPip(userId: string, departmentId: string) {
+    //     try {
+    //         const user = await this.findUserById(userId);
+    //         if(!user) {
+    //             throw bad("User Not Found");
+    //         }
+    //         const isHR = this.userHasRole(user, Role.HR)
+    //         if(!isHR) throw bad("Only HR can approve departmental pips");
+            
+    //         const department = await this.prisma.department.findUnique({
+    //             where: {
+    //                 id: departmentId
+    //             },
+    //             include: {
+    //                 user: true,
+    //                 teams: {
+    //                     include: {
+    //                         members: true,
+    //                     },
+    //                 },
+    //             },
+    //         });
+    //         if(!department) {
+    //             throw bad("Department Not Found");
+    //         }
+    //         if (department.pipStatus !== 'SENT') {
+    //             throw bad("Department PIPs have not been sent to HR");
+    //         }
+    //         //Get all departments user IDs
+    //         const memeberIds = department.user.map(user => user.id);
+    //         if(memeberIds.length === 0) {
+    //             throw bad("No Users Found In The Department");
+    //         }
+
+    //         //Fetch all manager-approved PIPs
+    //         const pips = await this.prisma.pip.findMany({
+    //             where: {
+    //                 userId: { in: memeberIds },
+    //                 status: 'MANAGER_APPROVED',
+    //             },
+    //         });
+    //         if(pips.length === 0){
+    //             throw bad("No PIPs pending HR approval for deparments");
+    //         }
+    //         const totalCost = pips.reduce(
+    //             (sum, pip) => sum + (pip.cost ?? 0),
+    //             0
+    //         )
+    //         await this.prisma.pip.updateMany({
+    //             where: { id: { in: pips.map(p => p.id) } },
+    //             data: { status: 'HR_APPROVED' }
+    //         });
+
+    //         await this.prisma.department.update({
+    //             where: { id: department.id },
+    //             data: { pipStatus: 'HR_APPROVED'}
+    //         });
+
+    //         //Notify Users
+    //         pips.forEach(pip => {
+    //             this.eventEmitter.emit(
+    //                 'pip.HR-Approved',
+    //                 new PipApprovedEvent(
+    //                     pip.id,
+    //                     user.id,
+    //                     pip.userId,
+    //                     [pip.userId]
+    //                 )
+    //             );
+    //         });
+
+    //         return { approvedPips: pips.length, totalCost };
+    //     } catch (error) {
+    //         console.log(error);
+    //         bad(`Failed to approve departmental pip: ${error.message}`);
+    //     }
+    // }
 
     async rejectPip(userId: string, pipId: string, data: RejectPipDto) {
         const user = await this.findUserById(userId);
@@ -548,60 +705,60 @@ export class PipService {
             throw bad("Unauthorized to reject this PIP");
         }
 
-    const { rejectedPip, rPip } = await this.prisma.$transaction(async (tx) => {
+        const { rejectedPip, rPip } = await this.prisma.$transaction(async (tx) => {
       //Reject PIP
-      const rejectedPip = await tx.pip.update({
-        where: { id: pip.id },
-        data: {
-          status: 'REJECTED',
-          rejectedById: user.id,
-          rejecteAt: new Date(),
-          comment: {
-            create: { comment: data.reason, userId: user.id },
-          },
-          uploads: data.uploads
-            ? {
-              connect: data.uploads.map((id) => ({ id })),
-            }
-            : undefined,
-        },
-        // select: { rejectedById: true, rejecteAt: true, user: true, id: true },
-      });
-      //Create new recommended PIP
-      const rPip = await tx.recommendedPip.create({
-        data: {
-          rPipId: `RPIP${this.generateShortId(4)}`,
-          aoi: data.aoi,
-          reason: data.reason,
-          recommendedBy: {
-            connect: { id: user.id },
-          },
-          recommendedFor: {
-            connect: { id: pip.userId },
-          },
-          uploads: data.uploads
-            ? {
-              connect: data.uploads.map((id) => ({ id })),
-            }
-            : undefined,
-        },
-      });
-      return { rejectedPip, rPip };
-    });
+        const rejectedPip = await tx.pip.update({
+            where: { id: pip.id },
+            data: {
+            status: 'REJECTED',
+            rejectedById: user.id,
+            rejecteAt: new Date(),
+            comment: {
+                create: { comment: data.reason, userId: user.id },
+            },
+            uploads: data.uploads
+                ? {
+                connect: data.uploads.map((id) => ({ id })),
+                }
+                : undefined,
+            },
+            // select: { rejectedById: true, rejecteAt: true, user: true, id: true },
+         });
+        //Create new recommended PIP
+        const rPip = await tx.recommendedPip.create({
+            data: {
+            rPipId: `RPIP${this.generateShortId(4)}`,
+            aoi: data.aoi,
+            reason: data.reason,
+            recommendedBy: {
+                connect: { id: user.id },
+            },
+            recommendedFor: {
+                connect: { id: pip.userId },
+            },
+            uploads: data.uploads
+                ? {
+                connect: data.uploads.map((id) => ({ id })),
+                }
+                : undefined,
+            },
+        });
+        return { rejectedPip, rPip };
+        });
 
-    this.eventEmitter.emit(
-      'pip.rejected',
-      new PipRejectedEvent(rejectedPip.id, user.id, rejectedPip.userId, [
-        rejectedPip.userId,
-      ]),
-    );
+        this.eventEmitter.emit(
+        'pip.rejected',
+        new PipRejectedEvent(rejectedPip.id, user.id, rejectedPip.userId, [
+            rejectedPip.userId,
+        ]),
+        );
 
-    this.eventEmitter.emit(
-      'pip.recommended',
-      new PipRecommendedEvent(rPip.id, user.id, rPip.recommendedForId, [
-        rPip.recommendedForId,
-      ]),
-    );
+        this.eventEmitter.emit(
+        'pip.recommended',
+        new PipRecommendedEvent(rPip.id, user.id, rPip.recommendedForId, [
+            rPip.recommendedForId,
+        ]),
+        );
 
         return rPip;
     }
@@ -705,8 +862,8 @@ export class PipService {
     });
 
     // Notify the recommender (Manager) that PIP is completed
-    const recipientIds = pip.rPip?.recommendedById
-      ? [pip.rPip.recommendedById]
+    const recipientIds = pip.rP?.recommendedById
+      ? [pip.rP.recommendedById]
       : [];
 
     this.eventEmitter.emit(
@@ -739,24 +896,24 @@ export class PipService {
             return roles === role;
         }
 
-    private async findDepartmentById(departmentId: string) {
-        try {
-            const department = await this.prisma.department.findUnique({
-                where: { id: departmentId },
-                include: {
-                    user: true,
-                },
-            });
+//     private async findDepartmentById(departmentId: string) {
+//         try {
+//             const department = await this.prisma.department.findUnique({
+//                 where: { id: departmentId },
+//                 include: {
+//                     user: true,
+//                 },
+//             });
 
-      if (!department) {
-        throw bad('Department not found');
-      }
-      return department;
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to get department: ${error.message}`);
-    }
-  }
+//       if (!department) {
+//         throw bad('Department not found');
+//       }
+//       return department;
+//     } catch (error) {
+//       console.log(error);
+//       bad(`Failed to get department: ${error.message}`);
+//     }
+//   }
 
   private generateShortId(length: number = 10) {
     const chars = '0123456789';
