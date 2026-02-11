@@ -14,6 +14,7 @@ import {
   IsBoolean,
   IsNotEmpty,
   IsDate,
+  MinLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -21,13 +22,18 @@ import { Type } from 'class-transformer';
 
 export class VerifyBankAccountDto {
   @IsString()
-  @Length(10, 10, { message: 'Account number must be 10 digits' })
+  @Length(10, 10, { message: 'Account number must be exactly 10 digits' })
   @Matches(/^\d+$/, { message: 'Account number must contain only digits' })
   accountNumber: string;
 
   @IsString()
-  @Length(3, 10, { message: 'Bank code must be between 3 and 10 characters' })
-  bankCode: string;
+  @MinLength(3, { message: 'Bank code/name must be at least 3 characters' })
+  @MaxLength(50, { message: 'Bank code/name cannot exceed 50 characters' })
+  bankCode: string; // This accepts both bank codes (058) AND bank names (Guaranty Trust Bank)
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class BankAccountResolutionDataDto {

@@ -1,8 +1,9 @@
 // src/payment/paystack.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError } from 'axios';
 import * as crypto from 'crypto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 export interface PaystackTransferRecipient {
   type: string;
@@ -68,13 +69,38 @@ function getAxiosErrorResponse(error: unknown): any {
   return null;
 }
 
+
+
 @Injectable()
 export class PaystackService {
   private readonly baseUrl = 'https://api.paystack.co';
   private readonly secretKey: string;
   private readonly logger = new Logger(PaystackService.name);
+    private readonly banks = [
+    { name: 'Access Bank', code: '044' },
+    { name: 'Guaranty Trust Bank', code: '058' },
+    { name: 'Zenith Bank', code: '057' },
+    { name: 'First Bank of Nigeria', code: '011' },
+    { name: 'United Bank for Africa', code: '033' },
+    { name: 'Stanbic IBTC Bank', code: '221' },
+    { name: 'Union Bank of Nigeria', code: '032' },
+    { name: 'Fidelity Bank', code: '070' },
+    { name: 'Ecobank Nigeria', code: '050' },
+    { name: 'Sterling Bank', code: '232' },
+    { name: 'Wema Bank', code: '035' },
+    { name: 'Polaris Bank', code: '076' },
+    { name: 'Keystone Bank', code: '082' },
+    { name: 'Unity Bank', code: '215' },
+    { name: 'Heritage Bank', code: '030' },
+    { name: 'Providus Bank', code: '101' },
+    { name: 'Titan Trust Bank', code: '102' },
+    { name: 'Globus Bank', code: '103' },
+  ];
+  
 
-  constructor(private configService: ConfigService) {
+  constructor(private configService: ConfigService,
+              private prisma: PrismaService
+  ) {
     this.secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
     if (!this.secretKey) {
       throw new Error('PAYSTACK_SECRET_KEY is not configured');
@@ -290,6 +316,121 @@ export class PaystackService {
         message: `Bank account resolution failed: ${errorMessage}`,
       };
     }
+  }
+
+   async verifyBankAccount(
+    claimId: string,
+    accountNumber: string,
+    bankCode: string, // This can be code OR name
+    notes?: string,
+  ) {
+    try {
+      // 1. Validate claim exists
+      const claim = await this.prisma.claim.findUnique({
+        where: { id: claimId },
+      });
+
+      if (!claim) {
+        throw new BadRequestException('Claim not found');
+      }
+
+      // 2. Clean and validate account number
+      const cleanAccountNumber = accountNumber.replace(/\D/g, '');
+      if (cleanAccountNumber.length !== 10) {
+        throw new BadRequestException('Account number must be 10 digits');
+      }
+
+      // 3. Resolve bank code (convert name to code if needed)
+      const resolvedBankCode = this.resolveBankCode(bankCode);
+      if (!resolvedBankCode) {
+        throw new BadRequestException(
+          `Invalid bank: "${bankCode}". Please provide a valid bank code (e.g., "058") or bank name.`,
+        );
+      }
+
+      // 4. Get bank name for response
+      const bankName = this.getBankName(resolvedBankCode);
+
+      // 5. Call Paystack API
+      const verificationResult = await this.resolveBankAccount(
+        cleanAccountNumber,
+        resolvedBankCode,
+      );
+
+      if (!verificationResult.status) {
+        throw new BadRequestException(
+          verificationResult.message || 'Account verification failed',
+        );
+      }
+
+      // 6. Update claim with verification result
+      await this.prisma.claim.update({
+        where: { id: claimId },
+        data: {
+          // status: 'account_verified',
+          // bankAccountVerified: true,
+          // verificationDate: new Date(),
+          // verificationNotes: notes,
+          // verifiedAccountName: verificationResult.data.account_name,
+          // verifiedAccountNumber: verificationResult.data.account_number,
+          // verifiedBankCode: resolvedBankCode,
+          // verifiedBankName: bankName,
+        },
+      });
+
+      // 7. Return success response
+      return {
+        success: true,
+        verified: true,
+        accountName: verificationResult.data.account_name,
+        bankName: bankName,
+        bankCode: resolvedBankCode,
+        accountNumber: cleanAccountNumber,
+        claimId,
+        message: 'Account verified successfully',
+        reference: verificationResult.data.reference,
+      };
+
+    } catch (error) {
+      this.logger.error(`Verification failed for claim ${claimId}:`, error);
+      
+      throw new BadRequestException({
+        success: false,
+        verified: false,
+        // message: error.message || 'Account verification failed',
+        claimId,
+        error: 'ACCOUNT_VERIFICATION_FAILED',
+      });
+    }
+  }
+
+    private resolveBankCode(input: string): string | null {
+    if (!input) return null;
+    
+    const cleanInput = input.toString().trim();
+    
+    // Case 1: Already a valid 3-digit code
+    if (/^\d{3}$/.test(cleanInput)) {
+      return cleanInput;
+    }
+    
+    // Case 2: Bank name - try to find matching bank
+    const inputLower = cleanInput.toLowerCase();
+    const bank = this.banks.find(b => 
+      b.name.toLowerCase().includes(inputLower) ||
+      inputLower.includes(b.name.toLowerCase()) ||
+      b.name.toLowerCase().replace(/\s+/g, '') === inputLower.replace(/\s+/g, '')
+    );
+    
+    return bank?.code || null;
+  }
+
+  /**
+   * Get bank name from code
+   */
+  private getBankName(code: string): string {
+    const bank = this.banks.find(b => b.code === code);
+    return bank?.name || 'Unknown Bank';
   }
 
   // Helper method for webhook signature validation

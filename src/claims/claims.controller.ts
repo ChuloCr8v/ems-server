@@ -140,39 +140,89 @@ export class ClaimsController {
       }
     }
   
-    @Post('claims/:id/verify-account')
-    @HttpCode(HttpStatus.OK)
-    async verifyAccount(
-      @Body() verifyBankAccountDto: VerifyBankAccountDto,
-    ) {
-      try {
-        const verificationResult = await this.paystackService.resolveBankAccount(
-          verifyBankAccountDto.accountNumber,
-          verifyBankAccountDto.bankCode,
-        );
+    // @Post(':id/verify-account')
+    // @HttpCode(HttpStatus.OK)
+    // async verifyAccount(
+    //   @Body() verifyBankAccountDto: VerifyBankAccountDto,
+    // ) {
+    //   try {
+    //     const verificationResult = await this.paystackService.resolveBankAccount(
+    //       verifyBankAccountDto.accountNumber,
+    //       verifyBankAccountDto.bankCode,
+    //     );
         
-        if (verificationResult.status) {
-          return {
-            success: true,
-            message: 'Account verified successfully',
-            data: {
-              accountNumber: verificationResult.data.account_number,
-              accountName: verificationResult.data.account_name,
-              bankCode: verifyBankAccountDto.bankCode,
-              bankId: verificationResult.data.bank_id,
-            },
-          };
-        }
+    //     if (verificationResult.status) {
+    //       return {
+    //         success: true,
+    //         message: 'Account verified successfully',
+    //         data: {
+    //           accountNumber: verificationResult.data.account_number,
+    //           accountName: verificationResult.data.account_name,
+    //           bankCode: verifyBankAccountDto.bankCode,
+    //           bankId: verificationResult.data.bank_id,
+    //         },
+    //       };
+    //     }
         
-        throw new Error(verificationResult.message || 'Account verification failed');
-      } catch (error) {
-        throw new BadRequestException({
-          success: false,
-          // message: error.message || 'Account verification failed',
-          error: 'ACCOUNT_VERIFICATION_FAILED',
-        });
+    //     throw new Error(verificationResult.message || 'Account verification failed');
+    //   } catch (error) {
+    //     throw new BadRequestException({
+    //       success: false,
+    //       // message: error.message || 'Account verification failed',
+    //       error: 'ACCOUNT_VERIFICATION_FAILED',
+    //     });
+    //   }
+    // }
+
+  @Post(':id/verify-account')
+  @HttpCode(HttpStatus.OK)
+  async verifyAccount(
+    @Param('id') claimId: string,
+    @Body() body: {
+      accountNumber: string;
+      bankCode: string;
+      notes?: string;
+    },
+  ) {
+    try {
+      // Clean account number
+      const cleanAccountNumber = body.accountNumber.replace(/\D/g, '');
+      
+      if (cleanAccountNumber.length !== 10) {
+        throw new BadRequestException('Account number must be 10 digits');
       }
+
+      // Call Paystack
+      const result = await this.paystackService.resolveBankAccountSafe(
+        cleanAccountNumber,
+        body.bankCode.trim(),
+      );
+
+      if (!result.status || !result.data) {
+        throw new BadRequestException(result.message || 'Verification failed');
+      }
+
+      // Return success
+      return {
+        success: true,
+        verified: true,
+        accountName: result.data.account_name,
+        accountNumber: result.data.account_number,
+        // bankId: result.data.bank_id,
+        bankCode: body.bankCode,
+        claimId,
+        message: 'Account verified successfully',
+      };
+
+    } catch (error) {
+      throw new BadRequestException({
+        success: false,
+        verified: false,
+        // message: error.message || 'Verification failed',
+        claimId,
+      });
     }
+  }
   
     @Post('claim/:id/process-payment')
     @UseGuards(RolesGuard)
