@@ -119,25 +119,28 @@ model User {
 }
 
 model Department {
-  id                    String                  @id @default(uuid()) @db.Uuid
-  name                  String                  @unique
-  createdById           String?                 @unique @db.Uuid
-  status                DepartmentStatus?       @default(ACTIVE)
-  pipStatus             PipStatus?              @default(PENDING)
-  approver              Approver[]
-  createdBy             User?                   @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects             Prospect[]              @relation("DepartmentToProspect")
-  taskCategories        Category[]
-  user                  User[]                  @relation("DepartmentToUser")
-  defaultDepartment     User[]                  @relation("default")
-  kpiCategories         KpiCategory[]
-  appraisals            Appraisal[]
-  tasks                 Task[]
-  entitlements          DepartmentEntitlement[]
-  teams                 Team[]
+  id                String                  @id @default(uuid()) @db.Uuid
+  name              String                  @unique
+  createdById       String?                 @unique @db.Uuid
+  status            DepartmentStatus?       @default(ACTIVE)
+  pipStatus         PipStatus?              @default(PENDING)
+  approver          Approver[]
+  createdBy         User?                   @relation("departmentCreator", fields: [createdById], references: [id])
+  prospects         Prospect[]              @relation("DepartmentToProspect")
+  taskCategories    Category[]
+  user              User[]                  @relation("DepartmentToUser")
+  defaultDepartment User[]                  @relation("default")
+  kpiCategories     KpiCategory[]
+  appraisals        Appraisal[]
+  tasks             Task[]
+  entitlements      DepartmentEntitlement[]
+  teams             Team[]
+
+  departmentWeeklyReports DepartmentWeeklyReport[]
+
   pip                   Pip[]
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @default(now()) @updatedAt
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @default(now()) @updatedAt
   hrDepartmentApprovals HrDepartmentApproval[]
 }
 
@@ -251,6 +254,9 @@ model Upload {
 
   logs  Logs?   @relation(fields: [logId], references: [id], onDelete: Cascade)
   logId String? @db.Uuid
+
+  reportItemId String?
+  reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 }
 
 model Contacts {
@@ -701,23 +707,23 @@ model Claim {
   entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
   entitlementId String?      @db.Uuid
 
-  comments Comment[]
+  comments        Comment[]
   claimPayments   ClaimPayment[]
   paymentAttempts PaymentAttempt[]
 
-  paymentVerified     Boolean?      @default(false)
-  paymentReference    String?
-  paidAt              DateTime?
-  paymentMethod       String?       @default("PAYSTACK")
-  verifiedAccountName String?
-  verifiedBankName    String?
+  paymentVerified       Boolean?  @default(false)
+  paymentReference      String?
+  paidAt                DateTime?
+  paymentMethod         String?   @default("PAYSTACK")
+  verifiedAccountName   String?
+  verifiedBankName      String?
   verifiedAccountNumber String?
-  verifiedAt          DateTime?
-  
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
-  approvedAt          DateTime?
-  rejectedAt          DateTime?
+  verifiedAt            DateTime?
+
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+  approvedAt DateTime?
+  rejectedAt DateTime?
 
   @@index([id])
 }
@@ -817,6 +823,8 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  reportItems ReportItem[]
 }
 
 model taskDueDate {
@@ -853,6 +861,45 @@ model Report {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @db.Uuid
   tasks  Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DepartmentWeeklyReport {
+  id           String       @id @default(uuid())
+  reportId     String       @unique
+  departmentId String       @db.Uuid
+  title        String
+  week         Int
+  reports      ReportItem[]
+
+  status ReportStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([departmentId, week])
+}
+
+model ReportItem {
+  id               String     @id @default(uuid())
+  title            String
+  description      String?
+  status           TaskStatus
+  deliveryDate     DateTime?
+  comment          String?
+  includeAssignees Boolean?   @default(false)
+
+  taskId         String? @db.Uuid
+  weeklyReportId String
+
+  task         Task?                  @relation(fields: [taskId], references: [id])
+  weeklyReport DepartmentWeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+
+  attachments Upload[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1084,22 +1131,22 @@ model RecommendedPip {
 }
 
 model ClaimPayment {
-  id                 String    @id @default(uuid()) @db.Uuid
-  claim              Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  claimId            String    @unique
-  amount             Float
-  recipientName      String
+  id                     String    @id @default(uuid()) @db.Uuid
+  claim                  Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId                String    @unique
+  amount                 Float
+  recipientName          String
   recipientAccountNumber String
-  recipientBankCode  String
-  transferReference  String?
-  recipientCode      String?
-  status             String    @default("PENDING") // PENDING, SUCCESS, FAILED
-  paymentMethod      String    @default("PAYSTACK")
-  processedAt        DateTime  @default(now())
-  verifiedAt         DateTime?
-  verificationResponse Json?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  recipientBankCode      String
+  transferReference      String?
+  recipientCode          String?
+  status                 String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  paymentMethod          String    @default("PAYSTACK")
+  processedAt            DateTime  @default(now())
+  verifiedAt             DateTime?
+  verificationResponse   Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model PaymentAttempt {
@@ -1385,4 +1432,9 @@ enum PaymentStatus {
   SUCCESS
   FAILED
   REVERSED
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
 }
