@@ -89,7 +89,7 @@ export class ReportService {
           },
         });
 
-        if (updatedReport.status === ReportStatus.SUBMITTED) {
+        if (!isDraft) {
           this.eventEmitter.emit(
             'report.submitted',
             new ReportSubmittedEvent(
