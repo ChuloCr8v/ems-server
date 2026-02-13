@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { MailService } from 'src/mail/mail.service';
 import { InviteSentEvent } from 'src/events/employment.event';
+import { ReportSubmittedEvent } from 'src/events/report.event';
+import { Role } from '@prisma/client';
 
 
 @Injectable()
@@ -25,6 +27,30 @@ export class MailListener {
             token: event.token,
             attachments: event.attachments,
         });
+    }
+
+    @OnEvent('report.submitted')
+    async handleReportSubmitted(event: ReportSubmittedEvent) {
+        const superadmins = await this.prisma.user.findMany({
+            where: {
+                userRole: {
+                    has: Role.SUPERADMIN
+                }
+            }
+        });
+
+        const dashboardUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+
+        for (const admin of superadmins) {
+            await this.mailService.sendReportSubmittedMail({
+                email: admin.email,
+                name: admin.firstName,
+                reportTitle: event.reportTitle,
+                week: event.week,
+                departmentName: event.departmentName,
+                dashboardUrl: `${dashboardUrl}/report/department-reports`, // Adjust path as needed
+            });
+        }
     }
 
 }
