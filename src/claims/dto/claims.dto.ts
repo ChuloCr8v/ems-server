@@ -6,7 +6,6 @@ import {
   IsEnum,
   IsArray,
   isString,
-  IsBoolean,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ClaimStatus, Entitlement } from '@prisma/client';
@@ -40,26 +39,6 @@ export class UpdateClaimDto extends PartialType(CreateClaimDto) {
   @IsOptional()
   @IsEnum(ClaimStatus)
   status?: ClaimStatus;
-
-  @IsOptional()
-  @IsBoolean()
-  paymentVerified?: boolean;
-
-  @IsOptional()
-  @IsString()
-  verifiedAccountName?: string;
-
-  @IsOptional()
-  @IsString()
-  verifiedBankName?: string;
-
-  @IsOptional()
-  @IsString()
-  verifiedAccountNumber?: string;
-
-  @IsOptional()
-  @IsDate()
-  verifiedAt?: Date;
 }
 
 export class FileResponseDto {

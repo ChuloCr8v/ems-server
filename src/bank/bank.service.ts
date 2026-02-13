@@ -12,7 +12,6 @@ export class BankService {
       const user = await this.prisma.bank.create({
         data: {
           bankName: data.bankName,
-          bankCode: data.bankCode || null,
           accountName: data.accountName,
           accountNumber: data.accountNumber,
           user: {
@@ -23,7 +22,7 @@ export class BankService {
       return user;
     } catch (error) {
       console.log(error);
-      // bad(error);
+      bad(error);
     }
   }
 }

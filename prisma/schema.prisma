@@ -273,7 +273,6 @@ model Contacts {
 model Bank {
   id            String   @id @default(uuid()) @db.Uuid
   bankName      String
-  bankCode      String?
   accountName   String
   accountNumber String
   userId        String?  @unique @db.Uuid
@@ -707,23 +706,10 @@ model Claim {
   entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
   entitlementId String?      @db.Uuid
 
-  comments        Comment[]
-  claimPayments   ClaimPayment[]
-  paymentAttempts PaymentAttempt[]
+  comments Comment[]
 
-  paymentVerified       Boolean?  @default(false)
-  paymentReference      String?
-  paidAt                DateTime?
-  paymentMethod         String?   @default("PAYSTACK")
-  verifiedAccountName   String?
-  verifiedBankName      String?
-  verifiedAccountNumber String?
-  verifiedAt            DateTime?
-
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime? @updatedAt
-  approvedAt DateTime?
-  rejectedAt DateTime?
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([id])
 }
@@ -1130,35 +1116,6 @@ model RecommendedPip {
   updatedAt        DateTime  @updatedAt
 }
 
-model ClaimPayment {
-  id                     String    @id @default(uuid()) @db.Uuid
-  claim                  Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  claimId                String    @unique
-  amount                 Float
-  recipientName          String
-  recipientAccountNumber String
-  recipientBankCode      String
-  transferReference      String?
-  recipientCode          String?
-  status                 String    @default("PENDING") // PENDING, SUCCESS, FAILED
-  paymentMethod          String    @default("PAYSTACK")
-  processedAt            DateTime  @default(now())
-  verifiedAt             DateTime?
-  verificationResponse   Json?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-}
-
-model PaymentAttempt {
-  id          String   @id @default(uuid()) @db.Uuid
-  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  claimId     String
-  amount      Float
-  error       String?
-  attemptedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-}
-
 model HrDepartmentApproval {
   id String @id @default(uuid()) @db.Uuid
 
@@ -1395,7 +1352,6 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
-  PAID
 }
 
 enum Priority {
@@ -1424,17 +1380,4 @@ enum EntitlementType {
 enum EntitlementScope {
   LEVEL
   DEPARTMENT
-}
-
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  SUCCESS
-  FAILED
-  REVERSED
-}
-
-enum ReportStatus {
-  DRAFT
-  SUBMITTED
 }
