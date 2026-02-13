@@ -27,6 +27,7 @@ import {
   AppraisalMailDto,
   PipMailDto,
   InviteDocumentUploadDto,
+  ReportSubmittedMailDto,
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -129,7 +130,8 @@ export class MailService {
           day: '2-digit',
           month: 'long',
           year: 'numeric',
-        }), adminLink: 'https://ems.miro.zoracom.com/login' },
+        }), adminLink: 'https://ems.miro.zoracom.com/login'
+      },
     });
   }
 
@@ -550,6 +552,16 @@ export class MailService {
       subject: MAIL_SUBJECT.PIP_COMPLETED,
       template: 'pipCompleted',
       context: { name, dashboardUrl },
+    });
+  }
+
+  async sendReportSubmittedMail(data: ReportSubmittedMailDto) {
+    const { email, name, reportTitle, week, departmentName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.REPORT_SUBMITTED,
+      template: 'reportSubmitted',
+      context: { name, reportTitle, week, departmentName, dashboardUrl },
     });
   }
 }

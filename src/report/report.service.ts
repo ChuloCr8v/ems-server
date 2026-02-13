@@ -5,10 +5,15 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { CreateDepartmentWeeklyReportDto } from './dto/report.dto';
 import { randomBytes } from 'crypto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ReportSubmittedEvent } from 'src/events/report.event';
 
 @Injectable()
 export class ReportService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) { }
 
 
   async createReport(body: CreateDepartmentWeeklyReportDto, userId: string) {
@@ -84,6 +89,19 @@ export class ReportService {
           },
         });
 
+        if (updatedReport.status === ReportStatus.SUBMITTED) {
+          this.eventEmitter.emit(
+            'report.submitted',
+            new ReportSubmittedEvent(
+              updatedReport.id,
+              userId,
+              updatedReport.title,
+              updatedReport.week,
+              updatedReport.department.name,
+            ),
+          );
+        }
+
         return {
           message: 'Report Updated Successfully',
           data: updatedReport,
@@ -132,6 +150,19 @@ export class ReportService {
           department: true,
         },
       });
+
+      if (report.status === ReportStatus.SUBMITTED) {
+        this.eventEmitter.emit(
+          'report.submitted',
+          new ReportSubmittedEvent(
+            report.id,
+            userId,
+            report.title,
+            report.week,
+            report.department.name,
+          ),
+        );
+      }
 
       return {
         message: 'Report Created Successfully',
