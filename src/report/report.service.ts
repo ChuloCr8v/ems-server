@@ -1,12 +1,147 @@
 import { Injectable } from '@nestjs/common';
-import { Report, Task, UserTask, TaskStatus, Prisma, User } from '@prisma/client';
+import { Report, Task, UserTask, TaskStatus, Prisma, User, ReportStatus } from '@prisma/client';
 
 import { PrismaService } from 'src/prisma/prisma.service';
-import { bad } from 'src/utils/error.utils';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { CreateDepartmentWeeklyReportDto } from './dto/report.dto';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class ReportService {
   constructor(private readonly prisma: PrismaService) { }
+
+
+  async createReport(body: CreateDepartmentWeeklyReportDto, userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+      if (!user) mustHave(user, 'User not found', 404);
+      if (!user.userRole.includes('DEPT_MANAGER'))
+        bad('User not authorized', 401);
+
+      const { title, department, week, reports, isDraft } = body;
+      const departmentField = department ?? (user.defaultId ? user.defaultId : user.departments[0].id);
+
+      const existingReport = await this.prisma.departmentWeeklyReport.findFirst({
+        where: {
+          week,
+          departmentId: departmentField
+        },
+        include: {
+          reports: true
+        }
+      });
+
+      if (existingReport && existingReport.status === ReportStatus.SUBMITTED
+      ) bad(`Report for week ${week} has been submitted already`)
+      if (existingReport && existingReport.status !== ReportStatus.SUBMITTED) {
+        // Delete existing sub-reports
+        await this.prisma.reportItem.deleteMany({
+          where: {
+            weeklyReportId: existingReport.id
+          }
+        });
+
+        // Update the main report
+        const updatedReport = await this.prisma.departmentWeeklyReport.update({
+          where: {
+            id: existingReport.id
+          },
+          data: {
+            title,
+            status: isDraft ? ReportStatus.DRAFT : ReportStatus.SUBMITTED,
+            reports: {
+              create: reports.map((r) => ({
+                title: r.title,
+                description: r.description,
+                status: r.status,
+                deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
+                includeAssignees: r.includeAssignees,
+                task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
+                attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
+                comment: r.comment
+              })),
+            },
+          },
+          include: {
+            reports: {
+              include: {
+                task: {
+                  include: {
+                    taskTransfers: {
+                      include: {
+                        user: true
+                      }
+                    },
+                    createdBy: true
+                  }
+                },
+              },
+            },
+            department: true,
+          },
+        });
+
+        return {
+          message: 'Report Updated Successfully',
+          data: updatedReport,
+        };
+      }
+
+      // Create new report if none exists
+      const reportId =
+        'RPT-' +
+        new Date().getFullYear() +
+        '-W' +
+        week +
+        '-' +
+        randomBytes(3).toString('hex').toUpperCase();
+
+      const report = await this.prisma.departmentWeeklyReport.create({
+        data: {
+          title,
+          week,
+          reportId,
+          status: isDraft ? ReportStatus.DRAFT : ReportStatus.SUBMITTED,
+          department: {
+            connect: {
+              id: departmentField
+            },
+          },
+          reports: {
+            create: reports.map((r) => ({
+              title: r.title,
+              description: r.description,
+              status: r.status,
+              deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
+              includeAssignees: r.includeAssignees,
+              task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
+              attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
+              comment: r.comment
+            })),
+          },
+        },
+        include: {
+          reports: {
+            include: {
+              task: true,
+            },
+          },
+          department: true,
+        },
+      });
+
+      return {
+        message: 'Report Created Successfully',
+        data: report,
+      };
+    } catch (error) {
+      console.error('Error creating report:', error);
+      bad(error);
+    }
+  }
 
   async generateWeeklyReports() {
     try {
@@ -126,6 +261,12 @@ export class ReportService {
                 category: true,
                 assignees: { include: { user: true } },
                 taskIssues: true,
+                createdBy: true,
+                taskTransfers: {
+                  include: {
+                    user: true
+                  }
+                }
               },
             },
             user: {
@@ -235,6 +376,127 @@ export class ReportService {
     }
 
     return Array.from(weeks.values());
+  }
+
+  async listDepartmentWeeklyReports(userId: string) {
+    try {
+
+      const user = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+          userRole: {
+            hasSome: ['DEPT_MANAGER', "SUPERADMIN", "ADMIN"]
+          }
+        }
+      })
+
+      if (!user) bad('Unauthorized');
+
+      const departments = await this.prisma.department.findMany({
+        where: {
+          approver: {
+            some: {
+              userId: user.id
+            }
+          }
+        }
+      })
+
+      const deptIds = departments.map(d => d.id);
+
+      const baseFindArgs = {
+        where: {
+          departmentId: {
+            in: deptIds
+          },
+          status: ReportStatus.SUBMITTED
+        }
+      }
+
+      if (user.userRole.includes('SUPERADMIN') || user.userRole.includes('ADMIN')) {
+        delete baseFindArgs.where.departmentId;
+
+      }
+
+      if (user.userRole.includes('DEPT_MANAGER')) {
+        delete baseFindArgs.where.status;
+        baseFindArgs.where.departmentId = {
+          in: deptIds
+        }
+      }
+
+      const reports = await this.prisma.departmentWeeklyReport.findMany({
+        ...baseFindArgs,
+        include: {
+          department: true,
+          reports: {
+            include: {
+              task: true,
+              attachments: {
+                select: {
+                  uri: true,
+                  name: true,
+                  id: true,
+                  size: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      const weeks = new Map<number, any>()
+
+      for (const report of reports) {
+        if (!weeks.has(report.week)) {
+          weeks.set(report.week, {
+            week: report.week,
+            title: `Weekly Report - Week ${report.week}`,
+            departments: [],
+            deptMap: new Map<string, any>(),
+          });
+        }
+
+
+        const weekEntry = weeks.get(report.week);
+        const deptMap = weekEntry.deptMap;
+
+        const userDepartments = report.department;
+
+        if (userDepartments) {
+          if (!deptMap.has('NO_DEPARTMENT')) {
+            deptMap.set('NO_DEPARTMENT', {
+              department: userDepartments,
+              tasks: [],
+              status: report.status
+            });
+          }
+
+          deptMap.get('NO_DEPARTMENT').tasks.push(...report.reports);
+
+          continue;
+        }
+
+        if (!deptMap.has(userDepartments.id)) {
+          deptMap.set(userDepartments.id, {
+            department: userDepartments,
+          });
+        }
+
+        deptMap.get(userDepartments.id).tasks.push(...report.reports);
+      }
+
+
+      for (const weekEntry of weeks.values()) {
+        weekEntry.departments = Array.from(weekEntry.deptMap.values());
+        delete weekEntry.deptMap;
+      }
+
+      return Array.from(weeks.values());
+    } catch (error) {
+      bad(error);
+    }
   }
 
 

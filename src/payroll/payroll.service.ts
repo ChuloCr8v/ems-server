@@ -419,6 +419,13 @@ export class PayrollService {
     try {
       const [payrolls, total] = await Promise.all([
         this.prisma.payroll.findMany({
+          where: {
+            user: {
+              NOT: {
+                status: "INACTIVE"
+              }
+            }
+          },
           // skip,
           // take,
           include: {

@@ -134,8 +134,11 @@ model Department {
   tasks             Task[]
   entitlements      DepartmentEntitlement[]
   teams             Team[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @default(now()) @updatedAt
+
+  departmentWeeklyReports DepartmentWeeklyReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model Team {
@@ -248,6 +251,9 @@ model Upload {
 
   logs  Logs?   @relation(fields: [logId], references: [id], onDelete: Cascade)
   logId String? @db.Uuid
+
+  reportItemId String?
+  reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 }
 
 model Contacts {
@@ -800,6 +806,8 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  reportItems ReportItem[]
 }
 
 model taskDueDate {
@@ -836,6 +844,45 @@ model Report {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @db.Uuid
   tasks  Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DepartmentWeeklyReport {
+  id           String       @id @default(uuid())
+  reportId     String       @unique
+  departmentId String       @db.Uuid
+  title        String
+  week         Int
+  reports      ReportItem[]
+
+  status ReportStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([departmentId, week])
+}
+
+model ReportItem {
+  id               String     @id @default(uuid())
+  title            String
+  description      String?
+  status           TaskStatus
+  deliveryDate     DateTime?
+  comment          String?
+  includeAssignees Boolean?   @default(false)
+
+  taskId         String? @db.Uuid
+  weeklyReportId String
+
+  task         Task?                  @relation(fields: [taskId], references: [id])
+  weeklyReport DepartmentWeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+
+  attachments Upload[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1309,4 +1356,9 @@ enum EntitlementType {
 enum EntitlementScope {
   LEVEL
   DEPARTMENT
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
 }
