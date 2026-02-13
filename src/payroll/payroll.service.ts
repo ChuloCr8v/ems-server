@@ -44,6 +44,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 
+
 const templates = resolve(__dirname, '../payroll/templates');
 
 @Injectable()
@@ -419,6 +420,13 @@ export class PayrollService {
     try {
       const [payrolls, total] = await Promise.all([
         this.prisma.payroll.findMany({
+          where: {
+            user: {
+              NOT: {
+                status: "INACTIVE"
+              }
+            }
+          },
           // skip,
           // take,
           include: {

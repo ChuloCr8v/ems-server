@@ -101,9 +101,10 @@ model User {
   taskIssues    TaskIssues[]
   taskTransfers TaskTransfer[]
 
-  pip     Pip[]
-  rPipBy  RecommendedPip[] @relation("PipRecommendedBy")
-  rPipFor RecommendedPip[] @relation("PipRecommendedFor")
+  pip                   Pip[]
+  rPipBy                RecommendedPip[]       @relation("PipRecommendedBy")
+  rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
+  hrDepartmentApprovals HrDepartmentApproval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,8 +135,13 @@ model Department {
   tasks             Task[]
   entitlements      DepartmentEntitlement[]
   teams             Team[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @default(now()) @updatedAt
+
+  departmentWeeklyReports DepartmentWeeklyReport[]
+
+  pip                   Pip[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @default(now()) @updatedAt
+  hrDepartmentApprovals HrDepartmentApproval[]
 }
 
 model Team {
@@ -248,6 +254,9 @@ model Upload {
 
   logs  Logs?   @relation(fields: [logId], references: [id], onDelete: Cascade)
   logId String? @db.Uuid
+
+  reportItemId String?
+  reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 }
 
 model Contacts {
@@ -800,6 +809,8 @@ model Task {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  reportItems ReportItem[]
 }
 
 model taskDueDate {
@@ -836,6 +847,45 @@ model Report {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @db.Uuid
   tasks  Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DepartmentWeeklyReport {
+  id           String       @id @default(uuid())
+  reportId     String       @unique
+  departmentId String       @db.Uuid
+  title        String
+  week         Int
+  reports      ReportItem[]
+
+  status ReportStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([departmentId, week])
+}
+
+model ReportItem {
+  id               String     @id @default(uuid())
+  title            String
+  description      String?
+  status           TaskStatus
+  deliveryDate     DateTime?
+  comment          String?
+  includeAssignees Boolean?   @default(false)
+
+  taskId         String? @db.Uuid
+  weeklyReportId String
+
+  task         Task?                  @relation(fields: [taskId], references: [id])
+  weeklyReport DepartmentWeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+
+  attachments Upload[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1026,7 +1076,7 @@ model RatingSummary {
 //////////////////////////////////////////  PIP ///////////////////////////////////////////
 model Pip {
   id           String          @id @default(uuid()) @db.Uuid
-  pipId        String          @unique
+  pId          String          @unique
   title        String
   platform     String
   url          String
@@ -1037,10 +1087,12 @@ model Pip {
   reason       String
   status       PipStatus       @default(PENDING)
   comment      Comment[]
-  rPipId       String?         @unique @db.Uuid
-  rPip         RecommendedPip? @relation("RecommendationToPip", fields: [rPipId], references: [id], onDelete: SetNull)
+  rPId         String?         @unique @db.Uuid
+  rP           RecommendedPip? @relation("RecommendationToPip", fields: [rPId], references: [id], onDelete: SetNull)
   userId       String          @db.Uuid
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String?         @db.Uuid
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   uploads      Upload[]
   rejectedById String?         @db.Uuid
   rejecteAt    DateTime?
@@ -1062,6 +1114,24 @@ model RecommendedPip {
   pip              Pip?      @relation("RecommendationToPip")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model HrDepartmentApproval {
+  id String @id @default(uuid()) @db.Uuid
+
+  departmentId String     @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  approvedById String @db.Uuid
+  approvedBy   User   @relation(fields: [approvedById], references: [id])
+
+  totalCost Float
+
+  status PipStatus // APPROVED | REJECTED
+
+  createdAt DateTime @default(now())
+
+  @@index([departmentId])
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -1136,6 +1206,7 @@ enum PipStatus {
   PENDING
   MANAGER_APPROVED
   HR_APPROVED
+  SENT
   REJECTED
   COMPLETED
 }
@@ -1309,4 +1380,9 @@ enum EntitlementType {
 enum EntitlementScope {
   LEVEL
   DEPARTMENT
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
 }
