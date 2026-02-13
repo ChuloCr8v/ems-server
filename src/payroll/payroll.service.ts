@@ -44,6 +44,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 
+
 const templates = resolve(__dirname, '../payroll/templates');
 
 @Injectable()

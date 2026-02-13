@@ -101,9 +101,10 @@ model User {
   taskIssues    TaskIssues[]
   taskTransfers TaskTransfer[]
 
-  pip     Pip[]
-  rPipBy  RecommendedPip[] @relation("PipRecommendedBy")
-  rPipFor RecommendedPip[] @relation("PipRecommendedFor")
+  pip                   Pip[]
+  rPipBy                RecommendedPip[]       @relation("PipRecommendedBy")
+  rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
+  hrDepartmentApprovals HrDepartmentApproval[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -137,8 +138,10 @@ model Department {
 
   departmentWeeklyReports DepartmentWeeklyReport[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  pip                   Pip[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @default(now()) @updatedAt
+  hrDepartmentApprovals HrDepartmentApproval[]
 }
 
 model Team {
@@ -270,6 +273,7 @@ model Contacts {
 model Bank {
   id            String   @id @default(uuid()) @db.Uuid
   bankName      String
+  bankCode      String?
   accountName   String
   accountNumber String
   userId        String?  @unique @db.Uuid
@@ -703,10 +707,23 @@ model Claim {
   entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
   entitlementId String?      @db.Uuid
 
-  comments Comment[]
+  comments        Comment[]
+  claimPayments   ClaimPayment[]
+  paymentAttempts PaymentAttempt[]
 
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
+  paymentVerified       Boolean?  @default(false)
+  paymentReference      String?
+  paidAt                DateTime?
+  paymentMethod         String?   @default("PAYSTACK")
+  verifiedAccountName   String?
+  verifiedBankName      String?
+  verifiedAccountNumber String?
+  verifiedAt            DateTime?
+
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+  approvedAt DateTime?
+  rejectedAt DateTime?
 
   @@index([id])
 }
@@ -1073,7 +1090,7 @@ model RatingSummary {
 //////////////////////////////////////////  PIP ///////////////////////////////////////////
 model Pip {
   id           String          @id @default(uuid()) @db.Uuid
-  pipId        String          @unique
+  pId          String          @unique
   title        String
   platform     String
   url          String
@@ -1084,10 +1101,12 @@ model Pip {
   reason       String
   status       PipStatus       @default(PENDING)
   comment      Comment[]
-  rPipId       String?         @unique @db.Uuid
-  rPip         RecommendedPip? @relation("RecommendationToPip", fields: [rPipId], references: [id], onDelete: SetNull)
+  rPId         String?         @unique @db.Uuid
+  rP           RecommendedPip? @relation("RecommendationToPip", fields: [rPId], references: [id], onDelete: SetNull)
   userId       String          @db.Uuid
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId String?         @db.Uuid
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   uploads      Upload[]
   rejectedById String?         @db.Uuid
   rejecteAt    DateTime?
@@ -1109,6 +1128,53 @@ model RecommendedPip {
   pip              Pip?      @relation("RecommendationToPip")
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model ClaimPayment {
+  id                     String    @id @default(uuid()) @db.Uuid
+  claim                  Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId                String    @unique
+  amount                 Float
+  recipientName          String
+  recipientAccountNumber String
+  recipientBankCode      String
+  transferReference      String?
+  recipientCode          String?
+  status                 String    @default("PENDING") // PENDING, SUCCESS, FAILED
+  paymentMethod          String    @default("PAYSTACK")
+  processedAt            DateTime  @default(now())
+  verifiedAt             DateTime?
+  verificationResponse   Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model PaymentAttempt {
+  id          String   @id @default(uuid()) @db.Uuid
+  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claimId     String
+  amount      Float
+  error       String?
+  attemptedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+model HrDepartmentApproval {
+  id String @id @default(uuid()) @db.Uuid
+
+  departmentId String     @db.Uuid
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  approvedById String @db.Uuid
+  approvedBy   User   @relation(fields: [approvedById], references: [id])
+
+  totalCost Float
+
+  status PipStatus // APPROVED | REJECTED
+
+  createdAt DateTime @default(now())
+
+  @@index([departmentId])
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
@@ -1183,6 +1249,7 @@ enum PipStatus {
   PENDING
   MANAGER_APPROVED
   HR_APPROVED
+  SENT
   REJECTED
   COMPLETED
 }
@@ -1328,6 +1395,7 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+  PAID
 }
 
 enum Priority {
@@ -1358,7 +1426,10 @@ enum EntitlementScope {
   DEPARTMENT
 }
 
-enum ReportStatus {
-  DRAFT
-  SUBMITTED
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REVERSED
 }

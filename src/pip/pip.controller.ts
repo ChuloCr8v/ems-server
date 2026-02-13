@@ -42,7 +42,7 @@ export class PipController {
   }
 
   @Auth()
-  @Patch()
+  @Patch(':pipId')
   async updatePip(@Param('pipId') pipId: string, @Body() data: Partial<CreatePipDto>, @Res() res: Response) {
     const update = await this.pipService.updatePip(pipId, data);
     return res.status(200).json({ message: 'A New PIP Has Been Updated', update });
@@ -116,5 +116,13 @@ export class PipController {
     return res
       .status(200)
       .json({ message: 'PIP Has Been Marked As Completed', pip });
+  }
+
+  @Auth([Role.DEPT_MANAGER])
+  @Post(':departmentId/send')
+  async sendToHr(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+    const userId = user.sub;
+    const pip = await this.pipService.sendToHr(userId, departmentId);
+     return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
   }
 }
