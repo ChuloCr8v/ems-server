@@ -716,7 +716,6 @@ export class TasksService {
     note?: string,
   ) {
     try {
-      console.log({ dueDate });
 
       const task = await this.prisma.task.findUnique({
         where: {
@@ -765,7 +764,6 @@ export class TasksService {
 
   async acceptExtensionRequest(id: string, userId: string, userRole: Role[], dueDate?: Date) {
     try {
-      console.log(userRole);
       const canAccept =
         userRole.includes(Role.DEPT_MANAGER) ||
         userRole.includes(Role.TEAM_LEAD);
@@ -1410,7 +1408,6 @@ export class TasksService {
   }
 
   async deleteTask(id: string, userId: string, userRole: string[]) {
-    console.log({ userRole });
     const task = await this.getOneTask(id);
     // Only creators or managers can delete tasks
     const isCreator = task.createdBy.id === userId;

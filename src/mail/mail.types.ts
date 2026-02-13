@@ -41,6 +41,7 @@ export const MAIL_SUBJECT = {
   PIP_APPROVED: 'PIP Approved',
   PIP_REJECTED: 'PIP Rejected',
   PIP_COMPLETED: 'PIP Completed',
+  REPORT_SUBMITTED: 'New Weekly Report Submitted',
 };
 
 export class ProspectInviteDto {
@@ -525,6 +526,25 @@ export class PipMailDto {
   @IsOptional()
   @IsString()
   rejectorName?: string;
+  @IsString()
+  dashboardUrl: string;
+}
+
+export class ReportSubmittedMailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  reportTitle: string;
+
+  @IsNumber()
+  week: number;
+
+  @IsString()
+  departmentName: string;
 
   @IsString()
   dashboardUrl: string;
