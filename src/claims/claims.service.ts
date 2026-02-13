@@ -3,18 +3,22 @@ import {
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
+  BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClaimStatus, Prisma, Role } from '@prisma/client';
 import { CreateClaimDto, UpdateClaimDto } from './dto/claims.dto';
-import { bad, mustHave } from 'src/utils/error.utils';
+import { bad } from 'src/utils/error.utils'; // Using your typed bad() function
 import { MailService } from 'src/mail/mail.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ClaimApprovedEvent,
   ClaimCreatedEvent,
+  ClaimPaidEvent,
   ClaimRejectedEvent,
 } from 'src/events/claim.event';
+import { PaystackService } from 'src/payment/payment.service';
 
 @Injectable()
 export class ClaimsService {
@@ -22,6 +26,7 @@ export class ClaimsService {
     private prisma: PrismaService,
     private mail: MailService,
     private event: EventEmitter2,
+    private paystack: PaystackService,
   ) { }
 
   async addClaim(userId: string, createClaimDto: CreateClaimDto) {
@@ -96,19 +101,156 @@ export class ClaimsService {
 
       return claim;
     } catch (error) {
-      bad(error);
+      // bad(error); // TODO: handle error
+      throw new InternalServerErrorException();
     }
   }
 
-  async findAll(
-    userId: string,
-    userRole: Role[],
-    filters: { status?: ClaimStatus },
-  ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { approver: true },
-    });
+
+
+
+  // async findAll(
+  //   userId: string,
+  //   userRole: Role[],
+  //   filters: { status?: ClaimStatus }
+  // ) {
+  //   const user = await this.prisma.user.findUnique({
+  //     where: { id: userId },
+  //     include: { approver: true },
+  //   });
+
+  //   const approverDepartmentIds =
+  //     user?.approver?.map((d) => d.departmentId) ?? [];
+
+  //   const baseWhere: Prisma.ClaimWhereInput = {
+  //     ...(filters.status && { status: filters.status }),
+  //   };
+
+  //   const claims = await this.prisma.claim.findMany({
+  //     where: baseWhere,
+  //     include: {
+  //       user: {
+  //         select: {
+  //           id: true,
+  //           firstName: true,
+  //           lastName: true,
+  //           email: true,
+  //           departments: true,
+  //         },
+  //       },
+  //       proofUrls: true,
+  //       entitlement: true,
+  //       comments: {
+  //         include: {
+  //           user: true
+  //         }
+  //       }
+  //     },
+  //     orderBy: { createdAt: "desc" },
+  //   });
+
+  //   type ClaimWithUserAndProof = typeof claims[number];
+
+  //   let res: ClaimWithUserAndProof[] = [];
+
+  //   if (userRole.includes(Role.ADMIN)) {
+  //     res = claims;
+  //   } else if (userRole.includes(Role.DEPT_MANAGER) && approverDepartmentIds.length) {
+  //     res = claims.filter((claim) =>
+  //       claim.user.departments.some((dept) =>
+  //         approverDepartmentIds.includes(dept.id)
+  //       )
+  //     );
+  //   } else {
+  //     res = claims.filter((claim) => claim.userId === userId);
+  //   }
+
+  //   return res;
+  // }
+
+
+
+  // async findOne(id: string) {
+  //   const claim = await this.prisma.claim.findUnique({
+  //     where: { id },
+  //     include: {
+  //       user: {
+  //         select: {
+  //           id: true,
+  //           firstName: true,
+  //           lastName: true,
+  //           email: true,
+  //         },
+  //       },
+  //       proofUrls: true,
+  //       entitlement: true,
+  //       comments: {
+  //         include: {
+  //           user: true
+  //         }
+  //       }
+  //     },
+  //   });
+
+  //   if (!claim) {
+  //     throw new NotFoundException('Claim not found');
+  //   }
+
+  //   return claim
+  // }
+
+
+
+
+
+
+
+// For findOne method with bank:
+async findOne(id: string) {
+  const claim = await this.prisma.claim.findUnique({
+    where: { id },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          bank: true, // Add this if you need bank details
+        },
+      },
+      proofUrls: true,
+      entitlement: true,
+      comments: {
+        include: {
+          user: true
+        }
+      },
+      claimPayments: {
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }
+    },
+  });
+
+  if (!claim) {
+    throw new NotFoundException('Claim not found');
+  }
+
+  return claim
+}
+
+// For findAll method with bank:
+async findAll(
+  userId: string,
+  userRole: Role[],
+  filters: { status?: ClaimStatus }
+) {
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    include: { approver: true },
+  });
 
     const approverDepartmentIds =
       user?.approver?.map((d) => d.departmentId) ?? [];
@@ -117,97 +259,69 @@ export class ClaimsService {
       ...(filters.status && { status: filters.status }),
     };
 
-    const claims = await this.prisma.claim.findMany({
-      where: baseWhere,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            departments: true,
-          },
-        },
-        proofUrls: true,
-        entitlement: true,
-        comments: {
-          include: {
-            user: true,
-          },
+  const claims = await this.prisma.claim.findMany({
+    where: baseWhere,
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          departments: true,
+          bank: true, // Add this if you need bank details
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+      proofUrls: true,
+      entitlement: true,
+      comments: {
+        include: {
+          user: true
+        }
+      },
+      claimPayments: {
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-    type ClaimWithUserAndProof = (typeof claims)[number];
+  type ClaimWithUserAndProof = typeof claims[number];
 
     let res: ClaimWithUserAndProof[] = [];
 
-    if (userRole.includes(Role.ADMIN)) {
-      res = claims;
-    } else if (
-      userRole.includes(Role.DEPT_MANAGER) &&
-      approverDepartmentIds.length
-    ) {
-      res = claims.filter((claim) =>
-        claim.user.departments.some((dept) =>
-          approverDepartmentIds.includes(dept.id),
-        ),
-      );
-    } else {
-      res = claims.filter((claim) => claim.userId === userId);
-    }
+  if (userRole.includes(Role.ADMIN)) {
+    res = claims;
+  } else if (userRole.includes(Role.DEPT_MANAGER) && approverDepartmentIds.length) {
+    res = claims.filter((claim) =>
+      claim.user.departments.some((dept) =>
+        approverDepartmentIds.includes(dept.id)
+      )
+    );
+  } else {
+    res = claims.filter((claim) => claim.userId === userId);
+  }
 
     return res;
   }
 
-  async findOne(id: string) {
-    const claim = await this.prisma.claim.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        proofUrls: true,
-        entitlement: true,
-        comments: {
-          include: {
-            user: true,
-          },
-        },
-      },
-    });
-
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
-    }
-
-    return claim;
-  }
-
-  async updateClaim(
-    id: string,
-    userRole: Role[],
-    updateClaimDto: UpdateClaimDto,
-  ) {
-    console.log({ updateClaimDto });
+  async updateClaim(id: string, userRole: Role[], updateClaimDto: UpdateClaimDto) {
+    console.log({ updateClaimDto })
 
     const claim = await this.findOne(id);
 
-    if (!claim) mustHave(claim, 'Claim not found', 404);
+    if (!claim) {
+      bad('Claim not found', 404);
+    }
 
     if (
       (!userRole.includes(Role.DEPT_MANAGER) ||
         !userRole.includes(Role.DEPT_MANAGER)) &&
       updateClaimDto.status
     ) {
-      throw new ForbiddenException('Only managers can update claim status');
+      bad('Only managers can update claim status', 403);
     }
 
     const updatedClaim = await this.prisma.claim.update({
@@ -242,7 +356,7 @@ export class ClaimsService {
     const claim = await this.findOne(id);
 
     if (userRole.includes(Role.USER) && claim.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own claims');
+      bad('You can only delete your own claims', 403);
     }
 
     await this.prisma.claim.delete({
@@ -254,118 +368,209 @@ export class ClaimsService {
 
   async updateStatus(
     id: string,
-    status: 'APPROVED' | 'REJECTED',
+    status: 'APPROVED' | 'REJECTED' | 'PAID',
     approverId: string,
     notes?: string,
+    paymentData?: {
+      paymentReference?: string;
+      paymentMethod?: string;
+      paymentVerified?: boolean;
+      verifiedAccountName?: string;
+      verifiedBankName?: string;
+      verifiedAccountNumber?: string;
+      paystackReference?: string;
+    }
   ) {
     try {
-      // 1. Find claim and include user
+      // 1. Find claim and include user with bank details
       const claim = await this.prisma.claim.findUnique({
         where: { id },
-        include: { user: true },
+        include: { 
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              bank: true,
+            }
+          },
+          claimPayments: {
+            orderBy: { createdAt: 'desc' },
+            take: 1
+          }
+        },
       });
 
       if (!claim) {
-        throw new NotFoundException('Claim not found');
+        bad('Claim not found', 404);
       }
 
       if (!claim.user) {
-        throw new Error('Claim has no associated user');
+        bad('Claim has no associated user', 400);
       }
 
-      // 2. Update claim
+      // 2. Validate status transitions
+      const validTransitions = {
+        [ClaimStatus.PENDING]: ['APPROVED', 'REJECTED'],
+        [ClaimStatus.APPROVED]: ['PAID', 'REJECTED'],
+        [ClaimStatus.REJECTED]: ['APPROVED'],
+        [ClaimStatus.PAID]: []
+      };
+
+      const currentStatus = claim.status as ClaimStatus;
+      const allowedTransitions = validTransitions[currentStatus] || [];
+      
+      if (!allowedTransitions.includes(status)) {
+        bad(
+          `Cannot transition from ${currentStatus} to ${status}. ` +
+          `Allowed transitions: ${allowedTransitions.join(', ')}`,
+          400
+        );
+      }
+
+      // 3. Additional validations for PAID status
+      if (status === 'PAID') {
+        // Check payment reference
+        if (!paymentData?.paymentReference && !paymentData?.paystackReference) {
+          bad('Payment reference is required for PAID status', 400);
+        }
+
+        // Check if account is verified (if paymentVerified is explicitly false)
+        if (paymentData?.paymentVerified === false) {
+          bad(
+            'Account must be verified before marking claim as PAID. Please verify account first.',
+            400
+          );
+        }
+
+        // Check if bank details exist
+        if (!claim.user.bank) {
+          bad(
+            'Employee bank details are missing. Please update employee profile before marking as PAID.',
+            400
+          );
+        }
+
+        // Check if there's already a successful payment
+        const hasSuccessfulPayment = claim.claimPayments.some(
+          payment => payment.status === 'SUCCESS'
+        );
+        if (hasSuccessfulPayment) {
+          bad('Payment has already been successfully processed for this claim', 409);
+        }
+      }
+
+      // 4. Prepare update data
+      const updateData: any = {
+        status: status as ClaimStatus,
+        updatedAt: new Date(),
+      };
+
+      // Add notes if provided
+      if (notes?.trim()) {
+        updateData.notes = notes.trim();
+      }
+
+      // Add payment-specific data for PAID status
+      if (status === 'PAID' && paymentData) {
+        // Use paystackReference as paymentReference if provided
+        const paymentReference = paymentData.paystackReference || paymentData.paymentReference;
+        
+        updateData.paymentReference = paymentReference;
+        updateData.paymentMethod = paymentData.paymentMethod || 'PAYSTACK';
+        updateData.paidAt = new Date();
+        
+        // Add verification data if provided
+        if (paymentData.paymentVerified !== undefined) {
+          updateData.paymentVerified = paymentData.paymentVerified;
+        }
+        if (paymentData.verifiedAccountName) {
+          updateData.verifiedAccountName = paymentData.verifiedAccountName;
+        }
+        if (paymentData.verifiedBankName) {
+          updateData.verifiedBankName = paymentData.verifiedBankName;
+        }
+        if (paymentData.verifiedAccountNumber) {
+          updateData.verifiedAccountNumber = paymentData.verifiedAccountNumber;
+        }
+      } else if (status === 'APPROVED') {
+        updateData.approvedAt = new Date();
+      } else if (status === 'REJECTED') {
+        updateData.rejectedAt = new Date();
+      }
+
+      // 5. Update claim
       const updatedClaim = await this.prisma.claim.update({
         where: { id },
-        data: {
-          status,
-          notes: notes || undefined,
-          updatedAt: new Date(),
+        data: updateData,
+        include: { 
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              bank: true,
+            }
+          },
+          claimPayments: true
         },
-        include: { user: true },
       });
 
-      // 3. Find approver safely
+      // 6. Find approver safely
       let approverName = 'Admin';
       try {
         const approver = await this.prisma.user.findUnique({
           where: { id: approverId },
         });
-        if (approver)
+        if (approver) {
           approverName = `${approver.firstName} ${approver.lastName}`;
+        }
       } catch (error) {
-        bad('Failed to find approver:', error);
+        console.warn('Failed to find approver:', error);
       }
 
-      // 4. Emit events and send emails asynchronously (won't block)
-      const sendMailSafe = async (mailFunc: () => Promise<void>) => {
-        try {
-          await mailFunc();
-        } catch (err) {
-          bad('Failed to send email:', err);
+      // 7. Send notifications
+      await this.sendNotifications(updatedClaim, status, approverId, approverName, notes);
+
+      // 8. Return success response
+      return {
+        success: true,
+        data: updatedClaim,
+        message: this.getSuccessMessage(status),
+        metadata: {
+          claimId: updatedClaim.claimId,
+          amount: updatedClaim.amount,
+          employeeName: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
+          previousStatus: claim.status,
+          newStatus: status,
+          ...(status === 'PAID' && {
+            paymentReference: updatedClaim.paymentReference,
+            paidAt: updatedClaim.paidAt,
+            paymentVerified: updatedClaim.paymentVerified || false,
+          }),
+          timestamp: new Date().toISOString(),
         }
       };
-
-      if (status === 'APPROVED') {
-        this.event.emit(
-          'claim.approved',
-          new ClaimApprovedEvent(
-            id,
-            updatedClaim.userId,
-            [updatedClaim.userId],
-            approverId,
-          ),
-        );
-
-        await sendMailSafe(() =>
-          this.mail.sendClaimApprovalMail({
-            email: updatedClaim.user.email,
-            name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-            claimTitle: updatedClaim.title,
-            amount: updatedClaim.amount.toLocaleString('en-US'),
-            date: updatedClaim.dateOfExpense,
-            approverName,
-          }),
-        );
-      }
-
-      if (status === 'REJECTED') {
-        this.event.emit(
-          'claim.rejected',
-          new ClaimRejectedEvent(
-            id,
-            updatedClaim.userId,
-            [updatedClaim.userId],
-            approverId,
-            notes,
-          ),
-        );
-
-        await sendMailSafe(() =>
-          this.mail.sendClaimRejectionMail({
-            email: updatedClaim.user.email,
-            name: `${updatedClaim.user.firstName} ${updatedClaim.user.lastName}`,
-            claimTitle: updatedClaim.title,
-            amount: updatedClaim.amount.toLocaleString('en-US'),
-            date: updatedClaim.dateOfExpense,
-            approverName,
-            reason: notes,
-          }),
-        );
-      }
-
-      return updatedClaim;
+      
     } catch (error) {
       console.error('Failed to update claim status:', error);
-      throw new InternalServerErrorException(
-        'Unable to update claim status',
-        error,
-      );
+      
+      if (error instanceof BadRequestException || 
+          error instanceof NotFoundException || 
+          error instanceof ForbiddenException ||
+          error instanceof ConflictException) {
+        throw error;
+      }
+      
+      bad('Unable to update claim status', 500);
     }
   }
 
   async approveClaim(id: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    if (!claim) bad('Claim not found', 404);
 
     return this.prisma.claim.update({
       where: { id },
@@ -375,7 +580,7 @@ export class ClaimsService {
 
   async rejectClaim(id: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    if (!claim) bad('Claim not found', 404);
 
     return this.prisma.claim.update({
       where: { id },
@@ -395,14 +600,15 @@ export class ClaimsService {
         },
       });
 
-      if (!claim) mustHave(claim, 'Task not found', 404);
+      if (!claim) bad('Claim not found', 404);
+      
       const user = await this.prisma.user.findUnique({
         where: {
           id: userId,
         },
       });
 
-      if (!user) mustHave(user, 'user not found', 404);
+      if (!user) bad('User not found', 404);
 
       const comment = await this.prisma.comment.create({
         data: {
@@ -414,30 +620,350 @@ export class ClaimsService {
           user: { connect: { id: userId } },
         },
       });
+      
       return {
         message: 'Comment added successfully',
         data: comment,
       };
     } catch (error) {
-      bad(error);
+      bad('Failed to add comment', 500);
     }
   }
 
-  // async mapToResponseDto(claim: any): Promise<ClaimResponseDto> {
-  //   return {
-  //     id: claim.id,
-  //     title: claim.title,
-  //     claimType: claim.claimType,
-  //     amount: claim.amount,
-  //     dateOfExpense: claim.dateOfExpense,
-  //     description: claim.description,
-  //     status: claim.status,
-  //     proofUrls: await Promise.all(
-  //     (claim.proofUrls || []).map(url => this.uploads.getSignedUrl(url)),
-  //     ),
-  //     userId: claim.userId,
-  //     createdAt: claim.createdAt,
-  //     updatedAt: claim.updatedAt,
-  //   };
-  // }
+  async processPayment(id: string, paymentDetails: {
+  bankCode: string;
+  accountNumber: string;
+  accountName?: string;
+}) {
+  const claim = await this.prisma.claim.findUnique({
+    where: { id },
+    include: {
+      user: true,
+      claimPayments: true, // Check if payments already exist
+    },
+  });
+
+  if (!claim) {
+    throw new NotFoundException('Claim not found');
+  }
+
+  if (claim.status !== ClaimStatus.APPROVED) {
+    throw new BadRequestException('Only approved claims can be paid');
+  }
+
+  // Check if there's already a successful payment
+  const successfulPayment = claim.claimPayments.find(p => p.status === 'SUCCESS');
+  if (successfulPayment) {
+    throw new BadRequestException('Payment has already been successfully processed for this claim');
+  }
+
+  try {
+    // Prepare payment details for Paystack
+    const paystackPaymentDetails = {
+      amount: claim.amount,
+      recipientEmail: claim.user.email,
+      recipientName: paymentDetails.accountName || `${claim.user.firstName} ${claim.user.lastName}`,
+      recipientBankCode: paymentDetails.bankCode,
+      recipientAccountNumber: paymentDetails.accountNumber,
+      narration: `Payment for claim: ${claim.title} (${claim.claimId})`,
+      claimId: claim.id,
+    };
+
+    // Process payment through Paystack
+    const paymentResult = await this.paystack.processPayment(paystackPaymentDetails);
+
+    if (!paymentResult.success) {
+      throw new BadRequestException(`Payment failed: ${paymentResult.message}`);
+    }
+
+    // Create ClaimPayment record (not Payment)
+    const claimPayment = await this.prisma.claimPayment.create({
+      data: {
+        claim: { connect: { id } },
+        amount: claim.amount,
+        recipientName: paystackPaymentDetails.recipientName,
+        recipientAccountNumber: paymentDetails.accountNumber,
+        recipientBankCode: paymentDetails.bankCode,
+        transferReference: paymentResult.transferReference,
+        recipientCode: paymentResult.recipientCode,
+        status: 'PENDING', // Will be updated via webhook
+        paymentMethod: 'PAYSTACK',
+        processedAt: new Date(),
+      },
+    });
+
+    // Update claim status to PAID
+    const updatedClaim = await this.prisma.claim.update({
+      where: { id },
+      data: {
+        status: ClaimStatus.PAID,
+        updatedAt: new Date(),
+      },
+      include: {
+        user: true,
+        claimPayments: true,
+      },
+    });
+
+    // Emit payment event
+    this.event.emit('claim.paid', new ClaimPaidEvent(
+      claim.id,
+      claim.userId,
+      [claim.userId],
+      paymentResult.transferReference,
+      claim.amount
+    ));
+
+    // Send payment confirmation email
+    await this.mail.sendPaymentConfirmationMail({
+      email: claim.user.email,
+      name: `${claim.user.firstName} ${claim.user.lastName}`,
+      claimTitle: claim.title,
+      amount: claim.amount.toLocaleString(),
+      paymentReference: paymentResult.transferReference,
+      date: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      message: 'Payment processed successfully',
+      claim: updatedClaim,
+      claimPayment: claimPayment,
+      transferReference: paymentResult.transferReference,
+    };
+  } catch (error) {
+    // Create PaymentAttempt record
+    await this.prisma.paymentAttempt.create({
+      data: {
+        claim: { connect: { id } },
+        amount: claim.amount,
+        // error: error.message,
+        attemptedAt: new Date(),
+      },
+    });
+
+    // throw new BadRequestException(`Payment processing failed: ${error.message}`);
+  }
+}
+
+// In src/claims/claims.service.ts, add these methods:
+
+async findByTransferReference(transferReference: string) {
+  return this.prisma.claim.findFirst({
+    where: {
+      claimPayments: {
+        some: {
+          transferReference,
+        },
+      },
+    },
+    include: {
+      user: true,
+      claimPayments: {
+        where: {
+          transferReference,
+        },
+      },
+    },
+  });
+}
+
+async updatePaymentStatus(
+  claimId: string,
+  status: 'SUCCESS' | 'FAILED' | 'REVERSED',
+  additionalData?: {
+    verifiedAt?: Date;
+    failureReason?: string;
+    reversalReason?: string;
+    paystackData?: any;
+  }
+) {
+  const claim = await this.prisma.claim.findUnique({
+    where: { id: claimId },
+    include: { claimPayments: true },
+  });
+
+  if (!claim || !claim.claimPayments.length) {
+    throw new NotFoundException('Claim or payment not found');
+  }
+
+  // Get the latest payment
+  const latestPayment = claim.claimPayments[claim.claimPayments.length - 1];
+  
+  const updateData: any = {
+    status,
+    verifiedAt: additionalData?.verifiedAt || new Date(),
+  };
+
+  if (status === 'FAILED' && additionalData?.failureReason) {
+    updateData.failureReason = additionalData.failureReason;
+  }
+
+  if (status === 'REVERSED' && additionalData?.reversalReason) {
+    updateData.reversalReason = additionalData.reversalReason;
+  }
+
+  if (additionalData?.paystackData) {
+    updateData.paystackData = additionalData.paystackData;
+  }
+
+  return this.prisma.claimPayment.update({
+    where: { id: latestPayment.id },
+    data: updateData,
+  });
+}
+
+  // Helper method to send notifications
+  private async sendNotifications(
+    claim: any,
+    status: 'APPROVED' | 'REJECTED' | 'PAID',
+    approverId: string,
+    approverName: string,
+    notes?: string
+  ) {
+    const sendMailSafe = async (mailFunc: () => Promise<void>) => {
+      try {
+        await mailFunc();
+      } catch (err: any) {
+        console.warn('Failed to send email:', err);
+      }
+    };
+
+    if (status === 'APPROVED') {
+      this.event.emit(
+        'claim.approved',
+        new ClaimApprovedEvent(
+          claim.id,
+          claim.userId,
+          [claim.userId],
+          approverId,
+        ),
+      );
+
+      await sendMailSafe(() =>
+        this.mail.sendClaimApprovalMail({
+          email: claim.user.email,
+          name: `${claim.user.firstName} ${claim.user.lastName}`,
+          claimTitle: claim.title,
+          amount: claim.amount.toLocaleString('en-US'),
+          date: claim.dateOfExpense,
+          approverName,
+        })
+      );
+    } 
+    else if (status === 'REJECTED') {
+      this.event.emit(
+        'claim.rejected',
+        new ClaimRejectedEvent(
+          claim.id,
+          claim.userId,
+          [claim.userId],
+          approverId,
+          notes,
+        ),
+      );
+
+      await sendMailSafe(() =>
+        this.mail.sendClaimRejectionMail({
+          email: claim.user.email,
+          name: `${claim.user.firstName} ${claim.user.lastName}`,
+          claimTitle: claim.title,
+          amount: claim.amount.toLocaleString('en-US'),
+          date: claim.dateOfExpense,
+          approverName,
+          reason: notes,
+        })
+      );
+    } 
+    else if (status === 'PAID') {
+      this.event.emit(
+        'claim.paid',
+        new ClaimPaidEvent(
+          claim.id,
+          claim.userId,
+          [claim.userId],
+          approverId,
+          claim.paymentReference,
+          // claim.amount,
+        ),
+      );
+
+      // Send payment confirmation email
+      await sendMailSafe(() =>
+        this.mail.sendPaymentConfirmationMail({
+          email: claim.user.email,
+          name: `${claim.user.firstName} ${claim.user.lastName}`,
+          claimTitle: claim.title,
+          amount: claim.amount.toLocaleString('en-US'),
+          paymentReference: claim.paymentReference,
+          paymentMethod: claim.paymentMethod,
+          accountName: claim.verifiedAccountName || `${claim.user.firstName} ${claim.user.lastName}`,
+          bankName: claim.verifiedBankName || claim.user.bank?.bankName,
+          accountNumber: claim.verifiedAccountNumber || claim.user.bank?.accountNumber?.slice(-4),
+          date: new Date().toLocaleDateString(),
+        })
+      );
+    }
+  }
+
+  // Helper method to get success messages
+  private getSuccessMessage(status: string): string {
+    const messages = {
+      APPROVED: 'Claim approved successfully',
+      REJECTED: 'Claim rejected successfully',
+      PAID: 'Claim marked as paid successfully'
+    };
+    return messages[status] || 'Claim status updated successfully';
+  }
+
+  // Add method to update claim verification status separately
+  async updateClaimVerification(
+    claimId: string,
+    verificationData: {
+      paymentVerified: boolean;
+      verifiedAccountName?: string;
+      verifiedBankName?: string;
+      verifiedAccountNumber?: string;
+    }
+  ) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId }
+    });
+
+    if (!claim) {
+      bad('Claim not found', 404);
+    }
+
+    // Can only verify approved claims
+    if (claim.status !== ClaimStatus.APPROVED) {
+      bad('Only approved claims can be verified', 400);
+    }
+
+    const updatedClaim = await this.prisma.claim.update({
+      where: { id: claimId },
+      data: {
+        ...verificationData,
+        verifiedAt: new Date(),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            bank: true,
+          }
+        }
+      },
+    });
+
+    return {
+      success: true,
+      data: updatedClaim,
+      message: verificationData.paymentVerified 
+        ? 'Account verified successfully'
+        : 'Account verification status updated'
+    };
+  }
 }

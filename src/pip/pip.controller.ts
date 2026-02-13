@@ -27,11 +27,25 @@ export class PipController {
     return res.status(200).json({ message: 'A New PIP Has Been Created', pip });
   }
 
+  @Auth([Role.HR, Role.ADMIN])
+  @Get()
+  async getAllPips(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getAllPips(userId);
+  }
+
   @Auth()
   @Get('me')
   async getMyPips(@AuthUser() user: IAuthUser) {
     const userId = user.sub;
     return await this.pipService.getMyPips(userId);
+  }
+
+  @Auth()
+  @Patch(':pipId')
+  async updatePip(@Param('pipId') pipId: string, @Body() data: Partial<CreatePipDto>, @Res() res: Response) {
+    const update = await this.pipService.updatePip(pipId, data);
+    return res.status(200).json({ message: 'A New PIP Has Been Updated', update });
   }
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
@@ -67,6 +81,14 @@ export class PipController {
     const pip = await this.pipService.approvePip(userId, pipId, data);
     return res.status(200).json({ message: 'PIP Has Been Approved', pip });
   }
+  
+  @Auth([Role.HR, Role.ADMIN])
+  @Patch(':departmentId/approve-department-pips')
+  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+    const userId = user.sub;
+    const pips = await this.pipService.approveDepartmentsPip(userId, departmentId);
+    return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
+  }
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
   @Patch(':pipId/reject')
@@ -94,5 +116,13 @@ export class PipController {
     return res
       .status(200)
       .json({ message: 'PIP Has Been Marked As Completed', pip });
+  }
+
+  @Auth([Role.DEPT_MANAGER])
+  @Post(':departmentId/send')
+  async sendToHr(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+    const userId = user.sub;
+    const pip = await this.pipService.sendToHr(userId, departmentId);
+     return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
   }
 }

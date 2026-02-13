@@ -24,7 +24,7 @@ import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('department')
 export class DepartmentController {
-  constructor(private readonly departmentService: DepartmentService) {}
+  constructor(private readonly departmentService: DepartmentService) { }
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post()
@@ -39,7 +39,7 @@ export class DepartmentController {
       .json({ message: `A New Department Has Been Created`, department });
   }
 
-  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.HR, Role.DEPT_MANAGER])
   @Get()
   async getAllDepartments() {
     return await this.departmentService.getAllDepartment();

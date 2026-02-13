@@ -40,7 +40,7 @@ export class CreatePipDto {
 
   @IsString()
   @IsOptional()
-  rPipId?: string;
+  rPId?: string;
 }
 
 export class RecommendPipDto {
