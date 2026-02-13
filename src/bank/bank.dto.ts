@@ -12,8 +12,4 @@ export class BankDto {
   @IsString()
   @IsNotEmpty()
   accountNumber: string;
-
-  @IsString()
-  @IsNotEmpty()
-  bankCode?: string;
 }
