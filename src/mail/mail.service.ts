@@ -26,6 +26,8 @@ import {
   TaskDueDateChangeDto,
   AppraisalMailDto,
   PipMailDto,
+  InviteDocumentUploadDto,
+  ReportSubmittedMailDto,
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
@@ -101,7 +103,9 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       template: 'acceptance',
-      context: { name },
+      context: {
+        name, date: new Date().getFullYear()
+      },
     });
   }
 
@@ -111,7 +115,23 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.DECLINE_OFFER,
       template: 'decline',
-      context: { name },
+      context: { name, date: new Date().getFullYear() },
+    });
+  }
+
+  async sendDocumentUploadMail(data: InviteDocumentUploadDto) {
+    const { email, name, role } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.INVITE_DOCUMENT_UPLOAD,
+      template: 'inviteDocumentUpload',
+      context: {
+        prospectName: name, prospectEmail: email, role, submittedAt: new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'long',
+          year: 'numeric',
+        }), adminLink: 'https://ems.miro.zoracom.com/login'
+      },
     });
   }
 
@@ -532,6 +552,16 @@ export class MailService {
       subject: MAIL_SUBJECT.PIP_COMPLETED,
       template: 'pipCompleted',
       context: { name, dashboardUrl },
+    });
+  }
+
+  async sendReportSubmittedMail(data: ReportSubmittedMailDto) {
+    const { email, name, reportTitle, week, departmentName, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.REPORT_SUBMITTED,
+      template: 'reportSubmitted',
+      context: { name, reportTitle, week, departmentName, dashboardUrl },
     });
   }
 }

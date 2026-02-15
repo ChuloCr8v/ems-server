@@ -2,7 +2,7 @@
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <title>Offer Accepted</title>
+    <title>New Report Submitted</title>
 
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
@@ -111,14 +111,14 @@
 
                       <h1
                         style='
+                          text-align: center;
                           font-size: 24px;
                           font-weight: 800;
                           margin: 0 0 24px;
                           color: #000000;
                         '
                       >
-                        {{name}}
-                        Accepted Their Offer
+                        New Report Submitted
                       </h1>
 
                       <p
@@ -129,7 +129,7 @@
                         '
                       >
                         Hello
-                        <strong>Admin</strong>,
+
                       </p>
 
                       <p
@@ -140,16 +140,56 @@
                           margin: 0 0 32px;
                         '
                       >
-                        <strong>{{name}}</strong>
-                        has accepted the invitation. Login into the dashboard to
-                        view the details.
+                        A new weekly report has been submitted for review.
                       </p>
 
-                      <p
-                        style='margin-top: 40px; font-size: 14px; color: #5e5e5e;'
+                      <table
+                        width='100%'
+                        style='margin: 0 0 32px; font-size: 16px; color: #5e5e5e; line-height: 1.5;'
                       >
-                        Cheers,<br />
-                        <strong>The HR Team</strong>
+                        {{!-- <tr>
+                          <td width='150'><strong>Report Title:</strong></td>
+                          <td>{{reportTitle}}</td>
+                        </tr> --}}
+                        <tr>
+                          <td><strong>Week:</strong></td>
+                          <td>Week {{week}}</td>
+                        </tr>
+                        <tr>
+                          <td><strong>Department:</strong></td>
+                          <td>{{departmentName}}</td>
+                        </tr>
+                      </table>
+
+                      <!-- Button -->
+                      <table align='center' cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td
+                            bgcolor='#0a96cc'
+                            style='
+                              border-radius: 200px;
+                              text-align: center;
+                            '
+                          >
+                            <a
+                              href='{{dashboardUrl}}'
+                              style='
+                                display: inline-block;
+                                padding: 12px 45px;
+                                font-size: 14px;
+                                color: #ffffff;
+                                font-weight: 600;
+                              '
+                            >
+                              View Report
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style='margin-top: 40px; font-size: 14px;'>
+                        Regards,<br />
+                        <strong>TalentX</strong>
                       </p>
 
                     </td>
@@ -162,21 +202,13 @@
             <tr>
               <td bgcolor='#ecf8ee' style='padding: 40px 48px;'>
                 <p style='font-size: 14px; margin: 0 0 16px;'>
-                  Questions or FAQ? Contact us at
-                  <a href='mailto:hrteam@zoracom.com'>hrteam@zoracom.com</a>.
-                  Don’t want any more emails from Zoracom?
-                  <a href='#'>Unsubscribe</a>.
-                </p>
-
-                <p style='font-size: 14px; margin: 0 0 8px;'>
                   NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
                   Expressway, Lagos, Nigeria
                 </p>
 
                 <p style='font-size: 14px; margin: 0;'>
-                  Copyright
-                  {{date}}
-                  © Zora Communications Limited. All Rights Reserved.
+                  Copyright 2025 © Zora Communications Limited. All Rights
+                  Reserved.
                 </p>
               </td>
             </tr>

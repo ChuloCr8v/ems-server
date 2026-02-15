@@ -13,6 +13,7 @@ export const MAIL_SUBJECT = {
   OFFER_ACCEPTANCE: 'Offer Acceptance',
   UPDATE_USER_INFO: 'Update User Information',
   DECLINE_OFFER: 'Declined Offer',
+  INVITE_DOCUMENT_UPLOAD: 'Document Upload',
   WELCOME_EMAIL: '',
   LEAVE_REQUEST: 'New Leave Request',
   NEW_CLAIM: 'New Claim Added',
@@ -40,6 +41,7 @@ export const MAIL_SUBJECT = {
   PIP_APPROVED: 'PIP Approved',
   PIP_REJECTED: 'PIP Rejected',
   PIP_COMPLETED: 'PIP Completed',
+  REPORT_SUBMITTED: 'New Weekly Report Submitted',
 };
 
 export class ProspectInviteDto {
@@ -71,6 +73,12 @@ export class AcceptanceInviteDto {
 }
 
 export class DeclinedInviteDto extends AcceptanceInviteDto { }
+
+export class InviteDocumentUploadDto extends AcceptanceInviteDto {
+  @IsString()
+  role: string;
+}
+
 
 export class UpdateProspectInfoDto {
   @IsEmail()
@@ -518,6 +526,25 @@ export class PipMailDto {
   @IsOptional()
   @IsString()
   rejectorName?: string;
+  @IsString()
+  dashboardUrl: string;
+}
+
+export class ReportSubmittedMailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  name: string;
+
+  @IsString()
+  reportTitle: string;
+
+  @IsNumber()
+  week: number;
+
+  @IsString()
+  departmentName: string;
 
   @IsString()
   dashboardUrl: string;
