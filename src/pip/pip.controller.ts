@@ -90,6 +90,14 @@ export class PipController {
     return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
   }
 
+  @Auth([Role.HR, Role.ADMIN])
+  @Patch(':departmentId/reject-department-pips')
+  async rejectDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+    const userId = user.sub;
+    const pips = await this.pipService.rejectDepartmentPip(userId, departmentId);
+    return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
+  }
+
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
   @Patch(':pipId/reject')
   async rejectPip(
