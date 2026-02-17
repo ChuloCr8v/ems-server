@@ -356,6 +356,9 @@ model Comment {
 
   rPipId String?         @db.Uuid
   rPip   RecommendedPip? @relation(fields: [rPipId], references: [id], onDelete: SetNull)
+
+  hrDeptApprovalId String?               @db.Uuid
+  hrDeptApproval   HrDepartmentApproval? @relation(fields: [hrDeptApprovalId], references: [id])
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -696,6 +699,7 @@ model Claim {
   dateOfExpense DateTime
   description   String?
   notes         String?
+  type          ClaimType? 
   status        ClaimStatus @default(PENDING)
 
   userId    String   @db.Uuid
@@ -707,6 +711,8 @@ model Claim {
   entitlementId String?      @db.Uuid
 
   comments Comment[]
+  pipId    String?   @unique @db.Uuid
+  pip      Pip?      @relation(fields: [pipId], references: [id], onDelete: SetNull)
 
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt
@@ -1093,6 +1099,7 @@ model Pip {
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId String?         @db.Uuid
   department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  claim        Claim?
   uploads      Upload[]
   rejectedById String?         @db.Uuid
   rejecteAt    DateTime?
@@ -1126,6 +1133,7 @@ model HrDepartmentApproval {
   approvedBy   User   @relation(fields: [approvedById], references: [id])
 
   totalCost Float
+  reason    Comment[]
 
   status PipStatus // APPROVED | REJECTED
 
@@ -1163,6 +1171,7 @@ enum NotificationActionType {
   PIP_APPROVED
   PIP_REJECTED
   PIP_COMPLETED
+  PIP_REQUESTED
 }
 
 enum ApprovalStatus {
@@ -1207,6 +1216,7 @@ enum PipStatus {
   MANAGER_APPROVED
   HR_APPROVED
   SENT
+  SUBMITTED
   REJECTED
   COMPLETED
 }
@@ -1352,6 +1362,13 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+  REFUNDED
+}
+
+enum ClaimType {
+  TRAINING_PLAN
+  OTHERS
+
 }
 
 enum Priority {
