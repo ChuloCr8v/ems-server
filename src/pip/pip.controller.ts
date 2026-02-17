@@ -135,7 +135,7 @@ export class PipController {
   }
 
   @Auth([Role.SUPERADMIN])
-  @Post('managers-pip')
+  @Get('managers-pip')
   async getManagersPip(@AuthUser() user: IAuthUser) {
     const userId = user.sub;
     return await this.pipService.getAllManagersPip(userId);
