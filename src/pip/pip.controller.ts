@@ -84,18 +84,18 @@ export class PipController {
   
   @Auth([Role.HR, Role.ADMIN])
   @Patch(':departmentId/approve-department-pips')
-  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason: string }, @Res() res: Response) {
     const userId = user.sub;
-    const pips = await this.pipService.approveDepartmentsPip(userId, departmentId);
+    const pips = await this.pipService.approveDepartmentsPip(userId, departmentId, data.reason);
     return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
   }
 
   @Auth([Role.HR, Role.ADMIN])
   @Patch(':departmentId/reject-department-pips')
-  async rejectDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+  async rejectDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason: string }, @Res() res: Response) {
     const userId = user.sub;
-    const pips = await this.pipService.rejectDepartmentPip(userId, departmentId);
-    return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
+    const pips = await this.pipService.rejectDepartmentPip(userId, departmentId, data.reason);
+    return res.status(200).json({ message: 'Department PIPs Have Been Rejected', pips });
   }
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
@@ -132,5 +132,12 @@ export class PipController {
     const userId = user.sub;
     const pip = await this.pipService.sendToHr(userId, departmentId);
      return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
+  }
+
+  @Auth([Role.SUPERADMIN])
+  @Post('managers-pip')
+  async getManagersPip(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getAllManagersPip(userId);
   }
 }
