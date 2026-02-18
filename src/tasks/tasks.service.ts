@@ -1224,14 +1224,14 @@ export class TasksService {
         });
 
         // Log significant changes in updateTask
-        if (status && status !== findTask.status) {
-          await this.logTaskAction({
-            action: `Status changed to ${status}`,
-            userId: userId,
-            taskId: id,
-            comment: issue,
-          });
-        }
+        // if (status && status !== findTask.status) {
+        //   await this.logTaskAction({
+        //     action: `Status changed to ${status}`,
+        //     userId: userId,
+        //     taskId: id,
+        //     comment: issue,
+        //   });
+        // }
 
         if (rest.priority && rest.priority !== findTask.priority) {
           await this.logTaskAction({
@@ -1242,6 +1242,9 @@ export class TasksService {
         }
 
         return updatedTask;
+      }, {
+        maxWait: 20000,
+        timeout: 20000,
       });
 
       // //Emit notification events based on what changed

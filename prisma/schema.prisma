@@ -1052,6 +1052,7 @@ model Feedback {
 
 model FeedbackQuestion {
   id         String   @id @default(uuid()) @db.Uuid
+  order      Int
   question   String
   response   String?
   feedbackId String   @db.Uuid

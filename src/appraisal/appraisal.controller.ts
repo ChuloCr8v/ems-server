@@ -33,7 +33,7 @@ export class AppraisalController {
   constructor(
     private readonly appraisal: AppraisalService,
     private readonly appraisalScheduler: AppraisalSchedulerService,
-  ) {}
+  ) { }
   @Auth([Role.DEPT_MANAGER, Role.USER])
   @Patch(':appraisalId/submit')
   async fillAppraisal(

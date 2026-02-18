@@ -29,7 +29,7 @@ export class AppraisalService {
   constructor(
     private readonly prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   // Manager sends appraisals to department (makes them available for filling)
   async sendAppraisalToTeam(
@@ -75,7 +75,7 @@ export class AppraisalService {
     //Fetch employees in this department
     const employees = await this.prisma.user.findMany({
       where: {
-        userRole: { has: 'USER' },
+        userRole: { hasSome: ['USER', "TEAM_LEAD"] },
         departments: { some: { id: departmentId } },
       },
     });
@@ -114,6 +114,7 @@ export class AppraisalService {
                 create:
                   template.feedback?.questions.map((q) => ({
                     question: q.question,
+                    order: q.order,
                   })) || [],
               },
             },
@@ -189,8 +190,8 @@ export class AppraisalService {
       ) {
         throw bad(
           'Cannot save draft for an appraisal with status: ' +
-            appraisal.status +
-            '. Appraisal must be submitted by employee first.',
+          appraisal.status +
+          '. Appraisal must be submitted by employee first.',
         );
       }
       return this.saveManagerDraft(userId, appraisalId, data);
@@ -230,8 +231,8 @@ export class AppraisalService {
       ) {
         throw bad(
           'Cannot appraise an appraisal with status: ' +
-            appraisal.status +
-            '. Appraisal must be submitted by employee first.',
+          appraisal.status +
+          '. Appraisal must be submitted by employee first.',
         );
       }
       return this.appraiseSubmission(userId, appraisalId, data);
@@ -667,10 +668,10 @@ export class AppraisalService {
         const avg =
           ratings.length > 0
             ? parseFloat(
-                (
-                  ratings.reduce((sum, r) => sum + r, 0) / ratings.length
-                ).toFixed(2),
-              )
+              (
+                ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+              ).toFixed(2),
+            )
             : null;
 
         if (ratings.length > 0) {
@@ -704,10 +705,10 @@ export class AppraisalService {
       const overallAverage =
         allRatings.length > 0
           ? parseFloat(
-              (
-                allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length
-              ).toFixed(2),
-            )
+            (
+              allRatings.reduce((sum, r) => sum + r, 0) / allRatings.length
+            ).toFixed(2),
+          )
           : null;
 
       // Update overall average on the appraisal
@@ -856,7 +857,7 @@ export class AppraisalService {
     if (!['SUBMITTED', 'MANAGER_DRAFT'].includes(appraisal.status)) {
       throw bad(
         `Cannot appraise an appraisal with status: ${appraisal.status}. ` +
-          'Appraisal must be submitted by employee first.',
+        'Appraisal must be submitted by employee first.',
       );
     }
     return appraisal;

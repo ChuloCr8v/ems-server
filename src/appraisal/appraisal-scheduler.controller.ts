@@ -14,7 +14,7 @@ import { KpiCategoryStatus } from '@prisma/client';
 export class AppraisalSchedulerController {
   private readonly logger = new Logger(AppraisalSchedulerController.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   @Post('generate')
   async generateQuarterlyAppraisals() {
@@ -232,6 +232,7 @@ export class AppraisalSchedulerController {
                 question:
                   typeof question === 'string' ? question : question.question,
                 response: null,
+                order: question.order,
               })),
             },
           },
