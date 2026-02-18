@@ -57,7 +57,7 @@ export class UserController {
     return await this.userService.findAllUsers();
   }
 
-  @Auth()
+  @Auth(['SUPERADMIN', 'ADMIN', 'HR', 'FACILITY'])
   @Get(':id')
   async getUser(@Param('id') id: string, @Req() req: ReqPayload) {
     const requesterId = req.user.id;

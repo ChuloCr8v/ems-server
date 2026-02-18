@@ -2,14 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ApprovePipDto,
-  ClaimPipDto,
   CreatePipDto,
   MarkPipAsCompletedDto,
   RecommendPipDto,
   RejectPipDto,
 } from './dto/pip.dto';
 import { bad } from 'src/utils/error.utils';
-import { Role } from '@prisma/client';
+import { ClaimType, Role } from '@prisma/client';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -18,6 +17,7 @@ import {
   PipRecommendedEvent,
   PipRejectedEvent,
 } from 'src/events/pip.event';
+import { CreateClaimDto } from 'src/claims/dto/claims.dto';
 
 @Injectable()
 export class PipService {
@@ -197,9 +197,10 @@ export class PipService {
                     },
                 },
                 department: true,
+                comment: true,
+                uploads: true,
             };
 
-            // If pipId looks like a UUID, query by primary `id`, otherwise try the human-readable `pId`.
             if (uuidRegex.test(pipId)) {
                 return await this.prisma.pip.findUnique({
                     where: { id: pipId },
@@ -207,7 +208,6 @@ export class PipService {
                 });
             }
 
-            // fallback: lookup by pId (e.g. "Pip1234")
             return await this.prisma.pip.findFirst({
                 where: { pId: pipId },
                 include: includeOpts,
@@ -977,53 +977,76 @@ export class PipService {
         }
     }
 
+    async deleteAllPips(userId: string) {
+        try {
+            const user = await this.findUserById(userId);
+            if(!user) throw bad("User Not Found");
+            const isSuperAdmin = this.userHasRole(user, Role.SUPERADMIN);
+            if(!isSuperAdmin) throw bad("Only Super Admin can delete all PIPs");
+            await this.prisma.pip.deleteMany({});
+        } catch (error) {
+          console.log(error);
+            bad(`Failed to delete all PIPs: ${error.message}`);  
+        }
+    }
+
     async markPipAsCompleted(
         userId: string,
         pipId: string,
         data: MarkPipAsCompletedDto,
     ) {
-        const user = await this.findUserById(userId);
-        if (!user) {
-        throw bad('User Not Found');
-        }
-        const pip = await this.getPipById(pipId);
-        if (!pip) {
-        throw bad('PIP Not Found');
-        }
-        if (pip.userId !== user.id) {
-        throw bad('You can only mark your own PIP as completed');
-        }
-        const updatedPip = await this.prisma.pip.update({
-        where: { id: pip.id },
-        data: {
-            status: 'COMPLETED',
-            comment: {
-            create: {
-                comment: data.comment,
-            },
-            },
-            uploads: data.uploads
-            ? {
-                connect: data.uploads.map((id) => ({ id })),
+        try {
+          const user = await this.findUserById(userId);
+            if (!user) {
+            throw bad('User Not Found');
             }
-            : undefined,
-        },
-        });
+          const pip = await this.getPipById(pipId);
+            if (!pip) {
+            throw bad('PIP Not Found');
+            }
 
-        // Notify the recommender (Manager) that PIP is completed
-        const recipientIds = pip.rP?.recommendedById
-        ? [pip.rP.recommendedById]
-        : [];
+            if (pip.userId !== user.id) {
+            throw bad('You can only mark your own PIP as completed');
+            }
 
-        this.eventEmitter.emit(
-        'pip.completed',
-        new PipCompletedEvent(updatedPip.id, user.id, recipientIds),
-        );
+          const updatedPip = await this.prisma.pip.update({
+            where: { id: pip.id },
+                data: {
+                    status: 'COMPLETED',
+                    comment: {
+                    create: {
+                        comment: data.comment,
+                    },
+                    },
+                    uploads: data.uploads
+                    ? {
+                        connect: data.uploads.map((id) => ({ id })),
+                    }
+                    : undefined,
+                },
+            });
 
-        return updatedPip;
-    }
+            // Notify the recommender (Manager) that PIP is completed
+            const recipientIds = pip.rP?.recommendedById
+            ? [pip.rP.recommendedById]
+            : [];
 
-    async makePipClaimRequest(pipId: string, userId: string, data: ClaimPipDto) {}
+            this.eventEmitter.emit(
+            'pip.completed',
+            new PipCompletedEvent(updatedPip.id, user.id, recipientIds),
+            );
+
+            if(updatedPip) {
+                const claim = await this.makePipClaimRequest(pipId, userId);
+                return { updatedPip, claim };
+              } else {
+              throw bad("Failed to make PIP claim request");
+            }
+         } catch (error) {
+            console.log(error);
+            bad(`Failed to mark PIP as completed: ${error.message}`);
+         }
+     }
 
     /////////////////////////////// Helpers ///////////////////////////////
     private async findUserById(userId: string) {
@@ -1047,31 +1070,60 @@ export class PipService {
             return roles === role;
         }
 
-//     private async findDepartmentById(departmentId: string) {
-//         try {
-//             const department = await this.prisma.department.findUnique({
-//                 where: { id: departmentId },
-//                 include: {
-//                     user: true,
-//                 },
-//             });
-
-//       if (!department) {
-//         throw bad('Department not found');
-//       }
-//       return department;
-//     } catch (error) {
-//       console.log(error);
-//       bad(`Failed to get department: ${error.message}`);
-//     }
-//   }
-
-  private generateShortId(length: number = 10) {
-    const chars = '0123456789';
-    let result = '';
-    for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    private generateShortId(length: number = 10) {
+        const chars = '0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
     }
-    return result;
-  }
+
+    private async makePipClaimRequest(pipId: string, userId: string) {
+            try {
+                const user = await this.findUserById(userId);
+                if(!user) throw bad("User Not Found");
+
+                const pip = await this.getPipById(pipId);
+                if(!pip) throw bad("Pip Not Found");
+
+                if(pip.userId !== user.id) throw bad("You can only make claim request for your own PIP");
+                if(pip.status !== 'COMPLETED') throw bad("Only completed PIPs are eligible for claim requests");
+
+                const claimId = 'CLM' + Date.now().toString().slice(-4);
+                 //Create claim request
+                 const claim = await this.prisma.claim.create({
+                    data: {
+                        claimId,
+                        title: pip.title,
+                        amount: pip.cost,
+                        dateOfExpense: pip.endDate,
+                        description: pip.reason,
+                        type: ClaimType.TRAINING_PLAN,
+                        user: {
+                            connect: { id: user.id }
+                        },
+                        pip: {
+                            connect: { id: pip.id },
+                        },
+                        proofUrls: pip.uploads && pip.uploads.length > 0
+                        ? {
+                            connect: pip.uploads.map((upload) => ({ id: upload.id })),
+                        }
+                        : undefined,
+                    },
+                    include: {
+                        user: true,
+                        pip: true,
+                    },
+                 });
+                 return claim;
+                 
+
+            } catch (error) {
+                console.log(error);
+                bad(`Failed to make pip claim request: ${error.message}`);
+            }
+        }
+
 }

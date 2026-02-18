@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
 import { PipService } from './pip.service';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -139,5 +139,13 @@ export class PipController {
   async getManagersPip(@AuthUser() user: IAuthUser) {
     const userId = user.sub;
     return await this.pipService.getAllManagersPip(userId);
+  }
+
+  @Auth([Role.SUPERADMIN])
+  @Delete('delete-all')
+  async deleteAllPips(@AuthUser() user: IAuthUser, @Res() res: Response) {
+    const userId = user.sub;
+    await this.pipService.deleteAllPips(userId);
+    return res.status(200).json({ message: 'All PIPs Have Been Deleted' });
   }
 }
