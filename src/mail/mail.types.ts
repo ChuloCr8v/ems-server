@@ -41,7 +41,7 @@ export const MAIL_SUBJECT = {
   PIP_APPROVED: 'PIP Approved',
   PIP_REJECTED: 'PIP Rejected',
   PIP_COMPLETED: 'PIP Completed',
-  PAYMENT_CONFIRMED: 'Payment Confirmed',
+  REPORT_SUBMITTED: 'New Weekly Report Submitted',
 };
 
 export class ProspectInviteDto {
@@ -526,40 +526,26 @@ export class PipMailDto {
   @IsOptional()
   @IsString()
   rejectorName?: string;
-
   @IsString()
   dashboardUrl: string;
 }
 
-// In your mail DTOs file (or create one)
-export class PaymentConfirmationDto {
-    @IsEmail()
-    email: string;
+export class ReportSubmittedMailDto {
+  @IsEmail()
+  email: string;
 
-    @IsString()
-    name: string;
+  @IsString()
+  name: string;
 
-    @IsString()
-    claimTitle?: string; // For manager notification
+  @IsString()
+  reportTitle: string;
 
-    @IsString()
-    amount: string;
+  @IsNumber()
+  week: number;
 
-    @IsString()
-    paymentReference?: string;
+  @IsString()
+  departmentName: string;
 
-    @IsString()
-    date: string;
-
-    @IsString()
-    paymentMethod?: string;
-
-    @IsString()
-    accountName?: string;
-
-    @IsString()
-    accountNumber?: string;
-
-    @IsString()
-    bankName?: string;
+  @IsString()
+  dashboardUrl: string;
 }

@@ -273,7 +273,6 @@ model Contacts {
 model Bank {
   id            String   @id @default(uuid()) @db.Uuid
   bankName      String
-  bankCode      String?
   accountName   String
   accountNumber String
   userId        String?  @unique @db.Uuid
@@ -357,6 +356,9 @@ model Comment {
 
   rPipId String?         @db.Uuid
   rPip   RecommendedPip? @relation(fields: [rPipId], references: [id], onDelete: SetNull)
+
+  hrDeptApprovalId String?               @db.Uuid
+  hrDeptApproval   HrDepartmentApproval? @relation(fields: [hrDeptApprovalId], references: [id])
 }
 
 /// ///////////////////////////// ASSETS ///////////////////////
@@ -697,6 +699,7 @@ model Claim {
   dateOfExpense DateTime
   description   String?
   notes         String?
+  type          ClaimType? 
   status        ClaimStatus @default(PENDING)
 
   userId    String   @db.Uuid
@@ -707,23 +710,12 @@ model Claim {
   entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
   entitlementId String?      @db.Uuid
 
-  comments        Comment[]
-  claimPayments   ClaimPayment[]
-  paymentAttempts PaymentAttempt[]
+  comments Comment[]
+  pipId    String?   @unique @db.Uuid
+  pip      Pip?      @relation(fields: [pipId], references: [id], onDelete: SetNull)
 
-  paymentVerified       Boolean?  @default(false)
-  paymentReference      String?
-  paidAt                DateTime?
-  paymentMethod         String?   @default("PAYSTACK")
-  verifiedAccountName   String?
-  verifiedBankName      String?
-  verifiedAccountNumber String?
-  verifiedAt            DateTime?
-
-  createdAt  DateTime? @default(now())
-  updatedAt  DateTime? @updatedAt
-  approvedAt DateTime?
-  rejectedAt DateTime?
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
 
   @@index([id])
 }
@@ -1107,6 +1099,7 @@ model Pip {
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   departmentId String?         @db.Uuid
   department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  claim        Claim?
   uploads      Upload[]
   rejectedById String?         @db.Uuid
   rejecteAt    DateTime?
@@ -1130,35 +1123,6 @@ model RecommendedPip {
   updatedAt        DateTime  @updatedAt
 }
 
-model ClaimPayment {
-  id                     String    @id @default(uuid()) @db.Uuid
-  claim                  Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  claimId                String    @unique
-  amount                 Float
-  recipientName          String
-  recipientAccountNumber String
-  recipientBankCode      String
-  transferReference      String?
-  recipientCode          String?
-  status                 String    @default("PENDING") // PENDING, SUCCESS, FAILED
-  paymentMethod          String    @default("PAYSTACK")
-  processedAt            DateTime  @default(now())
-  verifiedAt             DateTime?
-  verificationResponse   Json?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
-}
-
-model PaymentAttempt {
-  id          String   @id @default(uuid()) @db.Uuid
-  claim       Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  claimId     String
-  amount      Float
-  error       String?
-  attemptedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-}
-
 model HrDepartmentApproval {
   id String @id @default(uuid()) @db.Uuid
 
@@ -1169,6 +1133,7 @@ model HrDepartmentApproval {
   approvedBy   User   @relation(fields: [approvedById], references: [id])
 
   totalCost Float
+  reason    Comment[]
 
   status PipStatus // APPROVED | REJECTED
 
@@ -1206,6 +1171,7 @@ enum NotificationActionType {
   PIP_APPROVED
   PIP_REJECTED
   PIP_COMPLETED
+  PIP_REQUESTED
 }
 
 enum ApprovalStatus {
@@ -1250,6 +1216,7 @@ enum PipStatus {
   MANAGER_APPROVED
   HR_APPROVED
   SENT
+  SUBMITTED
   REJECTED
   COMPLETED
 }
@@ -1395,7 +1362,13 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
-  PAID
+  REFUNDED
+}
+
+enum ClaimType {
+  TRAINING_PLAN
+  OTHERS
+
 }
 
 enum Priority {
@@ -1424,14 +1397,6 @@ enum EntitlementType {
 enum EntitlementScope {
   LEVEL
   DEPARTMENT
-}
-
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  SUCCESS
-  FAILED
-  REVERSED
 }
 
 enum ReportStatus {
