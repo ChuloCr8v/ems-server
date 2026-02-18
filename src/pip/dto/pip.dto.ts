@@ -89,17 +89,17 @@ export class MarkPipAsCompletedDto {
   uploads?: string[];
 }
 
-export class ClaimPipDto {
-  @IsString()
-  title: string;
+// export class ClaimPipDto {
+//   @IsString()
+//   title: string;
 
-  @IsNumber()
-  amount: number;
+//   @IsNumber()
+//   amount: number;
 
-  @IsDate()
-  @Type(() => Date)
-  dateOfExpense: Date;
+//   @IsDate()
+//   @Type(() => Date)
+//   dateOfExpense: Date;
 
-  @IsString()
-  de
-}
+//   @IsString()
+//   de
+// }
