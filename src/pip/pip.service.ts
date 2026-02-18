@@ -668,12 +668,14 @@ export class PipService {
                 approvedById: user.id,
                 totalCost,
                 status: 'HR_APPROVED',
-                reason: {
-                    create: {
-                        comment: reason,
-                        userId: user.id,
+                reason: reason
+                    ? {
+                        create: {
+                            comment: reason,
+                            userId: user.id,
+                        }
                     }
-                }
+                    : undefined,
             },
             });
 
