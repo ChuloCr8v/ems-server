@@ -84,7 +84,7 @@ export class PipController {
   
   @Auth([Role.HR, Role.ADMIN])
   @Patch(':departmentId/approve-department-pips')
-  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason: string }, @Res() res: Response) {
+  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason?: string }, @Res() res: Response) {
     const userId = user.sub;
     const pips = await this.pipService.approveDepartmentsPip(userId, departmentId, data.reason);
     return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
