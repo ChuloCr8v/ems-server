@@ -669,13 +669,13 @@ export class PipService {
                 totalCost,
                 status: 'HR_APPROVED',
                 reason: reason
-                    ? {
+                    && {
                         create: {
                             comment: reason,
                             userId: user.id,
                         }
                     }
-                    : undefined,
+        
             },
             });
 
