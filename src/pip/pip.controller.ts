@@ -27,7 +27,7 @@ export class PipController {
     return res.status(200).json({ message: 'A New PIP Has Been Created', pip });
   }
 
-  @Auth([Role.HR, Role.ADMIN])
+  @Auth()
   @Get()
   async getAllPips(@AuthUser() user: IAuthUser) {
     const userId = user.sub;

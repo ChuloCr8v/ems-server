@@ -103,81 +103,87 @@ export class PipService {
         
             const isHR = this.userHasRole(user, Role.HR);
             const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
-            if(isHR) {
-                return await this.prisma.pip.findMany({
+            const isSuperAdmin = this.userHasRole(user, Role.SUPERADMIN);
+
+            const includeOpts = {
+                rP: true,
+                comment: true,
+                uploads: true,
+                user: true,
+                department: {
                     include: {
-                        rP: true,
-                        comment: true,
-                        uploads: true,
-                        user: true,
-                        department: {
-                            include: {
-                                approver: {
-                                    include: { user: true, }
-                                },
-                            }
-                        }
+                        approver: {
+                            include: { user: true, }
+                        },
                     }
+                }
+            };
+
+            // HR: view all departments' pips
+            if (isHR) {
+                return await this.prisma.pip.findMany({
+                    include: includeOpts,
                 });
             }
-             //Users: Can only see their own pips
-            if(!isManager) {
+
+            // SUPERADMIN: view pips only for DEPT_MANAGERS
+            if (isSuperAdmin) {
                 return await this.prisma.pip.findMany({
-                    where: { userId: user.id },
-                    include: {
-                        rP: true,
-                        comment: true,
-                        uploads: true,
-                        user: true,
-                    }
-                });
-            }
-            // DEPT_MANAGERS: can see pips for the users in their team along with theirs
-            const department = await this.prisma.department.findFirst({
-                where: {
-                    user: {
-                        some: { id: user.id },
-                    },
-                },
-                include: {
-                    user: true,
-                    teams: {
-                        include: {
-                            members: true,
+                    where: {
+                        user: {
+                            userRole: {
+                                has: Role.DEPT_MANAGER,
+                            },
                         },
                     },
-                },
-            });
-            if (!department) {
-                throw bad("Department Not Found")
+                    include: includeOpts,
+                });
             }
-            const memberIds = department.user.map(user => user.id)
-            // const memberIds = department.teams.flatMap(team => team.members.map(member => member.id));
-            return await this.prisma.pip.findMany({
-                where: {
-                    OR: [
-                        //Pip for manager
-                        { userId: user.id },
 
-            //Pip for team members
-            { userId: { in: memberIds } },
-          ],
-        },
-        include: {
-          rP: true,
-          comment: true,
-          uploads: true,
-          user: true,
-          department: {
-            include: { approver: true, }
-          },
-        },
-      });
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to get pips: ${error.message}`);
+            // DEPT_MANAGER: view own pip and team members' pips
+            if (isManager) {
+                const department = await this.prisma.department.findFirst({
+                    where: {
+                        user: {
+                            some: { id: user.id },
+                        },
+                    },
+                    include: {
+                        user: true,
+                    },
+                });
+
+                if (!department) {
+                    throw bad("Department Not Found")
+                }
+
+                const memberIds = department.user.map(u => u.id);
+                return await this.prisma.pip.findMany({
+                    where: {
+                        OR: [
+                            { userId: user.id },
+                            { userId: { in: memberIds } },
+                        ],
+                    },
+                    include: includeOpts,
+                });
+            }
+
+            // USERS: view only their own pips
+            return await this.prisma.pip.findMany({
+                where: { userId: user.id },
+                include: {
+                    rP: true,
+                    comment: true,
+                    uploads: true,
+                    user: true,
+                }
+            });
+        } catch (error) {
+            console.log(error);
+            bad(`Failed to get pips: ${error.message}`);
+        }
     }
-  }
 
     async getPipById(pipId: string) {
         try {
@@ -281,7 +287,7 @@ export class PipService {
             bad(`Failed to get pips: ${error.message}`);
         }
     }
-
+    
   async recommendPip(userId: string, data: RecommendPipDto) {
     try {
       const { aoi, comment, teamMemberId } = data;
@@ -713,7 +719,8 @@ export class PipService {
             console.log(error);
             bad(`Failed to approve departmental PIPs: ${error.message}`);
         }
-        }
+
+    }
 
 
     async rejectPip(userId: string, pipId: string, data: RejectPipDto) {
@@ -985,7 +992,50 @@ export class PipService {
             if(!user) throw bad("User Not Found");
             const isSuperAdmin = this.userHasRole(user, Role.SUPERADMIN);
             if(!isSuperAdmin) throw bad("Only Super Admin can delete all PIPs");
-            await this.prisma.pip.deleteMany({});
+            
+            await this.prisma.$transaction(async (tx) => {
+                // Delete all comments related to recommended PIPs
+                await tx.comment.deleteMany({
+                    where: {
+                        rPip: {
+                            isNot: null,
+                        },
+                    },
+                });
+
+                // Delete all uploads related to recommended PIPs
+                await tx.upload.deleteMany({
+                    where: {
+                        recomPip: {
+                            isNot: null,
+                        },
+                    },
+                });
+
+                // Delete all recommended PIPs
+                await tx.recommendedPip.deleteMany({});
+
+                // Delete all comments related to PIPs
+                await tx.comment.deleteMany({
+                    where: {
+                        pip: {
+                            isNot: null,
+                        },
+                    },
+                });
+
+                // Delete all uploads related to PIPs
+                await tx.upload.deleteMany({
+                    where: {
+                        pip: {
+                            isNot: null,
+                        },
+                    },
+                });
+
+                // Delete all PIPs
+                await tx.pip.deleteMany({});
+            });
         } catch (error) {
           console.log(error);
             bad(`Failed to delete all PIPs: ${error.message}`);  
