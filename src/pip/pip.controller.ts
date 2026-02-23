@@ -141,6 +141,18 @@ export class PipController {
     return await this.pipService.getAllManagersPip(userId);
   }
 
+  @Auth()
+  @Post(':pipId/claim')
+  async makePipClaimRequest(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const claim = await this.pipService.makePipClaimRequest(pipId, userId);
+    return res.status(200).json({ message: 'PIP Claim Request Made Successfully', claim });
+  }
+
   @Auth([Role.SUPERADMIN])
   @Delete('delete-all')
   async deleteAllPips(@AuthUser() user: IAuthUser, @Res() res: Response) {

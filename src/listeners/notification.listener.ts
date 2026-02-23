@@ -714,4 +714,7 @@ export class NotificationListener {
     };
     await this.mailService.sendPipCompletedMail(mailData);
   }
+
+  @OnEvent('Offboarding.Initated')
+  async handleOffboardingInitated(event: any) {}
 }
