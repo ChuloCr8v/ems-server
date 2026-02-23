@@ -970,14 +970,20 @@ export class PipService {
             const isSuperAdmin = this.userHasRole(user, Role.SUPERADMIN);
             if(!isSuperAdmin) throw bad("Only Super Admin can view all managers PIPs");
             const managerPips = await this.prisma.pip.findMany({
-                where: { user: { role: 'DEPT_MANAGER' } },
-                include: { 
-                    rP: true, 
-                    comment: true, 
-                    uploads: true, 
-                    user: true, 
-                    department: true,
-                }
+                 where: {
+                        user: {
+                            userRole: {
+                                has: Role.DEPT_MANAGER,
+                            },
+                        },
+                    },
+                    include: {
+                        rP: true, 
+                        comment: true, 
+                        uploads: true, 
+                        user: true, 
+                        department: true,
+                    }
             })
             return managerPips;
         } catch (error) {
