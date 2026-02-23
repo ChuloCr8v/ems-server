@@ -422,6 +422,8 @@ model Fault {
   @@index([status])
 }
 
+//////////////////////////////////////// OFFBOARDING ////////////////////////////////////////
+
 model Offboarding {
   id           String                 @id @default(uuid()) @db.Uuid
   type         ExitType

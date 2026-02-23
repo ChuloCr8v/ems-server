@@ -1094,50 +1094,19 @@ export class PipService {
             new PipCompletedEvent(updatedPip.id, user.id, recipientIds),
             );
 
-            if(updatedPip) {
-                const claim = await this.makePipClaimRequest(pipId, userId);
-                return { updatedPip, claim };
-              } else {
-              throw bad("Failed to make PIP claim request");
-            }
+            // if(updatedPip) {
+            //     const claim = await this.makePipClaimRequest(pipId, userId);
+            //     return { updatedPip, claim };
+            //   } else {
+            //   throw bad("Failed to make PIP claim request");
+            // }
          } catch (error) {
             console.log(error);
             bad(`Failed to mark PIP as completed: ${error.message}`);
          }
      }
 
-    /////////////////////////////// Helpers ///////////////////////////////
-    private async findUserById(userId: string) {
-        try {
-            const user = await this.prisma.user.findUnique({
-                where: { id: userId },
-                include: { departments: true, approver: true, },
-            });
-            return user;
-        } catch (error) {
-            console.log(error);
-            bad(`Failed to get user: ${error.message}`);
-        }
-    }
-
-    private userHasRole(userObj: any, role: Role) {
-            if (!userObj) return false;
-            // userObj.userRole may be an array of Role or a single Role string
-            const roles = (userObj.userRole ?? userObj.role) as any;
-            if (Array.isArray(roles)) return roles.includes(role);
-            return roles === role;
-        }
-
-    private generateShortId(length: number = 10) {
-        const chars = '0123456789';
-        let result = '';
-        for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-    }
-
-    private async makePipClaimRequest(pipId: string, userId: string) {
+     async makePipClaimRequest(pipId: string, userId: string) {
             try {
                 const user = await this.findUserById(userId);
                 if(!user) throw bad("User Not Found");
@@ -1183,5 +1152,36 @@ export class PipService {
                 bad(`Failed to make pip claim request: ${error.message}`);
             }
         }
+
+    /////////////////////////////// Helpers ///////////////////////////////
+    private async findUserById(userId: string) {
+        try {
+            const user = await this.prisma.user.findUnique({
+                where: { id: userId },
+                include: { departments: true, approver: true, },
+            });
+            return user;
+        } catch (error) {
+            console.log(error);
+            bad(`Failed to get user: ${error.message}`);
+        }
+    }
+
+    private userHasRole(userObj: any, role: Role) {
+            if (!userObj) return false;
+            // userObj.userRole may be an array of Role or a single Role string
+            const roles = (userObj.userRole ?? userObj.role) as any;
+            if (Array.isArray(roles)) return roles.includes(role);
+            return roles === role;
+        }
+
+    private generateShortId(length: number = 10) {
+        const chars = '0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
 
 }
