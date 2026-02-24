@@ -10,11 +10,13 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import {
   AppraisalObjectiveRatingDto,
   FeedbackQuestionDto,
+  AppraisalPipDto,
   FillAppraisalDto,
   GetAppraisalsDto,
   GoalsAndAchievementDto,
+  SignatureDto,
 } from './dto/apppraisal.dto';
-import { Role } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -241,6 +243,126 @@ export class AppraisalService {
     }
   }
 
+  async editAppraisal(
+    userId: string,
+    appraisalId: string,
+    data: FillAppraisalDto,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        departments: { include: { approver: true } },
+      },
+    });
+    const appraisal = await this.prisma.appraisal.findUnique({
+      where: { id: appraisalId },
+      include: { department: true },
+    });
+
+    if (!appraisal) throw new NotFoundException('Appraisal not found');
+
+    if (!user.userRole.includes(Role.DEPT_MANAGER)) {
+      if (appraisal.appraisedId !== userId && appraisal.appraiserId !== userId) {
+        throw bad('Not authorized to edit this appraisal');
+      }
+
+
+      // Allow editing if status is DRAFT or SUBMITTED
+      if (!['DRAFT', 'SUBMITTED'].includes(appraisal.status)) {
+        throw bad(`Cannot edit appraisal with status: ${appraisal.status}`);
+      }
+      return this.performEdit(userId, appraisalId, data, 'USER');
+    } else if (user.userRole.includes(Role.DEPT_MANAGER)) {
+      const isManager = this.isManagerOfUser(userId, appraisal.appraisedId);
+      if (!isManager) {
+        throw bad('You are not authorized to edit this user\'s appraisal');
+      }
+      // Allow editing if status is APPRAISED or MANAGER_DRAFT
+      if (!['APPRAISED', 'MANAGER_DRAFT', 'SUBMITTED'].includes(appraisal.status)) {
+        throw bad(`Cannot edit appraisal with status: ${appraisal.status}`);
+      }
+      return this.performEdit(userId, appraisalId, data, 'DEPT_MANAGER');
+    } else {
+      throw bad('Invalid role for this operation');
+    }
+  }
+
+  private async performEdit(
+    userId: string,
+    appraisalId: string,
+    data: FillAppraisalDto,
+    role: 'USER' | 'DEPT_MANAGER',
+  ) {
+    const appraisal = await this.prisma.appraisal.findUnique({
+      where: { id: appraisalId },
+      include: {
+        appraisalObj: { include: { objective: true } },
+      },
+    });
+
+    const {
+      objectiveRatings,
+      goalsAndAchievements,
+      feedback,
+      signatures,
+      appraisalPip,
+      managerComment,
+    } = data;
+
+    await this.prisma.$transaction(async (tx) => {
+      // Update Kpi Objective Ratings
+      if (objectiveRatings?.length > 0) {
+        await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
+      }
+
+      // Update Goals & Achievements
+      if (goalsAndAchievements) {
+        await this.updateGoalsAndAchievements(
+          tx,
+          appraisalId,
+          goalsAndAchievements,
+        );
+      }
+
+      // Role specific updates
+      if (role === 'USER') {
+        // Update Feedback
+        if (feedback?.length > 0) {
+          await this.updateFeedbackResponses(tx, feedback);
+        }
+        // Update Signatures (Employee)
+        if (signatures) {
+          await this.updateSignatures(tx, appraisalId, signatures, 'employee');
+        }
+        // Update PIP
+        if (appraisalPip !== undefined) {
+          await this.updateAppraisalPip(tx, appraisalId, appraisalPip);
+        }
+      } else {
+        // Manager specific updates
+        if (signatures) {
+          await this.updateSignatures(tx, appraisalId, signatures, 'manager');
+        }
+        if (managerComment !== undefined) {
+          await tx.appraisal.update({
+            where: { id: appraisalId },
+            data: { managerComment, updatedAt: new Date() },
+          });
+        }
+      }
+
+      // Recalculate ratings
+      await this.calculateRatingSummary(appraisalId);
+
+      await tx.appraisal.update({
+        where: { id: appraisalId },
+        data: { updatedAt: new Date() },
+      });
+    });
+
+    return this.getOneAppraisal(appraisalId);
+  }
+
   private async appraiseSubmission(
     userId: string,
     appraisalId: string,
@@ -278,6 +400,11 @@ export class AppraisalService {
           updatedAt: new Date(),
         },
       });
+
+      // Update Signatures
+      if (data.signatures) {
+        await this.updateSignatures(tx, appraisalId, data.signatures, 'manager');
+      }
     });
 
     const updatedAppraisal = await this.getOneAppraisal(appraisalId);
@@ -302,13 +429,17 @@ export class AppraisalService {
     data: FillAppraisalDto,
   ) {
     const appraisal = await this.validateUserAppraisal(userId, appraisalId);
+    const { objectiveRatings, feedback, goalsAndAchievements, signatures, appraisalPip } = data;
 
-    const { objectiveRatings, feedback, goalsAndAchievements } = data;
+
+
     await this.prisma.$transaction(async (tx) => {
+
       //Update Kpi Objective Ratings
       if (objectiveRatings?.length > 0) {
         await this.updateObjectiveRatings(tx, appraisal, objectiveRatings);
       }
+
       //Update Goals & Achievements
       if (goalsAndAchievements) {
         await this.updateGoalsAndAchievements(
@@ -320,6 +451,15 @@ export class AppraisalService {
       //Update Feedback
       if (feedback?.length > 0) {
         await this.updateFeedbackResponses(tx, feedback);
+      }
+      //update signatures
+      if (signatures) {
+        await this.updateSignatures(tx, appraisalId, signatures, 'employee');
+      }
+
+      //update Appraisal Pip
+      if (appraisalPip?.length > 0) {
+        await this.updateAppraisalPip(tx, appraisalId, appraisalPip);
       }
 
       //Calculate ratings and Update Status
@@ -452,6 +592,33 @@ export class AppraisalService {
 
     // Common include for all queries
     const appraisalInclude = {
+      appraisalPip: true,
+      managerSignature: {
+        include: {
+          signature: {
+            select: {
+              id: true,
+              name: true,
+              size: true,
+              uri: true,
+              type: true
+            }
+          }
+        }
+      },
+      employeeSignature: {
+        include: {
+          signature: {
+            select: {
+              id: true,
+              name: true,
+              size: true,
+              uri: true,
+              type: true
+            }
+          }
+        }
+      },
       appraised: {
         select: {
           id: true,
@@ -478,13 +645,15 @@ export class AppraisalService {
           categories: {
             include: {
               objectives: {
-                include: { appraisalObj: true },
+                include: { appraisalObj: { include: { objective: true, kpiCategory: true } } },
               },
             },
           },
         },
       },
-      appraisalObj: true,
+      appraisalObj: {
+        include: { appraisal: true, objective: true, kpiCategory: true }
+      },
       goalsAndAchievement: true,
       feedback: { include: { questions: true } },
       summary: {
@@ -593,13 +762,13 @@ export class AppraisalService {
             },
           },
           department: true,
-          appraisalObj: true,
+          appraisalObj: { include: { objective: true, kpiCategory: true } },
           kpi: {
             include: {
               categories: {
                 include: {
                   objectives: {
-                    include: { appraisalObj: true },
+                    include: { appraisalObj: { include: { objective: true } } },
                   },
                 },
               },
@@ -612,6 +781,33 @@ export class AppraisalService {
               kpiCategory: { select: { id: true, name: true } },
             },
           },
+          appraisalPip: true,
+          employeeSignature: {
+            include: {
+              signature: {
+                select: {
+                  id: true,
+                  name: true,
+                  size: true,
+                  uri: true,
+                  type: true
+                }
+              }
+            }
+          },
+          managerSignature: {
+            include: {
+              signature: {
+                select: {
+                  id: true,
+                  name: true,
+                  size: true,
+                  uri: true,
+                  type: true
+                }
+              }
+            }
+          }
         },
       });
     } catch (error) {
@@ -745,17 +941,18 @@ export class AppraisalService {
     const validObjectiveIds = new Set(
       appraisal.appraisalObj.map((obj) => obj.id),
     );
+
     const updates = objectiveRatings
       .filter((obj) => validObjectiveIds.has(obj.appraisalObjId))
-      .map((obj) =>
-        tx.appraisalObjective.update({
+      .map((obj) => {
+        return tx.appraisalObjective.update({
           where: { id: obj.appraisalObjId },
           data: {
             rating: obj.rating ?? null,
             comment: obj.comment ?? null,
           },
-        }),
-      );
+        });
+      });
 
     await Promise.all(updates);
   }
@@ -788,6 +985,67 @@ export class AppraisalService {
     await Promise.all(updates);
   }
 
+  private async updateSignatures(
+    tx: any,
+    appraisalId: string,
+    signatures: SignatureDto,
+    type: 'employee' | 'manager',
+  ) {
+    const signatureId =
+      type === 'employee'
+        ? signatures.employeeSignature
+        : signatures.managerSignature;
+    const date =
+      type === 'employee' ? signatures.employeeDate : signatures.managerDate;
+
+    if (!signatureId) return;
+
+    const where =
+      type === 'employee'
+        ? { employeeSignatureId: appraisalId }
+        : { managerSignatureId: appraisalId };
+
+    await tx.appraisalSignatures.upsert({
+      where,
+      update: {
+        signature: { connect: { id: signatureId } },
+        date: date ? new Date(date) : new Date(),
+      },
+      create: {
+        signature: { connect: { id: signatureId } },
+        date: date ? new Date(date) : new Date(),
+        ...(type === 'employee'
+          ? { employeeSignature: { connect: { id: appraisalId } } }
+          : { managerSignature: { connect: { id: appraisalId } } }),
+      },
+    });
+  }
+
+  private async updateAppraisalPip(
+    tx: any,
+    appraisalId: string,
+    appraisalPip: AppraisalPipDto[],
+  ) {
+    // For simplicity, we delete and recreate PIPs to avoid complex ID matching
+    // If PIPs have IDs we should ideally upsert, but the DTO doesn't have them yet.
+    await tx.appraisalPip.deleteMany({
+      where: { appraisalId },
+    });
+
+    if (appraisalPip?.length > 0) {
+      await tx.appraisalPip.createMany({
+        data: appraisalPip.map((pip) => ({
+          title: pip.title,
+          description: pip.description,
+          appraisalId,
+          employeeComment: pip.employeeComment,
+          managerComment: pip.managerComment,
+          status: pip.status,
+        })),
+      });
+    }
+  }
+
   async findAppraisalFeedbackQuestion(appraisalId: string) {
     const appraisal = await this.prisma.appraisal.findUnique({
       where: { id: appraisalId },
@@ -810,7 +1068,7 @@ export class AppraisalService {
       where: { id: appraisalId },
       include: {
         appraised: { include: { departments: true } },
-        appraisalObj: true,
+        appraisalObj: { include: { objective: true } },
         goalsAndAchievement: true,
       },
     });
@@ -825,9 +1083,9 @@ export class AppraisalService {
     }
 
     //Validate appraisal status
-    if (['SUBMITTED', 'APPRAISED'].includes(appraisal.status)) {
-      throw bad('This appraisal can no longer be modified');
-    }
+    // if (['SUBMITTED', 'APPRAISED'].includes(appraisal.status)) {
+    //   throw bad('This appraisal can no longer be modified');
+    // }
     return appraisal;
   }
 
@@ -836,7 +1094,7 @@ export class AppraisalService {
       where: { id: appraisalId },
       include: {
         appraised: { include: { departments: true } },
-        appraisalObj: true,
+        appraisalObj: { include: { objective: true } },
         goalsAndAchievement: true,
       },
     });
@@ -883,10 +1141,10 @@ export class AppraisalService {
     }
   }
 
-  private userHasRole(userObj: any, role: Role) {
+  private userHasRole(userObj: User, role: Role) {
     if (!userObj) return false;
     // userObj.userRole may be an array of Role or a single Role string
-    const roles = (userObj.userRole ?? userObj.role) as any;
+    const roles = (userObj.userRole ?? userObj.role)
     if (Array.isArray(roles)) return roles.includes(role);
     return roles === role;
   }
