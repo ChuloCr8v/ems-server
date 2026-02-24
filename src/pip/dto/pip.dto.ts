@@ -58,7 +58,7 @@ export class RecommendPipDto {
   uploads?: string[];
 }
 
-export class ApprovePipDto {
+export class  ApprovePipDto {
   @IsString()
   @IsOptional()
   comment?: string;
@@ -88,3 +88,18 @@ export class MarkPipAsCompletedDto {
   @IsArray()
   uploads?: string[];
 }
+
+// export class ClaimPipDto {
+//   @IsString()
+//   title: string;
+
+//   @IsNumber()
+//   amount: number;
+
+//   @IsDate()
+//   @Type(() => Date)
+//   dateOfExpense: Date;
+
+//   @IsString()
+//   de
+// }

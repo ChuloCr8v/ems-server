@@ -19,6 +19,7 @@ import {
 import {
   ApprovalRequestDto,
   CreateTaskDto,
+  ProcessTaskApprovalDto,
   TaskPriority,
   TaskResponseDto,
   UpdateTaskDto,
@@ -104,12 +105,12 @@ export class TasksService {
       approvalRequestedAt: task.approvalRequestedAt,
       approvedAt: task.approvedAt,
       rejectionReason: task.rejectionReason,
-      createdBy: {
+      createdBy: task.createdBy ? {
         id: task.createdById,
-        name: `${task.createdBy} ${task.createdBy.lastName}`,
+        name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
         email: task.createdBy.email,
         role: task.createdBy.role,
-      },
+      } : undefined,
       approvedBy: task.approvedBy
         ? {
           id: task.approvedBy.id,
@@ -117,13 +118,13 @@ export class TasksService {
           email: task.approvedBy.email,
         }
         : undefined,
-      assignees: task.assignees.map((at) => ({
+      assignees: task.assignees ? task.assignees.map((at) => ({
         id: at.user.id,
         name: `${at.user.firstName} ${at.user.lastName}`,
         email: at.user.email,
         assignedAt: at.assignedAt,
-      })),
-      files: task.uploads.map((upload) => ({
+      })) : [],
+      files: task.uploads ? task.uploads.map((upload) => ({
         id: upload.id,
         filename: upload.key || '',
         originalName: upload.name,
@@ -131,13 +132,13 @@ export class TasksService {
         size: upload.size,
         uploadedAt: upload.createdAt,
         uri: upload.uri || undefined,
-      })),
+      })) : [],
     };
   }
 
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
-      const { uploads, assignees, category, ...taskData } = createTaskDto;
+      const { uploads, assignees, category, projectLabels, ...taskData } = createTaskDto;
 
       const taskCreator = await this.prisma.user.findUnique({
         where: {
@@ -178,7 +179,6 @@ export class TasksService {
         priority: taskData.priority,
         status: taskStatus(),
         approvalStatus: isManager ? 'APPROVED' : 'PENDING',
-        createdById,
       };
 
       if (
@@ -245,6 +245,7 @@ export class TasksService {
       const task = await this.prisma.task.create({
         data: {
           ...createData,
+          createdBy: { connect: { id: createdById } },
           departmentId: taskDepts,
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
@@ -258,6 +259,13 @@ export class TasksService {
             ? {
               category: {
                 connect: category.map((id) => ({ id })),
+              },
+            }
+            : {}),
+          ...(projectLabels && projectLabels.length > 0
+            ? {
+              projectLabels: {
+                connect: projectLabels.map((id) => ({ id })),
               },
             }
             : {}),
@@ -401,50 +409,21 @@ export class TasksService {
     approvedById: string,
     assignees?: string[],
   ) {
-    const userRole = await this.getUserRole(approvedById);
-
-    if (!this.isManager(userRole)) {
-      throw new ForbiddenException('Only managers can approve tasks');
-    }
-
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    return this.processTaskApproval(taskId, approvedById, {
+      status: ApprovalStatus.APPROVED,
+      assignees,
     });
+  }
 
-    if (!task) {
-      throw new NotFoundException('Task not found');
-    }
-
-    if (task.approvalStatus !== ApprovalStatus.PENDING) {
-      throw new BadRequestException('Task is not pending approval');
-    }
-
-    // Update task with approval and assignees
-    const updatedTask = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        approvalStatus: ApprovalStatus.APPROVED,
-        status: TaskStatus.IN_PROGRESS,
-        approvedById,
-        approvedAt: new Date(),
-        // Clear any existing assignees and set new ones
-        ...(assignees && assignees.length > 0 && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map((userId) => ({ userId })),
-          },
-        }),
-      },
-      // include: this.getTaskInclude(),
+  async rejectTask(
+    taskId: string,
+    rejectedById: string,
+    rejectionReason: string,
+  ) {
+    return this.processTaskApproval(taskId, rejectedById, {
+      status: ApprovalStatus.REJECTED,
+      rejectionReason,
     });
-
-    await this.logTaskAction({
-      action: 'Task approved',
-      userId: approvedById,
-      taskId: taskId,
-    });
-
-    return this.mapToTaskResponseDto(updatedTask);
   }
 
   //Comments
@@ -509,59 +488,90 @@ export class TasksService {
     }
   }
 
-  async rejectTask(
+  async processTaskApproval(
     taskId: string,
-    rejectedById: string,
-    rejectionReason: string,
+    processorId: string,
+    dto: ProcessTaskApprovalDto,
   ) {
-    const userRole = await this.getUserRole(rejectedById);
+    const userRole = await this.getUserRole(processorId);
 
     if (!this.isManager(userRole)) {
-      throw new ForbiddenException('Only managers can reject tasks');
+      throw new ForbiddenException(
+        'You are not authorized to process this task',
+      );
     }
 
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
+      include: {
+        assignees: { include: { user: true } },
+        createdBy: true,
+      },
     });
 
     if (!task) {
       throw new NotFoundException('Task not found');
     }
 
-    if (task.approvalStatus !== ApprovalStatus.PENDING) {
+    if (task.status !== TaskStatus.PENDING_APPROVAL) {
       throw new BadRequestException('Task is not pending approval');
     }
+
+    const { status, assignees, rejectionReason } = dto;
 
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
       data: {
-        approvalStatus: ApprovalStatus.REJECTED,
-        status: TaskStatus.CANCELLED,
-        rejectionReason,
-        approvedById: rejectedById,
+        approvalStatus: status,
+        status:
+          status === ApprovalStatus.APPROVED
+            ? TaskStatus.IN_PROGRESS
+            : TaskStatus.CANCELLED,
+        approvedById: processorId,
         approvedAt: new Date(),
+        ...(status === ApprovalStatus.REJECTED && { rejectionReason }),
+        // Update assignees only on approval if provided
+        ...(status === ApprovalStatus.APPROVED &&
+          assignees &&
+          assignees.length > 0 && {
+          assignees: {
+            deleteMany: {},
+            create: assignees.map((userId) => ({ userId })),
+          },
+        }),
       },
-      // include: this.getTaskInclude(),
     });
 
     await this.logTaskAction({
-      action: 'Task rejected',
-      userId: rejectedById,
+      action: status === ApprovalStatus.APPROVED ? 'Task approved' : 'Task rejected',
+      userId: processorId,
       taskId: taskId,
       comment: rejectionReason,
     });
 
-    //Emit task rejected event
-    this.event.emit(
-      'task.rejected',
-      new TaskRejectedEvent(
-        rejectedById,
-        task.createdById,
-        task.taskId,
-        task.title,
-        rejectionReason,
-      ),
-    );
+    if (status === ApprovalStatus.APPROVED) {
+      this.event.emit(
+        'task.approved',
+        new TaskApprovedEvent(
+          processorId,
+          task.createdById,
+          assignees || task.assignees.map((a) => a.userId),
+          task.id,
+          task.title,
+        ),
+      );
+    } else {
+      this.event.emit(
+        'task.rejected',
+        new TaskRejectedEvent(
+          processorId,
+          task.createdById,
+          task.taskId,
+          task.title,
+          rejectionReason,
+        ),
+      );
+    }
 
     return this.mapToTaskResponseDto(updatedTask);
   }
@@ -923,6 +933,63 @@ export class TasksService {
     }
   }
 
+  async createProjectLabel(userId: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto;
+
+    try {
+      const createdBy = await this.prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+      });
+
+      if (!createdBy) mustHave(createdBy, 'User not found', 404);
+
+      const projectLabelExists = await this.prisma.projectLabels.findUnique({
+        where: {
+          title,
+        },
+      });
+
+      if (projectLabelExists) bad(`${title} already created`);
+      if (department) {
+        const deptExists = await this.prisma.department.findMany({
+          where: { id: { in: department } },
+        });
+
+        if (deptExists.length < department.length)
+          bad('One or more departments not found');
+      }
+
+      const res = await this.prisma.projectLabels.create({
+        data: {
+          projectId: IdGenerator('PRJ'),
+          title,
+          type: CategoryType.Task,
+          description: description || undefined,
+          color: color || 'gray',
+          departments: { connect: department.map((id) => ({ id })) },
+          createdBy: { connect: { id: userId } },
+        },
+      });
+
+      await this.prisma.logs.create({
+        data: {
+          action: 'Task category created',
+          actionById: userId,
+          comment: `Category: ${title}`,
+        },
+      });
+
+      return {
+        message: title + ' ' + 'created successfully',
+        data: res,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
   async updateTaskCategory(id: string, dto: CreateCategoryDto) {
     const { title, department, description, color } = dto;
 
@@ -1030,6 +1097,151 @@ export class TasksService {
     }
   }
 
+
+  // Project labels
+  async listTaskProjectLabels(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true },
+      });
+
+      if (!user) bad('User not found');
+
+      const departmentIds = user.departments.map((d) => d.id);
+
+      const t = await this.prisma.projectLabels.findMany({
+        include: {
+          departments: {
+            select: {
+              id: true
+            }
+          }
+        }
+      })
+      const projectLabels = await this.prisma.projectLabels.findMany({
+        where: {
+          type: CategoryType.Task,
+          departments: {
+            some: {
+              id: { in: departmentIds },
+            },
+          },
+        },
+        orderBy: { title: 'asc' },
+        include: {
+          departments: {
+            select: {
+              id: true
+            }
+          },
+          tasks: {
+            include: this.getTaskInclude(),
+          },
+        },
+      });
+      return projectLabels;
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async getOneProjectLabel(id: string) {
+    try {
+      const projectLabel = await this.prisma.projectLabels.findUnique({
+        where: { id },
+        include: {
+          departments: {
+            select: { id: true, name: true }
+          },
+          createdBy: {
+            select: { id: true, firstName: true, lastName: true }
+          }
+        }
+      });
+
+      if (!projectLabel) {
+        throw new NotFoundException(`Project Label with ID ${id} not found`);
+      }
+
+      return projectLabel;
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async updateProjectLabel(id: string, dto: CreateCategoryDto) {
+    const { title, department, description, color } = dto;
+
+    try {
+      const projectLabel = await this.prisma.projectLabels.findUnique({
+        where: { id },
+      });
+
+      if (!projectLabel) throw new NotFoundException('Project Label not found');
+
+      if (department && department.length > 0) {
+        const deptExists = await this.prisma.department.findMany({
+          where: { id: { in: department } },
+        });
+
+        if (deptExists.length < department.length) {
+          bad('One or more departments not found');
+        }
+      }
+
+      const res = await this.prisma.projectLabels.update({
+        where: { id },
+        data: {
+          title: title || undefined,
+          description: description || undefined,
+          color: color || undefined,
+          departments: {
+            set: department ? department.map((id) => ({ id })) : undefined,
+          },
+        },
+      });
+
+      await this.prisma.logs.create({
+        data: {
+          action: 'Project label updated',
+          comment: `Label: ${res.title} (ID: ${id})`,
+        },
+      });
+
+      return {
+        message: `${res.title} updated successfully`,
+        data: res,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  async deleteProjectLabel(id: string) {
+    try {
+      await this.prisma.projectLabels.delete({
+        where: { id },
+      });
+
+      await this.prisma.logs.create({
+        data: {
+          action: 'Project label deleted',
+          comment: `Label ID: ${id}`,
+        },
+      });
+
+      return {
+        message: `Project label deleted successfully`,
+      };
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+
+
+
   async getOneTask(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
@@ -1061,10 +1273,9 @@ export class TasksService {
 
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
     try {
-      const { assignees, category, uploads, status, issue, ...rest } = taskData;
+      const { assignees, category, uploads, status, issue, projectLabels, ...rest } = taskData;
       const findTask = await this.getOneTask(id);
       if (!findTask) mustHave(findTask, 'Task not found', 404);
-
 
       const user = await this.prisma.user.findUnique({
         where: {
@@ -1083,20 +1294,6 @@ export class TasksService {
 
       if (!canAct && ownerId !== userId)
         bad('You are not authorized to perform this action');
-
-      if (status) {
-        // if (findTask.assignees.length === 0) bad("Cannot approve task without assignees")
-        if (findTask.startDate === null)
-          bad('Cannot approve task without start date');
-        if (
-          !findTask.hasTransfer &&
-          !findTask.taskDueDates.length &&
-          findTask.dueDate === null
-        )
-          bad('Cannot approve task without due date');
-        if (status === 'APPROVED' && findTask.approvalStatus === 'APPROVED')
-          bad('Task already approved');
-      }
 
       const task = await this.prisma.$transaction(async (tx) => {
         // --- handle Uploads ---
@@ -1172,12 +1369,24 @@ export class TasksService {
         }
 
         // --- Handle Categories ---
-        if (category !== undefined && category.length > 0) {
+        if (category) {
           await tx.task.update({
             where: { id },
             data: {
               category: {
                 connect: category.map((id) => ({ id })),
+              },
+            },
+          });
+        }
+
+        // --- Handle project labels ---
+        if (projectLabels) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              projectLabels: {
+                connect: projectLabels.map((id) => ({ id })),
               },
             },
           });
@@ -1224,14 +1433,14 @@ export class TasksService {
         });
 
         // Log significant changes in updateTask
-        if (status && status !== findTask.status) {
-          await this.logTaskAction({
-            action: `Status changed to ${status}`,
-            userId: userId,
-            taskId: id,
-            comment: issue,
-          });
-        }
+        // if (status && status !== findTask.status) {
+        //   await this.logTaskAction({
+        //     action: `Status changed to ${status}`,
+        //     userId: userId,
+        //     taskId: id,
+        //     comment: issue,
+        //   });
+        // }
 
         if (rest.priority && rest.priority !== findTask.priority) {
           await this.logTaskAction({
@@ -1242,6 +1451,9 @@ export class TasksService {
         }
 
         return updatedTask;
+      }, {
+        maxWait: 20000,
+        timeout: 20000,
       });
 
       // //Emit notification events based on what changed
@@ -1286,6 +1498,8 @@ export class TasksService {
       bad(error);
     }
   }
+
+
 
   async transfer(
     id: string,
@@ -1446,6 +1660,7 @@ export class TasksService {
 
   getTaskInclude() {
     return {
+      projectLabels: true,
       department: true,
       taskIssues: true,
       team: true,

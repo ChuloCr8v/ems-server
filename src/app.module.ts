@@ -35,6 +35,7 @@ import { ScheduleModule } from '@nestjs/schedule/dist';
 import { PuppeteerModule } from './puppeteer/puppeteer.module';
 import { PipModule } from './pip/pip.module';
 import { PdfshiftService } from './pdfshift/pdfshift.service';
+import { OffboardingModule } from './offboarding/offboarding.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { PdfshiftService } from './pdfshift/pdfshift.service';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     PipModule,
+    OffboardingModule,
   ],
   controllers: [
     AppController,

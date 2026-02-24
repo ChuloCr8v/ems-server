@@ -21,6 +21,7 @@ import {
   TaskReassignedDto,
   TaskStatusChangedDto,
   TaskUpdatedDto,
+  TaskRejectedDto,
   UpdateProspectInfoDto,
   WelcomeEmailDto,
   TaskDueDateChangeDto,
@@ -421,15 +422,30 @@ export class MailService {
     });
   }
 
-  // async sendTaskRejectedMail(data: TaskRejectedDto) {
-  //   const { email, name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl } = data;
-  //   await this.mailerService.sendMail({
-  //     to: email,
-  //     subject: MAIL_SUBJECT.TASK_REJECTED,
-  //     template: 'taskRejected',
-  //     context: { name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl },
-  //   });
-  // }
+  async sendTaskRejectedMail(data: TaskRejectedDto) {
+    const {
+      email,
+      name,
+      rejectedBy,
+      taskId,
+      taskTitle,
+      rejectionReason,
+      dashboardUrl,
+    } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_REJECTED,
+      template: 'taskRejected',
+      context: {
+        name,
+        rejectedBy,
+        taskId,
+        taskTitle,
+        rejectionReason,
+        dashboardUrl,
+      },
+    });
+  }
 
   async sendTaskReassignedMail(data: TaskReassignedDto) {
     const {
@@ -524,6 +540,8 @@ export class MailService {
       context: { name, recommenderName, dashboardUrl },
     });
   }
+
+  async sendPipRequestMail(data: PipMailDto) {}
 
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;
