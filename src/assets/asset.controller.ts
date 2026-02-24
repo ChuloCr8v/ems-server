@@ -40,7 +40,7 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 @ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetService) {}
+  constructor(private readonly assetsService: AssetService) { }
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
@@ -251,7 +251,7 @@ export class AssetsController {
   }
 
   @Delete(':id')
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
   @ApiOperation({ summary: 'Delete asset by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
   @ApiResponse({ status: 200, description: 'Asset deleted successfully' })
