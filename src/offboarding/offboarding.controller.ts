@@ -13,11 +13,10 @@ import { createReadStream } from 'fs';
 export class OffboardingController {
   constructor(private readonly offboarding: OffboardingService) {}
 
-  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
-  @Post(':id')
-  @UseInterceptors(FilesInterceptor('uploads'))
+  @Auth([Role.ADMIN, Role.HR])
+  @Post()
   async initiateExit(
-    @Param('id') userId: string, 
+    @Param('userId') userId: string, 
     @Body() data: InitiateExit,
     @Res() res: Response,
   ) {
