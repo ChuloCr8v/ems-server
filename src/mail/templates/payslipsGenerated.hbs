@@ -7,226 +7,196 @@
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
     <link
-      href='https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap'
+      href='https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;800&display=swap'
       rel='stylesheet'
     />
 
     <style>
       body {
-        font-family: 'Raleway', sans-serif;
+        margin: 0;
+        padding: 0;
         background-color: #ffffff;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        font-family: 'Raleway', Arial, sans-serif;
       }
 
-      .wrapper {
-        width: 800px;
-        background-color: #f8fafc;
-        position: relative;
-        overflow: visible;
-        margin: 20px;
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      table {
+        border-collapse: collapse;
       }
 
-      .header {
-        width: 100%;
-        height: 104px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 42.46px 48px;
-        box-sizing: border-box;
+      img {
+        border: 0;
+        display: block;
       }
 
-      .zoracom-logo {
-        width: 161px;
-        height: 30px;
-        margin-left: 12px;
+      a {
+        color: #0066cc;
+        text-decoration: none;
       }
 
-      .social-icons {
-        display: flex;
-        gap: 24px;
-        margin-right: 15px;
-      }
-
-      .social-icon {
-        width: 24px;
-        height: 24px;
-      }
-
-      .content-wrapper {
-        width: 705px;
-        margin: 0 auto;
-        background-color: #ffffff;
-        padding: 0 48px;
-        box-sizing: border-box;
-        position: relative;
-        z-index: 2;
-        border-radius: 4px;
-        margin-bottom: 20px;
-      }
-
-      .content {
-        color: #333333;
-        font-weight: 400;
-        font-size: 16px;
-        line-height: 1.5;
-        padding: 24px 0 40px;
-        white-space: pre-line;
-      }
-
-      h1 {
-        font-size: 24px;
-        font-weight: 600;
-        margin: 0 0 24px 0;
-        line-height: 1;
-      }
-
-      .message {
-        font-size: 16px;
-        margin-top: -10px;
-        color: #5e5e5e;
-      }
-
-      .button {
+      .btn {
         display: inline-block;
-        background-color: #0a96cc;
-        color: #ffffff;
-        padding: 10px 32px;
-        margin-top: 25px;
-        font-size: 16px;
+        padding: 12px 24px;
+        background-color: #0066cc;
+        color: #ffffff !important;
         text-decoration: none;
         border-radius: 4px;
-      }
-
-      .button:hover {
-        background-color: #007bb8;
-      }
-
-      .signature {
-        margin-top: 40px;
-        line-height: 1;
-      }
-
-      .cheeers {
-        font-weight: 400;
-        font-size: 14px;
-        color: #5e5e5e;
-        display: block;
-      }
-
-      .ID {
-        font-weight: 500;
-        color: #5e5e5e;
-        font-size: 14px;
-        display: block;
-      }
-
-      .footer {
-        font-size: 12px;
-        color: #666666;
-        padding: 40px 48px 24px;
-        border-top: 1px solid #eeeeee;
-        line-height: 1.5;
-        background-color: #ecf8ee;
-        position: relative;
-        z-index: 1;
+        font-weight: 600;
         margin-top: 20px;
       }
 
-      .footer-content {
-        max-width: 100%;
-        margin: 0 auto;
-      }
-
-      .fcontent2 {
-        transform: translateX(20px);
-        font-size: 14px;
-        margin-top: 10px;
-        padding-top: 15px;
-        margin-bottom: 8px;
-      }
-
-      .fcontent3 {
-        transform: translateX(20px);
-        font-size: 14px;
-        margin-top: 0;
-        padding-top: 0;
+      .focus {
+        font-weight: 600;
+        color: #0f172a;
       }
     </style>
   </head>
 
   <body>
-    <div class='wrapper'>
-      <div class='header'>
-        <img
-          src='https://ems.miro.zoracom.com/logo.png'
-          alt='Zoracom Limited'
-          class='zoracom-logo'
-        />
+    <!-- Outer wrapper -->
+    <table width='100%' bgcolor='#ffffff' cellpadding='0' cellspacing='0'>
+      <tr>
+        <td align='center'>
+          <!-- Main container -->
+          <table width='800' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
+            <!-- Header -->
+            <tr>
+              <td style='padding: 42px 48px'>
+                <table width='100%'>
+                  <tr>
+                    <td align='left'>
+                      <img
+                        src='https://ems.miro.zoracom.com/logo.png'
+                        alt='Zoracom Limited'
+                        width='120'
+                      />
+                    </td>
+                    <td align='right'>
+                      <table cellpadding='0' cellspacing='0'>
+                        <tr>
+                          <td style='padding-left: 20px'>
+                            <a href='https://x.com/Zoracom_'>
+                              <img
+                                src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
+                                width='32'
+                                alt='Twitter'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left: 20px'>
+                            <a href='https://www.facebook.com/zoracom'>
+                              <img
+                                src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
+                                width='32'
+                                alt='Facebook'
+                              />
+                            </a>
+                          </td>
+                          <td style='padding-left: 20px'>
+                            <a
+                              href='https://www.linkedin.com/company/zoracom-limited/'
+                            >
+                              <img
+                                src='https://img.icons8.com/?size=48&id=114445&format=png'
+                                width='32'
+                                alt='LinkedIn'
+                              />
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-        <div class='social-icons'>
-          <a href='https://x.com/Zoracom_'>
-            <img
-              src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
-              width='32'
-              alt='Twitter'
-            />
-          </a>
-          <a href='https://www.facebook.com/zoracom'>
-            <img
-              src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
-              width='32'
-              alt='Facebook'
-            />
-          </a>
-          <a href='https://www.linkedin.com/company/zoracom-limited/'>
-            <img
-              src='https://img.icons8.com/?size=48&id=114445&format=png'
-              width='32'
-              alt='LinkedIn'
-            />
-          </a>
-        </div>
-      </div>
+            <!-- Content Card -->
+            <tr>
+              <td align='center'>
+                <table
+                  width='705'
+                  cellpadding='0'
+                  cellspacing='0'
+                  bgcolor='#ffffff'
+                  style='
+                    border-radius: 12px 12px 0 0;
+                    box-shadow: 3px 2px 18px rgb(0, 0, 0, 0.1);
+                  '
+                >
+                  <tr>
+                    <td style='padding: 40px 48px'>
+                      <h1
+                        style='
+                          font-size: 24px;
+                          font-weight: 800;
+                          margin: 0 0 24px;
+                          color: #000000;
+                        '
+                      >
+                        Payslips Successfully Generated
+                      </h1>
 
-      <div class='content-wrapper'>
-        <div class='content'>
-          <h1>Payslips Successfully Generated</h1>
+                      <p
+                        style='
+                          font-size: 16px;
+                          color: #5e5e5e;
+                          line-height: 1.5;
+                          margin: 0 0 32px;
+                        '
+                      >
+                        Payslips for
+                        <strong>{{month}}</strong>
+                        have been successfully generated. You can now log into
+                        your EMS dashboard to view and download all generated
+                        payslips.
+                      </p>
 
-          <p class='message'>
-            Payslips for
-            <strong>{{month}}</strong>
-            have been successfully generated. You can now log into your EMS
-            dashboard to view and download all generated payslips.
-          </p>
+                      <a href='{{dashboardUrl}}' class='btn'>Go to Dashboard</a>
 
-          <a href='{{dashboardUrl}}' class='button'>Go to Dashboard</a>
+                      <p
+                        style='
+                          margin-top: 40px;
+                          font-size: 14px;
+                          color: #5e5e5e;
+                        '
+                      >
+                        Regards,<br />
+                        <strong>Zoracom EMS</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
 
-          <div class='signature'>
-            <span class='cheeers'>Regards,</span>
-            <span class='ID'>Zoracom EMS</span>
-          </div>
-        </div>
-      </div>
+            <!-- Footer -->
+            <tr>
+              <td bgcolor='#ecf8ee' style='padding: 40px 48px'>
+                <p style='font-size: 14px; margin: 0 0 16px'>
+                  Have questions?
+                  <br />
+                  Contact us at
+                  <a href='mailto:hr@zoracom.com'>hr@zoracom.com</a>.
+                  <br />
+                  Don’t want any more emails from Zoracom?
+                  <a href='#'>Unsubscribe</a>.
+                </p>
 
-      <div class='footer'>
-        <div class='footer-content'>
-          <p class='fcontent2'>
-            NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe Expressway,
-            Lagos, Nigeria
-          </p>
+                <p style='font-size: 14px; margin: 0 0 8px'>
+                  NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
+                  Expressway, Lagos, Nigeria
+                </p>
 
-          <p class='fcontent3'>
-            ©
-            {{date}}
-            Zora Communications Limited. All Rights Reserved.
-          </p>
-        </div>
-      </div>
-    </div>
+                <p style='font-size: 14px; margin: 0'>
+                  Copyright
+                  {{date}}
+                  © Zora Communications Limited. All Rights Reserved.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
