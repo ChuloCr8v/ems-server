@@ -32,6 +32,22 @@
         color: #0066cc;
         text-decoration: none;
       }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: #0066cc;
+        color: #ffffff !important;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: 600;
+        margin-top: 20px;
+      }
+
+      .focus {
+        font-weight: 600;
+        color: #0f172a;
+      }
     </style>
   </head>
 
@@ -40,26 +56,24 @@
     <table width='100%' bgcolor='#ffffff' cellpadding='0' cellspacing='0'>
       <tr>
         <td align='center'>
-
           <!-- Main container -->
           <table width='800' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
-
             <!-- Header -->
             <tr>
-              <td style='padding: 42px 48px;'>
+              <td style='padding: 42px 48px'>
                 <table width='100%'>
                   <tr>
                     <td align='left'>
                       <img
                         src='https://ems.miro.zoracom.com/logo.png'
                         alt='Zoracom Limited'
-                        width='161'
+                        width='120'
                       />
                     </td>
                     <td align='right'>
                       <table cellpadding='0' cellspacing='0'>
                         <tr>
-                          <td style='padding-left: 20px;'>
+                          <td style='padding-left: 20px'>
                             <a href='https://x.com/Zoracom_'>
                               <img
                                 src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
@@ -68,7 +82,7 @@
                               />
                             </a>
                           </td>
-                          <td style='padding-left: 20px;'>
+                          <td style='padding-left: 20px'>
                             <a href='https://www.facebook.com/zoracom'>
                               <img
                                 src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
@@ -77,7 +91,7 @@
                               />
                             </a>
                           </td>
-                          <td style='padding-left: 20px;'>
+                          <td style='padding-left: 20px'>
                             <a
                               href='https://www.linkedin.com/company/zoracom-limited/'
                             >
@@ -104,14 +118,15 @@
                   cellpadding='0'
                   cellspacing='0'
                   bgcolor='#ffffff'
-                  style='border-radius: 12px;'
+                  style='
+                    border-radius: 12px 12px 0 0;
+                    box-shadow: 3px 2px 18px rgb(0, 0, 0, 0.1);
+                  '
                 >
                   <tr>
-                    <td style='padding: 40px 48px;'>
-
+                    <td style='padding: 40px 48px'>
                       <h1
                         style='
-                          text-align: center;
                           font-size: 24px;
                           font-weight: 800;
                           margin: 0 0 24px;
@@ -128,8 +143,7 @@
                           margin: 0 0 16px;
                         '
                       >
-                        Hello
-
+                        Hello,
                       </p>
 
                       <p
@@ -143,55 +157,77 @@
                         A new weekly report has been submitted for review.
                       </p>
 
+                      <!-- Report details -->
                       <table
                         width='100%'
-                        style='margin: 0 0 32px; font-size: 16px; color: #5e5e5e; line-height: 1.5;'
+                        cellpadding='0'
+                        cellspacing='0'
+                        style='
+                          margin-bottom: 32px;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 8px;
+                          overflow: hidden;
+                        '
                       >
-                        {{!-- <tr>
-                          <td width='150'><strong>Report Title:</strong></td>
-                          <td>{{reportTitle}}</td>
-                        </tr> --}}
-                        <tr>
-                          <td><strong>Week:</strong></td>
-                          <td>Week {{week}}</td>
-                        </tr>
-                        <tr>
-                          <td><strong>Department:</strong></td>
-                          <td>{{departmentName}}</td>
-                        </tr>
-                      </table>
-
-                      <!-- Button -->
-                      <table align='center' cellpadding='0' cellspacing='0'>
                         <tr>
                           <td
-                            bgcolor='#0a96cc'
                             style='
-                              border-radius: 200px;
-                              text-align: center;
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
                             '
                           >
-                            <a
-                              href='{{dashboardUrl}}'
-                              style='
-                                display: inline-block;
-                                padding: 12px 45px;
-                                font-size: 14px;
-                                color: #ffffff;
-                                font-weight: 600;
-                              '
-                            >
-                              View Report
-                            </a>
+                            Week
+                          </td>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            Week
+                            {{week}}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                            '
+                          >
+                            Department
+                          </td>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                            '
+                          >
+                            {{departmentName}}
                           </td>
                         </tr>
                       </table>
 
-                      <p style='margin-top: 40px; font-size: 14px;'>
-                        Regards,<br />
+                      <a href='{{dashboardUrl}}' class='btn'>View Report</a>
+
+                      <p
+                        style='
+                          margin-top: 40px;
+                          font-size: 14px;
+                          color: #5e5e5e;
+                        '
+                      >
+                        Best Regards,<br />
                         <strong>TalentX</strong>
                       </p>
-
                     </td>
                   </tr>
                 </table>
@@ -200,19 +236,29 @@
 
             <!-- Footer -->
             <tr>
-              <td bgcolor='#ecf8ee' style='padding: 40px 48px;'>
-                <p style='font-size: 14px; margin: 0 0 16px;'>
+              <td bgcolor='#ecf8ee' style='padding: 40px 48px'>
+                <p style='font-size: 14px; margin: 0 0 16px'>
+                  Have questions?
+                  <br />
+                  Contact us at
+                  <a href='mailto:hr@zoracom.com'>hr@zoracom.com</a>.
+                  <br />
+                  Don’t want any more emails from Zoracom?
+                  <a href='#'>Unsubscribe</a>.
+                </p>
+
+                <p style='font-size: 14px; margin: 0 0 8px'>
                   NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
                   Expressway, Lagos, Nigeria
                 </p>
 
-                <p style='font-size: 14px; margin: 0;'>
-                  Copyright 2025 © Zora Communications Limited. All Rights
-                  Reserved.
+                <p style='font-size: 14px; margin: 0'>
+                  Copyright
+                  {{date}}
+                  © Zora Communications Limited. All Rights Reserved.
                 </p>
               </td>
             </tr>
-
           </table>
         </td>
       </tr>

@@ -1245,6 +1245,7 @@ enum NotificationActionType {
   PIP_APPROVED
   PIP_REJECTED
   PIP_COMPLETED
+  PIP_CREATED
   PIP_REQUESTED
 }
 

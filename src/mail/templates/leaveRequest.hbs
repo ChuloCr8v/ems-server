@@ -18,16 +18,35 @@
         background-color: #ffffff;
         font-family: 'Raleway', Arial, sans-serif;
       }
+
       table {
         border-collapse: collapse;
       }
+
       img {
         border: 0;
         display: block;
       }
+
       a {
         color: #0066cc;
         text-decoration: none;
+      }
+
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: #0066cc;
+        color: #ffffff !important;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: 600;
+        margin-top: 20px;
+      }
+
+      .focus {
+        font-weight: 600;
+        color: #0f172a;
       }
     </style>
   </head>
@@ -37,50 +56,48 @@
     <table width='100%' bgcolor='#ffffff' cellpadding='0' cellspacing='0'>
       <tr>
         <td align='center'>
-
           <!-- Main container -->
-          <table width='640' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
-
+          <table width='800' cellpadding='0' cellspacing='0' bgcolor='#f8fafc'>
             <!-- Header -->
             <tr>
-              <td style='padding: 32px;'>
+              <td style='padding: 42px 48px'>
                 <table width='100%'>
                   <tr>
                     <td align='left'>
                       <img
                         src='https://ems.miro.zoracom.com/logo.png'
                         alt='Zoracom Limited'
-                        width='150'
+                        width='120'
                       />
                     </td>
                     <td align='right'>
                       <table cellpadding='0' cellspacing='0'>
                         <tr>
-                          <td style='padding-left: 16px;'>
+                          <td style='padding-left: 20px'>
                             <a href='https://x.com/Zoracom_'>
                               <img
                                 src='https://img.icons8.com/?size=50&id=phOKFKYpe00C&format=png'
-                                width='28'
+                                width='32'
                                 alt='Twitter'
                               />
                             </a>
                           </td>
-                          <td style='padding-left: 16px;'>
+                          <td style='padding-left: 20px'>
                             <a href='https://www.facebook.com/zoracom'>
                               <img
                                 src='https://img.icons8.com/?size=48&id=uLWV5A9vXIPu&format=png'
-                                width='28'
+                                width='32'
                                 alt='Facebook'
                               />
                             </a>
                           </td>
-                          <td style='padding-left: 16px;'>
+                          <td style='padding-left: 20px'>
                             <a
                               href='https://www.linkedin.com/company/zoracom-limited/'
                             >
                               <img
                                 src='https://img.icons8.com/?size=48&id=114445&format=png'
-                                width='28'
+                                width='32'
                                 alt='LinkedIn'
                               />
                             </a>
@@ -97,21 +114,22 @@
             <tr>
               <td align='center'>
                 <table
-                  width='560'
+                  width='705'
                   cellpadding='0'
                   cellspacing='0'
                   bgcolor='#ffffff'
-                  style='border-radius: 12px;'
+                  style='
+                    border-radius: 12px 12px 0 0;
+                    box-shadow: 3px 2px 18px rgb(0, 0, 0, 0.1);
+                  '
                 >
                   <tr>
-                    <td style='padding: 32px;'>
-
+                    <td style='padding: 40px 48px'>
                       <h1
                         style='
-                          text-align: center;
-                          font-size: 22px;
+                          font-size: 24px;
                           font-weight: 800;
-                          margin: 0 0 20px;
+                          margin: 0 0 24px;
                           color: #000000;
                         '
                       >
@@ -119,17 +137,21 @@
                       </h1>
 
                       <p
-                        style='font-size: 15px; color: #384860; margin: 0 0 14px;'
+                        style='
+                          font-size: 16px;
+                          color: #384860;
+                          margin: 0 0 16px;
+                        '
                       >
                         Hello,
                       </p>
 
                       <p
                         style='
-                          font-size: 15px;
+                          font-size: 16px;
                           color: #5e5e5e;
                           line-height: 1.5;
-                          margin: 0 0 24px;
+                          margin: 0 0 32px;
                         '
                       >
                         <strong>{{name}}</strong>
@@ -142,35 +164,79 @@
                         width='100%'
                         cellpadding='0'
                         cellspacing='0'
-                        style='background-color: #f8fafc; margin-bottom: 24px;'
+                        style='
+                          margin-bottom: 32px;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 8px;
+                          overflow: hidden;
+                        '
                       >
                         <tr>
                           <td
-                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
                           >
                             Employee
                           </td>
-                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
                             {{name}}
                           </td>
                         </tr>
                         <tr>
                           <td
-                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
                           >
                             Leave Type
                           </td>
-                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
                             {{leaveType}}
                           </td>
                         </tr>
                         <tr>
                           <td
-                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
                           >
                             Duration
                           </td>
-                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
                             {{formatDate startDate 'MMMM DD, YYYY'}}
                             –
                             {{formatDate endDate 'MMMM DD, YYYY'}}
@@ -178,56 +244,62 @@
                         </tr>
                         <tr>
                           <td
-                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
                           >
                             Reason
                           </td>
-                          <td style='padding: 8px 14px; color: #5e5e5e;'>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
                             {{reason}}
                           </td>
                         </tr>
                         <tr>
                           <td
-                            style='padding: 8px 14px; font-weight: 600; color: #384860;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                            '
                           >
                             Status
                           </td>
                           <td
-                            style='padding: 8px 14px; color: #ed6c02; font-weight: 600;'
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #ed6c02;
+                              font-weight: 600;
+                            '
                           >
                             Pending Approval
                           </td>
                         </tr>
                       </table>
 
-                      <!-- Button -->
-                      <table align='center' cellpadding='0' cellspacing='0'>
-                        <tr>
-                          <td
-                            bgcolor='#0a96cc'
-                            style='border-radius: 200px; text-align: center;'
-                          >
-                            <a
-                              href='{{reviewLink}}'
-                              style='
-                                display: inline-block;
-                                padding: 10px 36px;
-                                font-size: 13px;
-                                color: #ffffff;
-                                font-weight: 600;
-                              '
-                            >
-                              Review Leave Request
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
+                      <a href='{{reviewLink}}' class='btn'>Review Leave Request</a>
 
-                      <p style='margin-top: 32px; font-size: 13px;'>
-                        Cheers,<br />
+                      <p
+                        style='
+                          margin-top: 40px;
+                          font-size: 14px;
+                          color: #5e5e5e;
+                        '
+                      >
+                        Best Regards,<br />
                         <strong>The HR Team</strong>
                       </p>
-
                     </td>
                   </tr>
                 </table>
@@ -236,23 +308,29 @@
 
             <!-- Footer -->
             <tr>
-              <td bgcolor='#ecf8ee' style='padding: 32px;'>
-                <p style='font-size: 13px; margin: 0 0 12px;'>
-                  Questions or FAQ? Contact us at
-                  <a href='mailto:hrteam@zoracom.com'>hrteam@zoracom.com</a>.
+              <td bgcolor='#ecf8ee' style='padding: 40px 48px'>
+                <p style='font-size: 14px; margin: 0 0 16px'>
+                  Have questions?
+                  <br />
+                  Contact us at
+                  <a href='mailto:hr@zoracom.com'>hr@zoracom.com</a>.
+                  <br />
+                  Don’t want any more emails from Zoracom?
+                  <a href='#'>Unsubscribe</a>.
                 </p>
 
-                <p style='font-size: 13px; margin: 0 0 8px;'>
+                <p style='font-size: 14px; margin: 0 0 8px'>
                   NSOC Building: 25 Bafaj Crescent, Ogunfayo Lekki-Epe
                   Expressway, Lagos, Nigeria
                 </p>
 
-                <p style='font-size: 13px; margin: 0;'>
-                  © 2025 Zora Communications Limited. All Rights Reserved.
+                <p style='font-size: 14px; margin: 0'>
+                  Copyright
+                  {{date}}
+                  © Zora Communications Limited. All Rights Reserved.
                 </p>
               </td>
             </tr>
-
           </table>
         </td>
       </tr>
