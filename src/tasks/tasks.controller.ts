@@ -36,7 +36,7 @@ export class TasksController {
     return this.tasksService.getTaskCategory(id);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
   @Post('category')
   async createTaskCategory(
     @Body() dto: CreateCategoryDto,
@@ -45,7 +45,16 @@ export class TasksController {
     return this.tasksService.createTaskCategory(req.user.id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Post('project-label')
+  async createProjectLabel(
+    @Body() dto: CreateCategoryDto,
+    @Req() req: ReqPayload,
+  ) {
+    return this.tasksService.createProjectLabel(req.user.id, dto);
+  }
+
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
   @Patch(':id/category')
   async updateTaskCategory(
     @Body() dto: CreateCategoryDto,
@@ -54,10 +63,39 @@ export class TasksController {
     return this.tasksService.updateTaskCategory(id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
   @Delete(':id/category')
   async deleteTaskCategory(@Param('id') id: string) {
     return this.tasksService.deleteTaskCategory(id);
+  }
+
+  //Project Labels
+
+  @Auth()
+  @Get('project-labels')
+  listTaskProjectLabels(@Req() req: ReqPayload) {
+    return this.tasksService.listTaskProjectLabels(req.user.id);
+  }
+
+  @Auth()
+  @Get(':id/project-label')
+  async getOneProjectLabel(@Param('id') id: string) {
+    return this.tasksService.getOneProjectLabel(id);
+  }
+
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Patch(':id/project-label')
+  async updateProjectLabel(
+    @Param('id') id: string,
+    @Body() dto: CreateCategoryDto,
+  ) {
+    return this.tasksService.updateProjectLabel(id, dto);
+  }
+
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Delete(':id/project-label')
+  async deleteProjectLabel(@Param('id') id: string) {
+    return this.tasksService.deleteProjectLabel(id);
   }
 
   @Auth()
@@ -115,8 +153,8 @@ export class TasksController {
     );
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
-  @Post(':id/approve')
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Patch(':id/approve')
   async approveTask(
     @Param('id') id: string,
     @Body() body: { assignees?: string[] },
@@ -124,6 +162,17 @@ export class TasksController {
   ) {
     const approvedById = req.user.id;
     return this.tasksService.approveTask(id, approvedById, body.assignees);
+  }
+
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Patch(':id/reject')
+  async rejectTask(
+    @Param('id') id: string,
+    @Body() body: { rejectionReason: string },
+    @Req() req: ReqPayload,
+  ) {
+    const rejectedById = req.user.id;
+    return this.tasksService.rejectTask(id, rejectedById, body.rejectionReason);
   }
 
   @Auth(['DEPT_MANAGER', 'ADMIN', 'TEAM_LEAD'])
@@ -219,16 +268,5 @@ export class TasksController {
   @Get(':id/comment')
   async listTaskComments(@Param('id') id: string) {
     return this.tasksService.listTaskComments(id);
-  }
-
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD'])
-  @Post(':id/reject')
-  async rejectTask(
-    @Param('id') id: string,
-    @Body() body: { rejectionReason: string },
-    @Req() req: ReqPayload,
-  ) {
-    const rejectedById = req.user.id;
-    return this.tasksService.rejectTask(id, rejectedById, body.rejectionReason);
   }
 }

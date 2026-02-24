@@ -53,6 +53,10 @@ export class CreateTaskDto {
   category?: string[];
 
   @IsOptional()
+  @IsArray()
+  projectLabels?: string[];
+
+  @IsOptional()
   @IsEnum(TaskPriority, { message: 'Invalid priority' })
   priority?: TaskPriority;
 
@@ -128,15 +132,21 @@ export class UpdateTaskDto {
   uploads?: string[];
 
   // Custom validation: rejectionReason is required when status is CANCELLED
-  @ValidateIf((o) => o.status === TaskStatus.CANCELLED)
-  @IsNotEmpty({
-    message: 'Rejection reason is required when cancelling a task',
-  })
-  requireRejectionReason?: string;
+  // @ValidateIf((o) => o.status === TaskStatus.CANCELLED)
+  // @IsNotEmpty({
+  //   message: 'Rejection reason is required when cancelling a task',
+  // })
+  // requireRejectionReason?: string;
 
   @ValidateIf((o) => o.status === TaskStatus.ISSUES)
   @IsNotEmpty({ message: 'Issue is required' })
   issue?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true, message: 'Each project label must be a valid user ID' })
+  @ArrayMinSize(0)
+  projectLabels?: string[];
 }
 
 class CreatedByDto {
@@ -297,6 +307,21 @@ export class ApprovalRequestDto {
   @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
   @IsNotEmpty({ each: true, message: 'Assignee IDs cannot be empty' })
   assignees: string[];
+}
+
+export class ProcessTaskApprovalDto {
+  @IsEnum(ApprovalStatus)
+  status: ApprovalStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignees?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  rejectionReason?: string;
 }
 
 export class TaskQueryDto {
