@@ -515,6 +515,16 @@ export class MailService {
     });
   }
 
+  async sendPipCreatedMail(data: PipMailDto) {
+    const { email, name, employeeName, pipTitle, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_CREATED,
+      template: 'pipCreated',
+      context: { name, employeeName, pipTitle, dashboardUrl },
+    });
+  }
+
   async sendPipRecommendedMail(data: PipMailDto) {
     const { email, name, recommenderName, dashboardUrl } = data;
     await this.mailerService.sendMail({
@@ -525,7 +535,7 @@ export class MailService {
     });
   }
 
-  async sendPipRequestMail(data: PipMailDto) {}
+  async sendPipRequestMail(data: PipMailDto) { }
 
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;

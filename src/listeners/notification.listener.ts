@@ -37,6 +37,7 @@ import {
 } from 'src/events/appraisal.event';
 import { AppraisalMailDto, PipMailDto } from 'src/mail/mail.types';
 import {
+  PipCreatedEvent,
   PipRecommendedEvent,
   PipApprovedEvent,
   PipRejectedEvent,
@@ -567,6 +568,59 @@ export class NotificationListener {
     await this.mailService.sendAppraisalReviewedMail(mailData);
   }
 
+  @OnEvent('pip.created')
+  async handlePipCreated(event: PipCreatedEvent) {
+    // Fetch the PIP and the employee who created it
+    const pip = await this.prisma.pip.findUnique({
+      where: { id: event.pipId },
+    });
+    const employee = await this.prisma.user.findUnique({
+      where: { id: event.employeeId },
+    });
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const pipTitle = pip?.title ?? 'Untitled PIP';
+
+    // Fetch manager details for email
+    const managers = await this.prisma.user.findMany({
+      where: { id: { in: event.recipientIds } },
+    });
+
+    // In-app notifications
+    const notifications = event.recipientIds.map((recipientId) => ({
+      recipientId,
+      actorId: event.employeeId,
+      type: 'PIP_CREATED',
+      title: 'New PIP Submitted',
+      message: `${employeeName} has submitted a new Performance Improvement Plan (PIP) titled "${pipTitle}" that requires your review.`,
+      actionType: NotificationActionType.PIP_REQUESTED,
+      actionData: { pipId: event.pipId },
+    }));
+
+    await this.notificationService.createMany(notifications);
+
+    // Real-time socket notifications
+    for (const recipientId of event.recipientIds) {
+      this.gateway.sendToUser(recipientId, {
+        type: 'PIP_CREATED',
+        title: 'New PIP Submitted',
+        message: `${employeeName} has submitted a new PIP titled "${pipTitle}" that requires your review.`,
+      });
+    }
+
+    // Email notifications — one per manager
+    for (const manager of managers) {
+      const mailData: PipMailDto = {
+        email: manager.email,
+        name: manager.firstName,
+        employeeName,
+        pipTitle,
+        dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+      };
+      await this.mailService.sendPipCreatedMail(mailData);
+    }
+  }
+
   @OnEvent('pip.recommended')
   async handlePipRecommended(event: PipRecommendedEvent) {
     const employee = await this.prisma.user.findUnique({
@@ -716,5 +770,5 @@ export class NotificationListener {
   }
 
   @OnEvent('Offboarding.Initated')
-  async handleOffboardingInitated(event: any) {}
+  async handleOffboardingInitated(event: any) { }
 }

@@ -66,12 +66,8 @@ export class OffboardingService {
 
       return { exit };
     } catch (error) {
-      if (error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof ConflictException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to process debt payment');
+        console.log(error);
+        bad(`Failed to initiate offboarding: ${error.message}`);
     }
   }
 
@@ -99,7 +95,7 @@ export class OffboardingService {
         if (!asset) {
           throw new NotFoundException('Asset Not Found');
         }
-        
+
         // Check if asset is already RETURNED
         // if (asset.a === 'RETURNED') {
         //   throw new ConflictException('Asset Has Already Been Returned');
@@ -135,15 +131,8 @@ export class OffboardingService {
         return updatedAsset;
       });
     } catch (error) {
-      if (
-        error instanceof BadRequestException ||
-        error instanceof NotFoundException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-      console.error('Failed to return asset:', error);
-      throw new BadRequestException('Failed to return asset');
+        console.log(error);
+         bad(`Failed to return asset: ${error.message}`);
     }
   }
 
