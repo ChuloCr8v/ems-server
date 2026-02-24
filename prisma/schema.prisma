@@ -106,10 +106,11 @@ model User {
   rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
   hrDepartmentApprovals HrDepartmentApproval[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  logActor  Logs[]   @relation("LogActor")
-  logTo     Logs[]   @relation("LogTo")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  logActor      Logs[]          @relation("LogActor")
+  logTo         Logs[]          @relation("LogTo")
+  projectLabels ProjectLabels[]
 
   @@index([email])
   @@index([id])
@@ -142,6 +143,7 @@ model Department {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @default(now()) @updatedAt
   hrDepartmentApprovals HrDepartmentApproval[]
+  projectLabels         ProjectLabels[]
 }
 
 model Team {
@@ -257,6 +259,8 @@ model Upload {
 
   reportItemId String?
   reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
+
+  appraisalSignatures AppraisalSignatures?
 }
 
 model Contacts {
@@ -777,6 +781,7 @@ model Task {
   category    Category[]
   priority    String?
   status      TaskStatus @default(PENDING_APPROVAL)
+  hasDeadline Boolean?
 
   isReported Boolean @default(false)
 
@@ -818,7 +823,8 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  reportItems ReportItem[]
+  reportItems   ReportItem[]
+  projectLabels ProjectLabels[]
 }
 
 model taskDueDate {
@@ -918,6 +924,25 @@ model Category {
   updatedAt DateTime @updatedAt
 }
 
+model ProjectLabels {
+  id          String  @id @default(uuid()) @db.Uuid
+  projectId   String? @unique
+  title       String  @unique
+  description String?
+  color       String?
+
+  type CategoryType?
+
+  tasks Task[]
+
+  departments Department[]
+
+  userId    String?  @db.Uuid
+  createdBy User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model UserTask {
   id         String   @id @default(uuid()) @db.Uuid
   assignedAt DateTime @default(now())
@@ -979,14 +1004,51 @@ model Appraisal {
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   appraisalObj        AppraisalObjective[]
+  managerSignature    AppraisalSignatures? @relation("managerSignature")
+  employeeSignature   AppraisalSignatures? @relation("employeeSignature")
+  appraisalPip        AppraisalPip[]
 
   @@unique([quarter, year, appraisedId])
+}
+
+model AppraisalPip {
+  id String @id @default(uuid()) @db.Uuid
+
+  appraisalId String?    @db.Uuid
+  appraisal   Appraisal? @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String
+  employeeComment String?
+  managerComment  String?
+
+  status    AppraisalPipStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model AppraisalSignatures {
+  id String @id @default(uuid()) @db.Uuid
+
+  signature   Upload? @relation(fields: [signatureId], references: [id])
+  signatureId String? @unique @db.Uuid
+
+  date DateTime?
+
+  managerSignature  Appraisal? @relation("managerSignature", fields: [managerSignatureId], references: [id], onDelete: Cascade)
+  employeeSignature Appraisal? @relation("employeeSignature", fields: [employeeSignatureId], references: [id], onDelete: Cascade)
+
+  managerSignatureId  String? @unique @db.Uuid
+  employeeSignatureId String? @unique @db.Uuid
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Kpi {
   id          String        @id @default(uuid()) @db.Uuid
   appraisalId String?       @unique @db.Uuid
-  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id])
   categories  KpiCategory[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -1027,10 +1089,10 @@ model Objective {
 
 model AppraisalObjective {
   id            String       @id @default(uuid()) @db.Uuid
-  appraisalId   String       @db.Uuid
-  appraisal     Appraisal    @relation(fields: [appraisalId], references: [id])
-  objectiveId   String       @db.Uuid
-  objective     Objective    @relation(fields: [objectiveId], references: [id])
+  appraisalId   String?      @db.Uuid
+  appraisal     Appraisal?   @relation(fields: [appraisalId], references: [id])
+  objectiveId   String?      @db.Uuid
+  objective     Objective?   @relation(fields: [objectiveId], references: [id])
   kpiCategoryId String?      @db.Uuid
   kpiCategory   KpiCategory? @relation(fields: [kpiCategoryId], references: [id])
   rating        Float?
@@ -1060,6 +1122,7 @@ model Feedback {
 
 model FeedbackQuestion {
   id         String   @id @default(uuid()) @db.Uuid
+  order      Int
   question   String
   response   String?
   feedbackId String   @db.Uuid
@@ -1153,6 +1216,13 @@ enum ApproverRole {
   CISO
 }
 
+enum AppraisalPipStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
 enum NotificationActionType {
   INVITE_ACCEPTED
   EMPLOYEE_ADDED
@@ -1161,6 +1231,8 @@ enum NotificationActionType {
   LEAVE_DECLINED
   TASK_ASSIGNED
   TASK_CREATED
+  TASK_APPROVED
+  TASK_REJECTED
   CLAIM_CREATED
   CLAIM_APPROVED
   CLAIM_REJECTED
