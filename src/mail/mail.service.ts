@@ -541,6 +541,8 @@ export class MailService {
     });
   }
 
+  async sendPipRequestMail(data: PipMailDto) {}
+
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;
     await this.mailerService.sendMail({

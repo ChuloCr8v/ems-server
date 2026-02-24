@@ -403,10 +403,10 @@ export class UserService {
 
       const user = await this.__findUserById(id);
       if (!user) mustHave(user, 'User not found', 404);
-      if (
-        requester.userRole?.includes(Role.ADMIN) ||
-        requester.userRole?.includes(Role.ASSET_MANAGER)
-      )
+      // if (
+      //   requester.userRole?.includes(Role.ADMIN) ||
+      //   requester.userRole?.includes(Role.ASSET_MANAGER)
+      // )
         return user;
       if (user.id === requesterId) return user;
 
