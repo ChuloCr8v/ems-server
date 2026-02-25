@@ -8,7 +8,7 @@ import {
   Query,
   Res
 } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { AppraisalStatus, Role } from '@prisma/client';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -54,10 +54,11 @@ export class AppraisalController {
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const appraisal = await this.appraisal.saveAppraisalDraft(
+    const appraisal = await this.appraisal.submitAppraisal(
       userId,
       appraisalId,
       data,
+      true
     );
     return res
       .status(200)
@@ -93,6 +94,12 @@ export class AppraisalController {
     return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
   }
 
+  // @Auth()
+  // @Get()
+  // async listAppraisals(@AuthUser() user: IAuthUser) {
+  //   return this.appraisal.listAppraisals(user.sub);
+  // }
+
   // @Auth
   @Get(':id')
   async getOneAppraisal(@Param('id') id: string) {
@@ -106,7 +113,7 @@ export class AppraisalController {
     // @Query('filter') data: GetAppraisalsDto,
     @Query('quarter') quarter?: string,
     @Query('year') year?: number,
-    @Query('status') status?: any,
+    @Query('status') status?: AppraisalStatus,
     // @Req() req: Request
   ) {
     return this.appraisal.getAppraisalForUser(user.sub, {
