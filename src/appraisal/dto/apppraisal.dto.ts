@@ -1,4 +1,4 @@
-import { AppraisalStatus } from '@prisma/client';
+import { AppraisalPipStatus, AppraisalStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -107,6 +107,47 @@ export class SendToDepartmentDto {
   year: number;
 }
 
+export class SignatureDto {
+  @IsString()
+  @IsOptional()
+  employeeSignature?: string;
+
+  @IsString()
+  @IsOptional()
+  managerSignature?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  employeeDate: string;
+
+  @IsString()
+  @IsNotEmpty()
+  managerDate: string;
+}
+
+export class AppraisalPipDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsString()
+  @IsNotEmpty()
+  description: string;
+
+  @IsString()
+  @IsOptional()
+  employeeComment?: string;
+
+  @IsString()
+  @IsOptional()
+  managerComment?: string;
+
+  @IsEnum(AppraisalPipStatus)
+  @IsOptional()
+  status?: AppraisalPipStatus;
+
+}
+
 export class FillAppraisalDto {
   @IsString()
   @IsOptional()
@@ -128,6 +169,17 @@ export class FillAppraisalDto {
   @ValidateNested({ each: true })
   @Type(() => FeedbackQuestionDto)
   feedback?: FeedbackQuestionDto[];
+
+  @IsOptional()
+  @Type(() => SignatureDto)
+  signatures?: SignatureDto;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AppraisalPipDto)
+  appraisalPip?: AppraisalPipDto[];
+
 }
 
 // appraise-submission.dto.ts (same as before)
@@ -146,6 +198,10 @@ export class AppraiseSubmissionDto {
   @ValidateNested()
   @Type(() => GoalsAndAchievementDto)
   goalsAndAchievements?: GoalsAndAchievementDto;
+
+  @IsOptional()
+  @Type(() => SignatureDto)
+  signatures?: SignatureDto;
 }
 
 // get-appraisals.dto.ts

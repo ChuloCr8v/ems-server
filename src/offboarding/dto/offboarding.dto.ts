@@ -1,0 +1,47 @@
+import { ExitType } from "@prisma/client";
+import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+
+export class InitiateExit {
+    @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
+    @IsNotEmpty()
+    type: ExitType;
+
+    @IsString()
+    @IsNotEmpty()
+    reason: string;
+
+    @IsString()
+    @IsNotEmpty()
+    lastWorkDate: Date;
+
+    @IsBoolean()
+    @IsNotEmpty()
+    noticePeriod: boolean;
+
+    @IsOptional()
+    @IsArray()
+    uploads?: string[];
+}
+
+
+export class ReturnAsset {
+    @IsString()
+    @IsNotEmpty()
+    condition: string;
+
+    @IsString()
+    @IsNotEmpty()
+    reason: string;
+}
+
+// export class ReportAssetDto {
+//     @IsString()
+//     @IsNotEmpty()
+//     comment: string;
+// }
+
+export class DebtPaymentDto {
+    @IsString()
+    @IsOptional()
+    notes?: string;
+}

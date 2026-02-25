@@ -21,6 +21,7 @@ import {
   TaskReassignedDto,
   TaskStatusChangedDto,
   TaskUpdatedDto,
+  TaskRejectedDto,
   UpdateProspectInfoDto,
   WelcomeEmailDto,
   TaskDueDateChangeDto,
@@ -93,18 +94,21 @@ export class MailService {
       subject: MAIL_SUBJECT.PROSPECT_INVITATION,
       template: 'invite',
       attachments,
-      context: { firstName, link, attachments },
+      context: { firstName, link, attachments, date: new Date().getFullYear() },
     });
   }
 
   async sendAcceptanceMail(acceptance: AcceptanceInviteDto) {
-    const { email, name } = acceptance;
+    const { email, name, role } = acceptance;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
       template: 'acceptance',
       context: {
-        name, date: new Date().getFullYear()
+        name,
+        prospectName: name,
+        date: new Date().getFullYear(),
+        role,
       },
     });
   }
@@ -130,7 +134,9 @@ export class MailService {
           day: '2-digit',
           month: 'long',
           year: 'numeric',
-        }), adminLink: 'https://ems.miro.zoracom.com/login'
+        }),
+        adminLink: 'https://ems.miro.zoracom.com/login',
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -141,7 +147,7 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.UPDATE_USER_INFO,
       template: 'user',
-      context: { name, comment, link },
+      context: { name, comment, link, date: new Date().getFullYear() },
     });
   }
 
@@ -151,7 +157,7 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.INITIATE_OFFBOARDING,
       template: 'offboarding',
-      context: { name },
+      context: { name, date: new Date().getFullYear() },
     });
   }
 
@@ -168,7 +174,7 @@ export class MailService {
         loginLink: loginLink || 'https://ems.miro.zoracom.com/login',
         appName: this.config.get('Zoracom Employee Management System'),
         companyName: this.config.get('Zoracom'),
-        currentYear: new Date().getFullYear(),
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -184,7 +190,15 @@ export class MailService {
       subject: MAIL_SUBJECT.LEAVE_REQUEST,
       template: 'leaveRequest',
       context: {
-        name, leaveType, leaveValue, startDate, endDate, reason, approverName, reviewLink: 'https://ems.miro.zoracom.com/leave/approval-desk', Date: date
+        name,
+        leaveType,
+        leaveValue,
+        startDate,
+        endDate,
+        reason,
+        approverName,
+        reviewLink: 'https://ems.miro.zoracom.com/leave/approval-desk',
+        date,
       },
     });
   }
@@ -210,9 +224,10 @@ export class MailService {
         claimTitle,
         type,
         amount,
-        date,
+        eventDate: date,
         description,
         approverName,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -224,7 +239,14 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.CLAIM_APPROVED,
       template: 'claimApproval',
-      context: { name, claimTitle, amount, date, approverName },
+      context: {
+        name,
+        claimTitle,
+        amount,
+        eventDate: date,
+        approverName,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -236,7 +258,15 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.CLAIM_REJECTED,
       template: 'claimRejection',
-      context: { name, claimTitle, amount, date, approverName, reason },
+      context: {
+        name,
+        claimTitle,
+        amount,
+        eventDate: date,
+        approverName,
+        reason,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -246,7 +276,14 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.LEAVE_APPROVAL,
       template: 'leaveApproved',
-      context: { name, leaveType, startDate, endDate, leaveValue },
+      context: {
+        name,
+        leaveType,
+        startDate,
+        endDate,
+        leaveValue,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -257,7 +294,15 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.LEAVE_DECLINE,
       template: 'leaveDenied',
-      context: { name, leaveType, startDate, endDate, leaveValue, reason },
+      context: {
+        name,
+        leaveType,
+        startDate,
+        endDate,
+        leaveValue,
+        reason,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -267,7 +312,7 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PAYSLIP_QUEUED,
       template: 'payslipQueued',
-      context: { month, date, email },
+      context: { month, eventDate: date, email, date: new Date().getFullYear() },
     });
   }
 
@@ -277,7 +322,14 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.EMPLOYEE_PAYSLIP_GENERATED,
       template: 'employeePayslipGenerated',
-      context: { month, date, email, name, dashboardUrl },
+      context: {
+        month,
+        eventDate: date,
+        email,
+        name,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
       attachments: attachment
         ? [
           {
@@ -296,7 +348,13 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PAYSLIPS_GENERATED,
       template: 'payslipsGenerated',
-      context: { month, date, email, dashboardUrl },
+      context: {
+        month,
+        eventDate: date,
+        email,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -325,6 +383,7 @@ export class MailService {
         priority,
         dueDate,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -352,6 +411,7 @@ export class MailService {
         priority,
         dueDate,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -378,6 +438,7 @@ export class MailService {
         taskTitle,
         updateDetails,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -407,6 +468,7 @@ export class MailService {
         newStatus,
         reason,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -417,19 +479,42 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.TASK_APPROVED,
       template: 'taskApproved',
-      context: { name, approvedBy, taskId, taskTitle, dashboardUrl },
+      context: {
+        name,
+        approvedBy,
+        taskId,
+        taskTitle,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
-  // async sendTaskRejectedMail(data: TaskRejectedDto) {
-  //   const { email, name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl } = data;
-  //   await this.mailerService.sendMail({
-  //     to: email,
-  //     subject: MAIL_SUBJECT.TASK_REJECTED,
-  //     template: 'taskRejected',
-  //     context: { name, rejectedBy, taskId, taskTitle, rejectionReason, dashboardUrl },
-  //   });
-  // }
+  async sendTaskRejectedMail(data: TaskRejectedDto) {
+    const {
+      email,
+      name,
+      rejectedBy,
+      taskId,
+      taskTitle,
+      rejectionReason,
+      dashboardUrl,
+    } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.TASK_REJECTED,
+      template: 'taskRejected',
+      context: {
+        name,
+        rejectedBy,
+        taskId,
+        taskTitle,
+        rejectionReason,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
+    });
+  }
 
   async sendTaskReassignedMail(data: TaskReassignedDto) {
     const {
@@ -454,6 +539,7 @@ export class MailService {
         note,
         newDueDate,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -481,6 +567,7 @@ export class MailService {
         oldDueDate,
         newDueDate,
         dashboardUrl,
+        date: new Date().getFullYear(),
       },
     });
   }
@@ -491,7 +578,7 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.APPRAISAL_CREATED,
       template: 'appraisalCreated',
-      context: { name, dashboardUrl },
+      context: { name, dashboardUrl, date: new Date().getFullYear() },
     });
   }
 
@@ -501,7 +588,12 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.APPRAISAL_SUBMITTED,
       template: 'appraisalSubmitted',
-      context: { name, employeeName, dashboardUrl },
+      context: {
+        name,
+        employeeName,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -511,7 +603,17 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.APPRAISAL_REVIEWED,
       template: 'appraisalReviewed',
-      context: { name, dashboardUrl },
+      context: { name, dashboardUrl, date: new Date().getFullYear() },
+    });
+  }
+
+  async sendPipCreatedMail(data: PipMailDto) {
+    const { email, name, employeeName, pipTitle, dashboardUrl } = data;
+    await this.mailerService.sendMail({
+      to: email,
+      subject: MAIL_SUBJECT.PIP_CREATED,
+      template: 'pipCreated',
+      context: { name, employeeName, pipTitle, dashboardUrl },
     });
   }
 
@@ -521,11 +623,16 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PIP_RECOMMENDED,
       template: 'pipRecommended',
-      context: { name, recommenderName, dashboardUrl },
+      context: {
+        name,
+        recommenderName,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
-  async sendPipRequestMail(data: PipMailDto) {}
+  async sendPipRequestMail(data: PipMailDto) { }
 
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;
@@ -533,7 +640,12 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PIP_APPROVED,
       template: 'pipApproved',
-      context: { name, approverName, dashboardUrl },
+      context: {
+        name,
+        approverName,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -543,7 +655,12 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PIP_REJECTED,
       template: 'pipRejected',
-      context: { name, rejectorName, dashboardUrl },
+      context: {
+        name,
+        rejectorName,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -553,7 +670,7 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PIP_COMPLETED,
       template: 'pipCompleted',
-      context: { name, dashboardUrl },
+      context: { name, dashboardUrl, date: new Date().getFullYear() },
     });
   }
 
@@ -563,7 +680,14 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.REPORT_SUBMITTED,
       template: 'reportSubmitted',
-      context: { name, reportTitle, week, departmentName, dashboardUrl },
+      context: {
+        name,
+        reportTitle,
+        week,
+        departmentName,
+        dashboardUrl,
+        date: new Date().getFullYear(),
+      },
     });
   }
 }

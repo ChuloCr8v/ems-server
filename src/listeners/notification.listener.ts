@@ -25,11 +25,19 @@ import {
   ClaimCreatedEvent,
   ClaimRejectedEvent,
 } from 'src/events/claim.event';
+import {
+  TaskApprovedEvent,
+  TaskRejectedEvent,
+} from 'src/events/tasks.event';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 // import { TaskApprovedPayload, TaskAssignedPayload, TaskAssigneeChangePayload, TaskCreatePayload, TaskDueDateChangePayload, TaskPriorityChangePayload, TaskReassignedPayload, TaskRejectedPayload, TaskStatusChangePayload, TaskUpdatedPayload } from 'src/events/tasks.event';
 // import { MailService } from 'src/mail/mail.service';
 import { MailService } from 'src/mail/mail.service';
-import { TaskAssignedDto } from 'src/mail/mail.types';
+import {
+  TaskApprovedDto,
+  TaskAssignedDto,
+  TaskRejectedDto,
+} from 'src/mail/mail.types';
 import {
   AppraisalCreatedEvent,
   AppraisalSubmittedEvent,
@@ -37,6 +45,7 @@ import {
 } from 'src/events/appraisal.event';
 import { AppraisalMailDto, PipMailDto } from 'src/mail/mail.types';
 import {
+  PipCreatedEvent,
   PipRecommendedEvent,
   PipApprovedEvent,
   PipRejectedEvent,
@@ -81,6 +90,7 @@ export class NotificationListener {
       email: "talent@zoracom.com",
       // email: "bonaventure@zoracom.com",
       name: `${prospect.firstName} ${prospect.lastName}`.trim(),
+      role: prospect.role,
     });
   }
 
@@ -567,6 +577,59 @@ export class NotificationListener {
     await this.mailService.sendAppraisalReviewedMail(mailData);
   }
 
+  @OnEvent('pip.created')
+  async handlePipCreated(event: PipCreatedEvent) {
+    // Fetch the PIP and the employee who created it
+    const pip = await this.prisma.pip.findUnique({
+      where: { id: event.pipId },
+    });
+    const employee = await this.prisma.user.findUnique({
+      where: { id: event.employeeId },
+    });
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const pipTitle = pip?.title ?? 'Untitled PIP';
+
+    // Fetch manager details for email
+    const managers = await this.prisma.user.findMany({
+      where: { id: { in: event.recipientIds } },
+    });
+
+    // In-app notifications
+    const notifications = event.recipientIds.map((recipientId) => ({
+      recipientId,
+      actorId: event.employeeId,
+      type: 'PIP_CREATED',
+      title: 'New PIP Submitted',
+      message: `${employeeName} has submitted a new Performance Improvement Plan (PIP) titled "${pipTitle}" that requires your review.`,
+      actionType: NotificationActionType.PIP_REQUESTED,
+      actionData: { pipId: event.pipId },
+    }));
+
+    await this.notificationService.createMany(notifications);
+
+    // Real-time socket notifications
+    for (const recipientId of event.recipientIds) {
+      this.gateway.sendToUser(recipientId, {
+        type: 'PIP_CREATED',
+        title: 'New PIP Submitted',
+        message: `${employeeName} has submitted a new PIP titled "${pipTitle}" that requires your review.`,
+      });
+    }
+
+    // Email notifications — one per manager
+    for (const manager of managers) {
+      const mailData: PipMailDto = {
+        email: manager.email,
+        name: manager.firstName,
+        employeeName,
+        pipTitle,
+        dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+      };
+      await this.mailService.sendPipCreatedMail(mailData);
+    }
+  }
+
   @OnEvent('pip.recommended')
   async handlePipRecommended(event: PipRecommendedEvent) {
     const employee = await this.prisma.user.findUnique({
@@ -713,5 +776,107 @@ export class NotificationListener {
       dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
     };
     await this.mailService.sendPipCompletedMail(mailData);
+  }
+
+  @OnEvent('Offboarding.Initated')
+  async handleOffboardingInitated(event: any) { }
+
+  @OnEvent('task.approved')
+  async handleTaskApproved(event: TaskApprovedEvent) {
+    const approver = await this.prisma.user.findUnique({
+      where: { id: event.approverId },
+    });
+
+    const creator = await this.prisma.user.findUnique({
+      where: { id: event.creatorId },
+    });
+
+    const assignees = await this.prisma.user.findMany({
+      where: { id: { in: event.assigneeIds } },
+    });
+
+    const recipientIds = [
+      ...new Set([event.creatorId, ...event.assigneeIds]),
+    ].filter(Boolean);
+
+    const notifications = recipientIds.map((recipientId) => ({
+      recipientId,
+      actorId: event.approverId,
+      type: 'TASK_APPROVED',
+      title: 'Task Approved',
+      message: `Task "${event.taskTitle}" has been approved by ${approver.firstName} ${approver.lastName}. It is now in progress.`,
+      actionType: NotificationActionType.TASK_APPROVED,
+      actionData: {
+        taskId: event.taskId,
+      },
+    }));
+
+    await this.notificationService.createMany(notifications);
+
+    for (const recipientId of recipientIds) {
+      this.gateway.sendToUser(recipientId, {
+        type: 'TASK_APPROVED',
+        title: 'Task Approved',
+        message: `Task "${event.taskTitle}" has been approved by ${approver.firstName} ${approver.lastName}.`,
+      });
+    }
+
+    // Send emails
+    const mailRecipients = [creator, ...assignees].filter((u) => u?.email);
+    for (const recipient of mailRecipients) {
+      await this.mailService.sendTaskApprovedMail({
+        email: recipient.email,
+        name: recipient.firstName,
+        approvedBy: `${approver.firstName} ${approver.lastName}`,
+        taskId: event.taskId,
+        taskTitle: event.taskTitle,
+        dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+      });
+    }
+  }
+
+  @OnEvent('task.rejected')
+  async handleTaskRejected(event: TaskRejectedEvent) {
+    const rejector = await this.prisma.user.findUnique({
+      where: { id: event.rejectorId },
+    });
+
+    const creator = await this.prisma.user.findUnique({
+      where: { id: event.creatorId },
+    });
+
+    const notifications = [
+      {
+        recipientId: event.creatorId,
+        actorId: event.rejectorId,
+        type: 'TASK_REJECTED',
+        title: 'Task Rejected',
+        message: `Your task "${event.taskTitle}" has been rejected by ${rejector.firstName} ${rejector.lastName}. Reason: ${event.rejectionReason}`,
+        actionType: NotificationActionType.TASK_REJECTED,
+        actionData: {
+          taskId: event.taskId,
+        },
+      },
+    ];
+
+    await this.notificationService.createMany(notifications);
+
+    this.gateway.sendToUser(event.creatorId, {
+      type: 'TASK_REJECTED',
+      title: 'Task Rejected',
+      message: `Your task "${event.taskTitle}" has been rejected by ${rejector.firstName} ${rejector.lastName}.`,
+    });
+
+    if (creator?.email) {
+      await this.mailService.sendTaskRejectedMail({
+        email: creator.email,
+        name: creator.firstName,
+        rejectedBy: `${rejector.firstName} ${rejector.lastName}`,
+        taskId: event.taskId,
+        taskTitle: event.taskTitle,
+        rejectionReason: event.rejectionReason,
+        dashboardUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+      });
+    }
   }
 }

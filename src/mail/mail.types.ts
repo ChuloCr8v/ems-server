@@ -37,6 +37,7 @@ export const MAIL_SUBJECT = {
   APPRAISAL_CREATED: 'New Appraisal Created',
   APPRAISAL_SUBMITTED: 'Appraisal Submitted',
   APPRAISAL_REVIEWED: 'Appraisal Reviewed',
+  PIP_CREATED: 'New PIP Submitted for Review',
   PIP_RECOMMENDED: 'New PIP Recommendation',
   PIP_APPROVED: 'PIP Approved',
   PIP_REJECTED: 'PIP Rejected',
@@ -70,6 +71,9 @@ export class AcceptanceInviteDto {
 
   @IsString()
   name: string;
+
+  @IsString()
+  role: string;
 }
 
 export class DeclinedInviteDto extends AcceptanceInviteDto { }
@@ -514,6 +518,14 @@ export class PipMailDto {
 
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsString()
+  employeeName?: string;
+
+  @IsOptional()
+  @IsString()
+  pipTitle?: string;
 
   @IsOptional()
   @IsString()

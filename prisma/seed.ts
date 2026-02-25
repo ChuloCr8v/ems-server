@@ -45,6 +45,52 @@ async function main() {
   });
 
   const users = [
+    {
+      firstName: "Sales",
+      lastName: "Person",
+      email: "sp@zoracom.com",
+      phone: "08011112221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+    {
+      firstName: "Sales",
+      lastName: "Lead",
+      email: "sl@zoracom.com",
+      phone: "09011112221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+    {
+      firstName: "Sales",
+      lastName: "Manager",
+      email: "sm@zoracom.com",
+      phone: "08012212221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+    {
+      firstName: "Super",
+      lastName: "Admin",
+      email: "sa@zoracom.com",
+      phone: "08011112221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+    {
+      firstName: "Leave",
+      lastName: "Manager",
+      email: "lm@zoracom.com",
+      phone: "08011112221",
+      gender: "Male",
+      maritalStatus: MaritalStatus.MARRIED,
+      role: "Software Engineer",
+    },
+
     // {
     //   firstName: "Benedict",
     //   lastName: "Nwosu",

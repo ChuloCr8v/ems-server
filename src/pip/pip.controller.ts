@@ -27,7 +27,7 @@ export class PipController {
     return res.status(200).json({ message: 'A New PIP Has Been Created', pip });
   }
 
-  @Auth([Role.HR, Role.ADMIN])
+  @Auth()
   @Get()
   async getAllPips(@AuthUser() user: IAuthUser) {
     const userId = user.sub;
@@ -139,6 +139,18 @@ export class PipController {
   async getManagersPip(@AuthUser() user: IAuthUser) {
     const userId = user.sub;
     return await this.pipService.getAllManagersPip(userId);
+  }
+
+  @Auth([Role.USER])
+  @Post(':pipId/claim')
+  async makePipClaimRequest(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const claim = await this.pipService.makePipClaimRequest(pipId, userId);
+    return res.status(200).json({ message: 'PIP Claim Request Made Successfully', claim });
   }
 
   @Auth([Role.SUPERADMIN])

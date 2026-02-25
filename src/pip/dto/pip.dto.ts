@@ -58,7 +58,7 @@ export class RecommendPipDto {
   uploads?: string[];
 }
 
-export class ApprovePipDto {
+export class  ApprovePipDto {
   @IsString()
   @IsOptional()
   comment?: string;
