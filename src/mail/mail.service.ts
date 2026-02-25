@@ -99,7 +99,7 @@ export class MailService {
   }
 
   async sendAcceptanceMail(acceptance: AcceptanceInviteDto) {
-    const { email, name } = acceptance;
+    const { email, name, role } = acceptance;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.OFFER_ACCEPTANCE,
@@ -108,6 +108,7 @@ export class MailService {
         name,
         prospectName: name,
         date: new Date().getFullYear(),
+        role,
       },
     });
   }

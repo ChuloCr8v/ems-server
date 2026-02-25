@@ -71,6 +71,9 @@ export class AcceptanceInviteDto {
 
   @IsString()
   name: string;
+
+  @IsString()
+  role: string;
 }
 
 export class DeclinedInviteDto extends AcceptanceInviteDto { }

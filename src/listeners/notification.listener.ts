@@ -90,6 +90,7 @@ export class NotificationListener {
       email: "talent@zoracom.com",
       // email: "bonaventure@zoracom.com",
       name: `${prospect.firstName} ${prospect.lastName}`.trim(),
+      role: prospect.role,
     });
   }
 
