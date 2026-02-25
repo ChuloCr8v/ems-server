@@ -206,6 +206,7 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean = false,
   ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -217,12 +218,12 @@ export class AppraisalService {
       where: { id: appraisalId },
       include: { department: true },
     });
-    if (this.userHasRole(user, Role.USER)) {
+    if (!user.userRole.includes(Role.DEPT_MANAGER)) {
       if (appraisal.appraisedId !== userId) {
         throw bad('Not authorized to fill this appraisal');
       }
-      return this.submitUserAppraisal(userId, appraisalId, data);
-    } else if (this.userHasRole(user, Role.DEPT_MANAGER)) {
+      return this.submitUserAppraisal(userId, appraisalId, data, isDraft);
+    } else if (user.userRole.includes(Role.DEPT_MANAGER)) {
       const isManager = this.isManagerOfUser(userId, appraisal.appraisedId);
       if (!isManager) {
         throw bad('You are not authorized to appraise this user');
@@ -237,7 +238,7 @@ export class AppraisalService {
           '. Appraisal must be submitted by employee first.',
         );
       }
-      return this.appraiseSubmission(userId, appraisalId, data);
+      return this.appraiseSubmission(userId, appraisalId, data, isDraft);
     } else {
       throw bad('Invalid role for this operation');
     }
@@ -324,31 +325,24 @@ export class AppraisalService {
         );
       }
 
-      // Role specific updates
-      if (role === 'USER') {
-        // Update Feedback
-        if (feedback?.length > 0) {
-          await this.updateFeedbackResponses(tx, feedback);
-        }
-        // Update Signatures (Employee)
-        if (signatures) {
-          await this.updateSignatures(tx, appraisalId, signatures, 'employee');
-        }
-        // Update PIP
-        if (appraisalPip !== undefined) {
-          await this.updateAppraisalPip(tx, appraisalId, appraisalPip);
-        }
-      } else {
-        // Manager specific updates
-        if (signatures) {
-          await this.updateSignatures(tx, appraisalId, signatures, 'manager');
-        }
-        if (managerComment !== undefined) {
-          await tx.appraisal.update({
-            where: { id: appraisalId },
-            data: { managerComment, updatedAt: new Date() },
-          });
-        }
+      // Update Feedback
+      if (feedback?.length > 0) {
+        await this.updateFeedbackResponses(tx, feedback);
+      }
+      // Update Signatures (Employee)
+      if (signatures) {
+        await this.updateSignatures(tx, appraisalId, signatures, 'employee');
+      }
+      // Update PIP
+      if (appraisalPip !== undefined) {
+        await this.updateAppraisalPip(tx, appraisalId, appraisalPip);
+      }
+
+      if (managerComment !== undefined) {
+        await tx.appraisal.update({
+          where: { id: appraisalId },
+          data: { managerComment, updatedAt: new Date() },
+        });
       }
 
       // Recalculate ratings
@@ -367,6 +361,7 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean,
   ) {
     const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
 
@@ -394,7 +389,7 @@ export class AppraisalService {
       await tx.appraisal.update({
         where: { id: appraisalId },
         data: {
-          status: 'APPRAISED',
+          status: isDraft ? 'MANAGER_DRAFT' : 'APPRAISED',
           managerComment: managerComment,
           appraisedAt: new Date(),
           updatedAt: new Date(),
@@ -427,11 +422,10 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean,
   ) {
     const appraisal = await this.validateUserAppraisal(userId, appraisalId);
     const { objectiveRatings, feedback, goalsAndAchievements, signatures, appraisalPip } = data;
-
-
 
     await this.prisma.$transaction(async (tx) => {
 
@@ -468,7 +462,7 @@ export class AppraisalService {
       await tx.appraisal.update({
         where: { id: appraisalId },
         data: {
-          status: 'SUBMITTED',
+          status: isDraft ? 'DRAFT' : 'SUBMITTED',
           submittedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -583,7 +577,7 @@ export class AppraisalService {
     const isHR = userRoles.includes(Role.HR);
     const isManager = userRoles.includes(Role.DEPT_MANAGER);
     const isUser = userRoles.includes(Role.USER);
-    const where: any = {};
+    const where: Prisma.AppraisalWhereInput = {};
 
     // Optional filters
     if (filters?.quarter) where.quarter = filters.quarter;
@@ -734,6 +728,113 @@ export class AppraisalService {
     }
 
     throw new ForbiddenException('Unauthorized role');
+  }
+
+  async listAppraisals(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const userRoles = user.userRole || [];
+    const isAdmin = userRoles.includes(Role.ADMIN) || userRoles.includes(Role.SUPERADMIN);
+    const isHR = userRoles.includes(Role.HR);
+    const isManager = userRoles.includes(Role.DEPT_MANAGER);
+
+    if (!isAdmin && !isHR && !isManager) {
+      throw new ForbiddenException('Strictly for managers, admins and hrs');
+    }
+
+    const where: Prisma.AppraisalWhereInput = { isTemplate: false };
+
+    if (isManager && !isAdmin && !isHR) {
+      const managedDepartments = await this.prisma.department.findMany({
+        where: { user: { some: { id: userId } } },
+        select: { id: true },
+      });
+      const departmentIds = managedDepartments.map((d) => d.id);
+      where.departmentId = { in: departmentIds };
+    }
+
+    const appraisals = await this.prisma.appraisal.findMany({
+      where,
+      include: {
+        department: true,
+        appraised: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            eId: true,
+            role: true,
+          },
+        },
+        appraiser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        summary: true,
+      },
+      orderBy: [
+        { year: 'desc' },
+        { quarter: 'desc' },
+        { department: { name: 'asc' } },
+      ],
+    });
+
+    type AppraisalWithRelations = Prisma.AppraisalGetPayload<{
+      include: {
+        department: true;
+        appraised: {
+          select: {
+            id: true;
+            firstName: true;
+            lastName: true;
+            email: true;
+            eId: true;
+            role: true;
+          };
+        };
+        appraiser: {
+          select: {
+            id: true;
+            firstName: true;
+            lastName: true;
+            email: true;
+          };
+        };
+        summary: true;
+      };
+    }>;
+
+
+    // Grouping: Period -> Department -> Appraisals
+    const grouped = appraisals.reduce((acc: {
+      [period: string]: {
+        [departmentName: string]: AppraisalWithRelations[];
+      };
+    }, appraisal: AppraisalWithRelations) => {
+      const period = appraisal.period || `${appraisal.quarter} ${appraisal.year}`;
+      const departmentName = appraisal.department?.name || 'Unknown Department';
+
+      if (!acc[period]) {
+        acc[period] = {};
+      }
+
+      if (!acc[period][departmentName]) {
+        acc[period][departmentName] = [];
+      }
+
+      acc[period][departmentName].push(appraisal);
+      return acc;
+    }, {});
+
+    return grouped;
   }
 
   async getOneAppraisal(id: string) {
@@ -934,8 +1035,8 @@ export class AppraisalService {
   /////////////////////////////////////////////// HELPER METHODS ///////////////////////////////////////////
 
   private async updateObjectiveRatings(
-    tx: any,
-    appraisal: any,
+    tx: Prisma.TransactionClient,
+    appraisal: Prisma.AppraisalGetPayload<{ include: { appraisalObj: true } }>,
     objectiveRatings: AppraisalObjectiveRatingDto[],
   ) {
     const validObjectiveIds = new Set(
@@ -958,7 +1059,7 @@ export class AppraisalService {
   }
 
   private async updateGoalsAndAchievements(
-    tx: any,
+    tx: Prisma.TransactionClient,
     appraisalId: string,
     goalsAndAchievements: GoalsAndAchievementDto,
   ) {
@@ -972,7 +1073,7 @@ export class AppraisalService {
   }
 
   private async updateFeedbackResponses(
-    tx: any,
+    tx: Prisma.TransactionClient,
     feedback: FeedbackQuestionDto[],
   ) {
     const updates = feedback.map((item) =>
@@ -986,7 +1087,7 @@ export class AppraisalService {
   }
 
   private async updateSignatures(
-    tx: any,
+    tx: Prisma.TransactionClient,
     appraisalId: string,
     signatures: SignatureDto,
     type: 'employee' | 'manager',
@@ -1022,7 +1123,7 @@ export class AppraisalService {
   }
 
   private async updateAppraisalPip(
-    tx: any,
+    tx: Prisma.TransactionClient,
     appraisalId: string,
     appraisalPip: AppraisalPipDto[],
   ) {
