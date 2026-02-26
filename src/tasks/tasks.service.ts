@@ -197,7 +197,7 @@ export class TasksService {
 
       //Approval Status
       if (isManager) {
-        createData.approvedById = createdById;
+        createData.approvedBy = { connect: { id: createdById } }
         createData.approvedAt = new Date();
         createData.approvalRequestedAt = new Date();
       } else if (!isManager) {
@@ -527,7 +527,7 @@ export class TasksService {
           status === ApprovalStatus.APPROVED
             ? TaskStatus.IN_PROGRESS
             : TaskStatus.CANCELLED,
-        approvedById: processorId,
+        approvedBy: { connect: { id: processorId } },
         approvedAt: new Date(),
         ...(status === ApprovalStatus.REJECTED && { rejectionReason }),
         // Update assignees only on approval if provided
