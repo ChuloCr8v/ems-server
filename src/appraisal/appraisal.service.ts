@@ -768,6 +768,7 @@ export class AppraisalService {
             email: true,
             eId: true,
             role: true,
+            departments: true
           },
         },
         appraiser: {
@@ -778,6 +779,7 @@ export class AppraisalService {
             email: true,
           },
         },
+
         summary: true,
       },
       orderBy: [
@@ -791,13 +793,9 @@ export class AppraisalService {
       include: {
         department: true;
         appraised: {
-          select: {
-            id: true;
-            firstName: true;
-            lastName: true;
-            email: true;
-            eId: true;
-            role: true;
+          include: {
+
+            departments: true
           };
         };
         appraiser: {
@@ -812,29 +810,64 @@ export class AppraisalService {
       };
     }>;
 
+    return this.groupByPeriod(appraisals)
 
-    // Grouping: Period -> Department -> Appraisals
-    const grouped = appraisals.reduce((acc: {
-      [period: string]: {
-        [departmentName: string]: AppraisalWithRelations[];
-      };
-    }, appraisal: AppraisalWithRelations) => {
-      const period = appraisal.period || `${appraisal.quarter} ${appraisal.year}`;
-      const departmentName = appraisal.department?.name || 'Unknown Department';
+  }
 
-      if (!acc[period]) {
-        acc[period] = {};
+  private groupByPeriod(appraisals: any) {
+    const period = new Map<string, any>();
+
+    for (const appraisal of appraisals) {
+      if (!period.has(appraisal.quarter)) {
+        period.set(appraisal.quarter, {
+          period: appraisal.period,
+          title: `Appraisal - Quarter ${appraisal.period}`,
+          departments: [],
+          deptMap: new Map<string, any>(),
+        });
       }
 
-      if (!acc[period][departmentName]) {
-        acc[period][departmentName] = [];
+      const periodEntry = period.get(appraisal.quarter);
+      const deptMap = periodEntry?.deptMap;
+
+      const userDepartments = appraisal.appraised.departments ?? [];
+
+      if (userDepartments.length === 0) {
+        if (!deptMap?.has('NO_DEPARTMENT')) {
+          deptMap?.set('NO_DEPARTMENT', {
+            department: null,
+            appraisals: [],
+          });
+        }
+
+        deptMap?.get('NO_DEPARTMENT').appraisals.push({
+          ...appraisal,
+          appraisals: [],
+        });
+
+        continue;
       }
 
-      acc[period][departmentName].push(appraisal);
-      return acc;
-    }, {});
 
-    return grouped;
+      for (const dept of userDepartments) {
+
+        if (!deptMap.has(dept.id)) {
+          deptMap.set(dept.id, {
+            department: dept,
+            appraisals: [],
+          });
+        }
+
+        deptMap.get(dept.id).appraisals.push(appraisal);
+      }
+    }
+
+    for (const periodEntry of period.values()) {
+      periodEntry.departments = Array.from(periodEntry.deptMap.values());
+      delete periodEntry.deptMap;
+    }
+
+    return Array.from(period.values());
   }
 
   async getOneAppraisal(id: string) {

@@ -23,7 +23,8 @@ export class AppraisalSchedulerController {
     );
 
     const currentDate = new Date();
-    const quarter = this.getCurrentQuarter(currentDate);
+    // const quarter = this.getCurrentQuarter(currentDate);
+    const quarter = 2;
     const year = currentDate.getFullYear();
     const period = `Quarter ${quarter} ${year}`;
 

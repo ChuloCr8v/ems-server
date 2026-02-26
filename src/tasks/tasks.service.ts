@@ -239,14 +239,14 @@ export class TasksService {
           )?.departments[0].id);
 
       if (taskCreator.team) {
-        createData.teamId = taskCreator.team.id;
+        createData.team = { connect: { id: taskCreator.team.id } };
       }
 
       const task = await this.prisma.task.create({
         data: {
           ...createData,
           createdBy: { connect: { id: createdById } },
-          departmentId: taskDepts,
+          department: { connect: { id: taskDepts } },
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
