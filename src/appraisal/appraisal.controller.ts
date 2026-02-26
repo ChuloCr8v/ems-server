@@ -94,11 +94,11 @@ export class AppraisalController {
     return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
   }
 
-  // @Auth()
-  // @Get()
-  // async listAppraisals(@AuthUser() user: IAuthUser) {
-  //   return this.appraisal.listAppraisals(user.sub);
-  // }
+  @Auth()
+  @Get()
+  async listAppraisals(@AuthUser() user: IAuthUser) {
+    return this.appraisal.listAppraisals(user.sub);
+  }
 
   // @Auth
   @Get(':id')
@@ -106,22 +106,22 @@ export class AppraisalController {
     return this.appraisal.getOneAppraisal(id);
   }
 
-  @Auth()
-  @Get()
-  async getAppraisalForUser(
-    @AuthUser() user: IAuthUser,
-    // @Query('filter') data: GetAppraisalsDto,
-    @Query('quarter') quarter?: string,
-    @Query('year') year?: number,
-    @Query('status') status?: AppraisalStatus,
-    // @Req() req: Request
-  ) {
-    return this.appraisal.getAppraisalForUser(user.sub, {
-      quarter,
-      year,
-      status,
-    });
-  }
+  // @Auth()
+  // @Get()
+  // async getAppraisalForUser(
+  //   @AuthUser() user: IAuthUser,
+  //   // @Query('filter') data: GetAppraisalsDto,
+  //   @Query('quarter') quarter?: string,
+  //   @Query('year') year?: number,
+  //   @Query('status') status?: AppraisalStatus,
+  //   // @Req() req: Request
+  // ) {
+  //   return this.appraisal.getAppraisalForUser(user.sub, {
+  //     quarter,
+  //     year,
+  //     status,
+  //   });
+  // }
 
   @Get(':appraisalId/feedback-questions')
   async getAppraisalFeedbackQuestions(

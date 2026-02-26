@@ -246,7 +246,7 @@ export class TasksService {
         data: {
           ...createData,
           createdBy: { connect: { id: createdById } },
-          departmentId: taskDepts,
+          department: { connect: { id: taskDepts } },
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
