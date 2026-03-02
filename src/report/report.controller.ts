@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Post, Req, Body } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Req, Body, Param } from '@nestjs/common';
 import { ReportService } from './report.service';
 import { ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
@@ -30,12 +30,24 @@ export class ReportController {
   }
 
   @Auth()
+  @Get('weekly-reports')
+  listWeeklyReportsByProjects(@Req() req: ReqPayload) {
+    const userId = req.user.id;
+    return this.report.listWeeklyReportsByProjects(userId);
+  }
+
+  @Auth()
   @Get('')
-  listReports(@Req() req: ReqPayload) {
+  listWeeklyReports(@Req() req: ReqPayload) {
     const userId = req.user.id;
     return this.report.listWeeklyReports(userId);
   }
 
+  @Auth()
+  @Get('user/:userId')
+  getUserReports(@Req() req: ReqPayload, @Param('userId') userId: string) {
+    return this.report.getUserReports(userId);
+  }
 
   @Auth()
   @Get('departments')
