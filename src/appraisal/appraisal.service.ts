@@ -405,7 +405,7 @@ export class AppraisalService {
     const updatedAppraisal = await this.getOneAppraisal(appraisalId);
 
     // Emit Event
-    this.eventEmitter.emit(
+    !isDraft && this.eventEmitter.emit(
       'appraisal.reviewed',
       new AppraisalReviewedEvent(
         updatedAppraisal.id,
@@ -471,7 +471,7 @@ export class AppraisalService {
     const updatedAppraisal = await this.getOneAppraisal(appraisalId);
 
     // Emit Event
-    this.eventEmitter.emit(
+    !isDraft && this.eventEmitter.emit(
       'appraisal.submitted',
       new AppraisalSubmittedEvent(
         updatedAppraisal.id,
@@ -742,7 +742,12 @@ export class AppraisalService {
     const isManager = userRoles.includes(Role.DEPT_MANAGER);
 
     if (!isAdmin && !isHR && !isManager) {
-      throw new ForbiddenException('Strictly for managers, admins and hrs');
+      return await this.prisma.appraisal.findMany({
+        where: {
+          appraisedId: userId
+        },
+        include: this.appraisalInclude
+      })
     }
 
     const where: Prisma.AppraisalWhereInput = { isTemplate: false };
@@ -760,6 +765,18 @@ export class AppraisalService {
       where,
       include: {
         department: true,
+        appraisalObj: true,
+        appraisalPip: true,
+        goalsAndAchievement: true,
+        feedback: true,
+        employeeSignature: {
+          include: { signature: true }
+        },
+        managerSignature: {
+          include: {
+            signature: true
+          }
+        },
         appraised: {
           select: {
             id: true,
@@ -789,26 +806,7 @@ export class AppraisalService {
       ],
     });
 
-    type AppraisalWithRelations = Prisma.AppraisalGetPayload<{
-      include: {
-        department: true;
-        appraised: {
-          include: {
 
-            departments: true
-          };
-        };
-        appraiser: {
-          select: {
-            id: true;
-            firstName: true;
-            lastName: true;
-            email: true;
-          };
-        };
-        summary: true;
-      };
-    }>;
 
     return this.groupByPeriod(appraisals)
 
@@ -1281,5 +1279,76 @@ export class AppraisalService {
     const roles = (userObj.userRole ?? userObj.role)
     if (Array.isArray(roles)) return roles.includes(role);
     return roles === role;
+  }
+
+
+  private appraisalInclude = {
+    appraised: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        eId: true,
+      },
+    },
+    appraiser: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        eId: true,
+      },
+    },
+    department: true,
+    appraisalObj: { include: { objective: true, kpiCategory: true } },
+    kpi: {
+      include: {
+        categories: {
+          include: {
+            objectives: {
+              include: { appraisalObj: { include: { objective: true } } },
+            },
+          },
+        },
+      },
+    },
+    goalsAndAchievement: true,
+    feedback: { include: { questions: true } },
+    summary: {
+      include: {
+        kpiCategory: { select: { id: true, name: true } },
+      },
+    },
+    appraisalPip: true,
+    employeeSignature: {
+      include: {
+        signature: {
+          select: {
+            id: true,
+            name: true,
+            size: true,
+            uri: true,
+            type: true
+          }
+        }
+      }
+    },
+    managerSignature: {
+      include: {
+        signature: {
+          select: {
+            id: true,
+            name: true,
+            size: true,
+            uri: true,
+            type: true
+          }
+        }
+      }
+    }
   }
 }
