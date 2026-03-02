@@ -712,7 +712,7 @@ export class TasksService {
         action: 'Due date extended',
         userId: userId,
         taskId: id,
-        comment: note ?? `New due date: ${dueDate.toISOString()}`,
+        comment: note ?? `New due date: ${new Date(dueDate).toISOString()}`,
       });
     } catch (error) {
       bad(error);
