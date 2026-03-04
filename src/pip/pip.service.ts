@@ -8,7 +8,7 @@ import {
     RejectPipDto,
 } from './dto/pip.dto';
 import { bad } from 'src/utils/error.utils';
-import { ClaimType, Role } from '@prisma/client';
+import { ClaimType, PipStatus, Role } from '@prisma/client';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -1164,7 +1164,7 @@ export class PipService {
             await this.prisma.pip.update({
                 where: { id: pip.id },
                 data: {
-                    status: 'CLAIM_REQUESTED',
+                    status: 'CLAIM_REQUESTED' as PipStatus,
                 },
             });
 
