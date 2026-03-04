@@ -1294,6 +1294,7 @@ enum PipStatus {
   SUBMITTED
   REJECTED
   COMPLETED
+  CLAIM_REQUESTED
 }
 
 enum TaxStatus {

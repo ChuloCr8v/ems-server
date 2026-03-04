@@ -141,7 +141,7 @@ export class PipController {
     return await this.pipService.getAllManagersPip(userId);
   }
 
-  @Auth([Role.USER])
+  @Auth([Role.USER]) 
   @Post(':pipId/claim')
   async makePipClaimRequest(
     @AuthUser() user: IAuthUser,
