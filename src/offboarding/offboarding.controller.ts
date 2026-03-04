@@ -11,19 +11,18 @@ import { createReadStream } from 'fs';
 
 @Controller('offboarding')
 export class OffboardingController {
-  constructor(private readonly offboarding: OffboardingService) {}
+  constructor(private readonly offboarding: OffboardingService) { }
 
-  @Auth([Role.ADMIN, Role.HR])
-  @Post()
-  async initiateExit(
-    @Param('userId') userId: string, 
-    @Body() data: InitiateExit,
-    @Res() res: Response,
-  ) {
-    const exit = await this.offboarding.initiateExit(userId, data);
-    return res.status(200).json({ message: `User has initiated Offboarding`, exit});
-  }
-
+  // @Auth([Role.ADMIN, Role.HR])
+  // @Post()
+  // async initiateExit(
+  //   @Param('userId') userId: string, 
+  //   @Body() data: InitiateExit,
+  //   @Res() res: Response,
+  // ) {
+  //   const exit = await this.offboarding.initiateExit(userId, data);
+  //   return res.status(200).json({ message: `User has initiated Offboarding`, exit});
+  // }
   // @Auth([Role.USER])
   // @Patch(':assetId/return')
   // async returnAsset(
@@ -49,7 +48,7 @@ export class OffboardingController {
   // ) {
   //   return this.offboarding.approveAllReturnedAssets(offboardingId, data.notes);
   // }
-  
+
   // @Auth([Role.ADMIN, Role.USER, Role.ASSET_MANAGER])
   // @Post(':assignmentId/comment')
   // @UseInterceptors(FilesInterceptor('uploads'))
@@ -134,13 +133,16 @@ export class OffboardingController {
 
   // @Auth([Role.ADMIN, Role.USER])
   // @Post(':offboardingId/payments')
+  // @UseInterceptors(FilesInterceptor('upload'))
   // async uploadPayment(
   //   @Param('offboardingId') offboardingId: string,
+  //   @UploadedFiles() uploads: Express.Multer.File[],
   //   @Body() dto: DebtPaymentDto,
   //   @Req() req: { user: IAuthUser },
   // ) {
   //   return this.offboarding.deptPayment(
   //     offboardingId,
+  //     uploads,
   //     req.user,
   //     dto
   //   );
@@ -148,13 +150,15 @@ export class OffboardingController {
 
   // @Auth([Role.ADMIN, Role.USER])
   // @Post(':paymentId/comment')
+  // @UseInterceptors(FilesInterceptor('uploads'))
   // async commentDebtPayment(
   //   @Param('paymentId') paymentId: string,
+  //   @UploadedFiles() uploads: Express.Multer.File[],
   //   @Body() comment: string,
   //   @Res() res: Response,
   //   @Req() req: { user: IAuthUser },
   // ) {
-  //   const payment = await this.offboarding.commentdebtPayment(paymentId, comment, req.user);
+  //   const payment = await this.offboarding.commentdebtPayment(paymentId, comment, req.user, uploads);
   //   return res.status(200).json({ message: `A comment has been made on the payment`, payment });
   // }
 

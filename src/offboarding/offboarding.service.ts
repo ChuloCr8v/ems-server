@@ -17,64 +17,60 @@ export class OffboardingService {
     private readonly mail: MailService,
   ) { }
 
-  async initiateExit(userId: string, data: InitiateExit) {
-    const { type, reason, lastWorkDate, noticePeriod } = data;
+  // async initiateExit(userId: string, data: InitiateExit) {
+  //   const { type, reason, lastWorkDate, noticePeriod } = data;
 
-    try {
-      // Verify user is ACTIVE
-      const user = await this.user.__findUserById(userId);
-      if (user.status !== Status.ACTIVE) {
-        throw new BadRequestException('User is not active');
-      }
+  //   try {
+  //     // Verify user is ACTIVE
+  //     const user = await this.user.__findUserById(userId);
+  //     if (user.status !== Status.ACTIVE) {
+  //       throw new BadRequestException('User is not active');
+  //     }
 
-      // Create offboarding record
-      const exit = await this.prisma.offboarding.create({
-        data: {
-          type,
-          reason,
-          lastWorkDate,
-          noticePeriod,
-          user: {
-            connect: {
-              id: userId,
-            },
-          },
-          checklist: {
-            createMany: {
-              data: [
-                { task: "Sign and Fill HR Clearance Form" },
-                { task: "Upload Proof of Payment (if applicable)" },
-                { task: "Sign and Fill Facility Clearance Form"},
-                { task: "Return Assigned Assets" },
-                { task: "Submit Handover Form" },
-              ]
-            }
-          },
-          uploads: data.uploads
-          ? {
-            connect: data.uploads.map((id) => ({ id })),
-          }
-          : undefined,
-        },
-        include: {
-          user: true,
-        },
-      });
+  //     // Create offboarding record
+  //     const exit = await this.prisma.offboarding.create({
+  //       data: {
+  //         type,
+  //         reason,
+  //         lastWorkDate,
+  //         noticePeriod,
+  //         user: {
+  //           connect: {
+  //             id: userId,
+  //           },
+  //         },
+  //         checklist: {
+  //           createMany: {
+  //             data: [
+  //               { task: "Return Assigned Assets" },
+  //               { task: "Upload Proof of Payment (if applicable)" },
+  //               { task: "Submit Handover Form" },
+  //             ]
+  //           }
+  //         },
+  //         uploads: data.uploads
+  //         ? {
+  //           connect: data.uploads.map((id) => ({ id })),
+  //         }
+  //         : undefined,
+  //       },
+  //       include: {
+  //         user: true,
+  //       },
+  //     });
 
-      //Send Offboarding Email
-      await this.mail.initiateOffboardingMail({
-        email: exit.user.email,
-        name: `${exit.user.firstName} ${exit.user.lastName}`.trim(),
-      });
+  //     //Send Offboarding Email
+  //     await this.mail.initiateOffboardingMail({
+  //       email: exit.user.email,
+  //       name: `${exit.user.firstName} ${exit.user.lastName}`.trim(),
+  //     });
 
-      return { exit };
-    } catch (error) {
-        console.log(error);
-        bad(`Failed to initiate offboarding: ${error.message}`);
-    }
-  }
-
-  // async sendClearanceForm() {}
+  //     return { exit };
+  //   } catch (error) {
+  //       console.log(error);
+  //       bad(`Failed to initiate offboarding: ${error.message}`);
+  //   }
+  // }
 
   // async returnAsset(assetId: string, data: ReturnAsset) {
   //   const { condition, reason } = data;
@@ -248,12 +244,8 @@ export class OffboardingService {
 
   // }
 
-  // async commentOffboardingAsset(assignmentId: string, userId: string, data: CommentsDto) {
+  // async commentOffboardingAsset(assignmentId: string, comments: string, user: IAuthUser, uploads: Express.Multer.File[]) {
   //   try {
-  //     const user = await this.findUserById(userId);
-  //       if (!user) {
-  //           throw bad("User Not Found")
-  //       }
   //     //Verify that Assignment Exist And Assets has been returned
   //     const assignment = await this.prisma.assignment.findUnique({
   //       where: { id: assignmentId },
@@ -274,18 +266,28 @@ export class OffboardingService {
   //     return await this.prisma.$transaction(async (tx) => {
   //       const comment = await tx.comment.create({
   //         data: {
-  //           comment: data.comments,
-  //           userId: user.id,
+  //           comment: comments,
+  //           userId: user.sub,
   //           // assignmentId: assignment.id,
-  //           offboardingId: assignment.offboardingId,
-  //           uploads: data.uploads
-  //           ? {
-  //             connect: data.uploads.map((id) => ({ id })),
-  //           }
-  //           : undefined,
+  //           offboardingId: assignment.offboardingId
   //         },
   //         include: { uploads: true }
   //       });
+  //       //Handle Uploads
+  //       if (uploads?.length > 0) {
+  //         const assetUploads = uploads.map((upload) => ({
+  //           name: upload.originalname,
+  //           size: upload.size,
+  //           type: upload.mimetype,
+  //           bytes: upload.buffer,
+  //           assignmentId: assignmentId,
+  //           offboardingId: assignment.offboardingId,
+  //         }));
+
+  //         await this.prisma.upload.createMany({
+  //           data: assetUploads,
+  //         });
+  //       }
 
   //       return { comment, };
   //     });
@@ -300,7 +302,7 @@ export class OffboardingService {
 
   // }
 
-  // async assetPaymentReceipt(assignmentId: string, data: NotesDto) {
+  // async assetPaymentReceipt(assignmentId: string, uploads: Express.Multer.File[], notes?: string) {
   //   const assignment = await this.prisma.assignment.findUnique({
   //     where: { id: assignmentId },
   //     include: { asset: true },
@@ -312,23 +314,25 @@ export class OffboardingService {
   //     throw bad("Asset must be REPORTED or FAULTY");
   //   }
 
+  //   const receipt = uploads.map((upload) => ({
+  //     name: upload.originalname,
+  //     size: upload.size,
+  //     type: upload.mimetype,
+  //     bytes: upload.buffer,
+  //     assignmentId: assignment.id,
+  //   }));
+  //   await this.prisma.upload.createMany({
+  //     data: receipt,
+  //   });
+
   //   const updatedAssignment = await this.prisma.assignment.update({
   //     where: { id: assignmentId },
   //     data: {
-  //       notes: data.notes,
+  //       notes: notes,
   //       isVerified: false,
-  //       asset: {
-  //         update: {
-  //           assetImages:  data.uploads
-  //             ? {
-  //               connect: data.uploads.map((id) => ({ id })),
-  //             }
-  //             : undefined,
-  //             }
-  //       }
   //     }
   //   });
-  //   return { updatedAssignment, receipt: data. uploads };
+  //   return { updatedAssignment, receipt };
   // }
 
   // async approveAssetPayment(assignmentId: string) {
@@ -362,7 +366,11 @@ export class OffboardingService {
   //   ]);
   // }
 
-  // async submitHandover(offboardingId: string, data: HandoverDto) {
+  // async submitHandover(
+  //   offboardingId: string,
+  //   file: Express.Multer.File,
+  //   notes?: string
+  // ) {
   //   const offboarding = await this.prisma.offboarding.findUnique({
   //     where: { id: offboardingId },
   //     include: { handover: true },
@@ -372,27 +380,28 @@ export class OffboardingService {
   //   }
 
   //   return this.prisma.$transaction(async (prisma) => {
+  //     // Create upload record
+  //     const upload = await prisma.upload.create({
+  //       data: {
+  //         name: file.originalname,
+  //         size: file.size,
+  //         type: file.mimetype,
+  //         bytes: file.buffer,
+  //         offboardingId,
+  //       },
+  //     });
 
   //     // Create or update handover document
   //     return prisma.handoverDocument.upsert({
   //       where: { id: offboarding.id },
   //       create: {
   //         offboardingId,
-  //         upload: data.uploads
-  //           ? {
-  //             connect: data.uploads.map((id) => ({ id })),
-  //           }
-  //           : undefined,
-  //         notes: data.notes,
+  //         upload: { connect: { id: upload.id } },
+  //         notes,
   //       },
   //       update: {
-  //         // upload: { connect: { id: upload.id } },
-  //         upload: data.uploads
-  //           ? {
-  //             connect: data.uploads.map((id) => ({ id })),
-  //           }
-  //           : undefined,
-  //         notes: data.notes,
+  //         upload: { connect: { id: upload.id } },
+  //         notes,
   //         isApproved: false, // Reset approval if re-uploading
   //         approvedAt: null,
   //       },
@@ -401,12 +410,8 @@ export class OffboardingService {
   //   });
   // }
 
-  // async commentHandover(handoverId: string, userId: string, data: CommentsDto) {
+  // async commentHandover(handoverId: string, comment: string, user: IAuthUser, uploads: Express.Multer.File[]) {
   //   try {
-  //      const user = await this.findUserById(userId);
-  //         if (!user) {
-  //             throw bad("User Not Found")
-  //         }
   //     //Verify Handover Exist
   //     const handover = await this.prisma.handoverDocument.findUnique({
   //       where: { id: handoverId },
@@ -425,19 +430,28 @@ export class OffboardingService {
   //     //Create Comment
   //     const commentRecord = await this.prisma.comment.create({
   //       data: {
-  //         comment: data.comments,
-  //         userId: user.id,
+  //         comment,
+  //         userId: user.sub,
   //         handoverId: handover.id,
   //         offboardingId: handover.offboardingId,
-  //         uploads: data.uploads
-  //           ? {
-  //             connect: data.uploads.map((id) => ({ id })),
-  //           }
-  //           : undefined,
   //       },
   //       include: { uploads: true },
   //     });
-      
+
+  //     if (uploads?.length > 0) {
+  //       const handoverUploads = uploads.map((upload) => ({
+  //         name: upload.originalname,
+  //         size: upload.size,
+  //         type: upload.mimetype,
+  //         bytes: upload.buffer,
+  //         handoverId: handoverId,
+  //         commentId: commentRecord.id,
+  //       }));
+
+  //       await this.prisma.upload.createMany({
+  //         data: handoverUploads,
+  //       });
+  //     }
   //     return commentRecord;
 
   //   } catch (error) {
@@ -450,11 +464,7 @@ export class OffboardingService {
   //   }
   // }
 
-  // async approveHandoverSub(handoverId: string, userId: string) {
-  //    const user = await this.findUserById(userId);
-  //       if (!user) {
-  //           throw bad("User Not Found")
-  //       }
+  // async approveHandoverSub(handoverId: string, user: IAuthUser) {
   //   const handover = await this.prisma.handoverDocument.findUnique({
   //     where: { id: handoverId },
   //     include: {
@@ -475,7 +485,7 @@ export class OffboardingService {
 
   //   //Verify manager is from the same department
   //   const manager = await this.prisma.user.findUnique({
-  //     where: { id: user.id },
+  //     where: { id: user.sub },
   //     include: { departments: true }
   //   });
 
@@ -515,21 +525,24 @@ export class OffboardingService {
 
   // async deptPayment(
   //   offboardingId: string,
-  //   userId: string,
-  //   data: DebtPaymentDto,
+  //   uploads: Express.Multer.File[],
+  //   user: IAuthUser,
+  //   dto: DebtPaymentDto,
   // ) {
-  //   // const { notes } = dto;
+  //   const { notes } = dto;
+
+  //   //Validate uploads
+  //   UploadValidationUtil.validateFiles(uploads, {
+  //     allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+  //     maxFileSize: 10 * 1024 * 1024,
+  //   });
 
   //   try {
-  //      const user = await this.findUserById(userId);
-  //                 if (!user) {
-  //                     throw bad("User Not Found")
-  //                 }
   //     // Validate offboarding exists and belongs to user
   //     const offboarding = await this.prisma.offboarding.findUnique({
   //       where: {
   //         id: offboardingId,
-  //         userId: user.id,
+  //         userId: user.sub
   //       },
   //       include: {
   //         user: true,
@@ -553,17 +566,30 @@ export class OffboardingService {
   //     //Create Payment Record
   //     const payment = await this.prisma.payment.create({
   //       data: {
-  //         notes: data.notes,
+  //         notes,
   //         offboardingId: offboardingId,
-  //         uploads: data.uploads
-  //           ? {
-  //               connect: data.uploads.map((id) => ({ id })),
-  //             }
-  //           : undefined,
   //       },
   //       include: { uploads: true }
   //     });
-  
+
+  //     //Create Upload Records
+  //     if (uploads?.length > 0) {
+  //       const paymentUploads = uploads.map((upload) => ({
+  //         name: upload.originalname,
+  //         size: upload.size,
+  //         type: upload.mimetype,
+  //         bytes: upload.buffer,
+  //         paymentId: payment.id,
+  //         offboardingId: offboarding.id,
+  //         userId: user.sub,
+  //       }));
+
+  //       await this.prisma.upload.createMany({
+  //         data: paymentUploads,
+  //       });
+
+  //       return paymentUploads
+  //     }
   //     return payment;
 
   //   } catch (error) {
@@ -576,12 +602,8 @@ export class OffboardingService {
   //   }
   // }
 
-  // async commentdebtPayment(paymentId: string, userId: string, data: CommentsDto) {
+  // async commentdebtPayment(paymentId: string, comment: string, user: IAuthUser, uploads: Express.Multer.File[]) {
   //   try {
-  //      const user = await this.findUserById(userId);
-  //         if (!user) {
-  //             throw bad("User Not Found")
-  //         }
   //     //Verify Payment Exists
   //     const payment = await this.prisma.payment.findUnique({
   //       where: { id: paymentId },
@@ -602,19 +624,28 @@ export class OffboardingService {
   //     //Create Comment
   //     const comments = await this.prisma.comment.create({
   //       data: {
-  //         comment: data.comments,
-  //         userId: user.id,
+  //         comment,
+  //         userId: user.sub,
   //         paymentId: payment.id,
   //         offboardingId: payment.offboardingId,
-  //         uploads: data.uploads
-  //         ? {
-  //           connect: data.uploads.map((id) => ({ id })),
-  //         }
-  //         : undefined,
   //       },
   //       include: { uploads: true },
   //     });
 
+  //     if (uploads?.length > 0) {
+  //       const paymentUploads = uploads.map((upload) => ({
+  //         name: upload.originalname,
+  //         size: upload.size,
+  //         type: upload.mimetype,
+  //         bytes: upload.buffer,
+  //         paymentId: paymentId,
+  //         commentId: comments.id,
+  //       }));
+
+  //       await this.prisma.upload.createMany({
+  //         data: paymentUploads,
+  //       });
+  //     }
   //     return comments;
 
   //   } catch (error) {
@@ -627,14 +658,8 @@ export class OffboardingService {
   //   }
   // }
 
-  // async approveDebtPayment(paymentId: string, userId: string) {
+  // async approveDebtPayment(paymentId: string, admin: IAuthUser) {
   //   try {
-  //      const user = await this.findUserById(userId);
-  //         if (!user) {
-  //             throw bad("User Not Found")
-  //         }
-  //         const isAdmin = this.userHasRole(user, Role.ADMIN);
-  //         if(!isAdmin) throw bad("Only Admins Can Approve Debt Payments")
   //     const payment = await this.prisma.payment.findUnique({
   //       where: { id: paymentId },
   //       include: {
@@ -649,7 +674,7 @@ export class OffboardingService {
   //         where: { id: paymentId },
   //         data: {
   //           approved: true,
-  //           approvedBy: user.id,
+  //           approvedBy: admin.sub,
   //           approvedAt: new Date(),
   //         },
   //       }),
@@ -686,28 +711,4 @@ export class OffboardingService {
   //     },
   //   });
   // }
-
-
-  // ///////////////////////// HELPERS //////////////////////////////
-  //     private async findUserById(userId: string) {
-  //         try {
-  //             const user = await this.prisma.user.findUnique({
-  //                 where: { id: userId },
-  //                 include: { departments: true, approver: true, },
-  //             });
-  //             return user;
-  //         } catch (error) {
-  //             console.log(error);
-  //             bad(`Failed to get user: ${error.message}`);
-  //         }
-  //     }
-  
-  //     private userHasRole(userObj: any, role: Role) {
-  //         if (!userObj) return false;
-  //         // userObj.userRole may be an array of Role or a single Role string
-  //         const roles = (userObj.userRole ?? userObj.role) as any;
-  //         if (Array.isArray(roles)) return roles.includes(role);
-  //         return roles === role;
-  //     }
-
 }

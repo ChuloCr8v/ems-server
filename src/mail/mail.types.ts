@@ -10,7 +10,7 @@ import {
 
 export const MAIL_SUBJECT = {
   PROSPECT_INVITATION: 'Prospect Invitation',
-  OFFER_ACCEPTANCE: 'Offer Acceptance',
+  OFFER_ACCEPTANCE: 'Offer Accepted',
   UPDATE_USER_INFO: 'Update User Information',
   DECLINE_OFFER: 'Declined Offer',
   INVITE_DOCUMENT_UPLOAD: 'Document Upload',
@@ -71,6 +71,9 @@ export class AcceptanceInviteDto {
 
   @IsString()
   name: string;
+
+  @IsString()
+  role: string;
 }
 
 export class DeclinedInviteDto extends AcceptanceInviteDto { }

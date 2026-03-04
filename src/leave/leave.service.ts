@@ -850,21 +850,23 @@ export class LeaveService {
         throw bad('Start date cannot be after end date');
       }
 
-      // Normalize to midnight (prevents partial-day issues)
       const currentDate = new Date(startDate);
       currentDate.setHours(0, 0, 0, 0);
+
       const finalDate = new Date(endDate);
       finalDate.setHours(0, 0, 0, 0);
 
       let businessDays = 0;
 
+      currentDate.setDate(currentDate.getDate() + 1);
+
       while (currentDate <= finalDate) {
         const weekDay = currentDate.getDay();
-        // Exclude weekends: 0 = Sunday, 6 = Saturday
+
         if (weekDay !== 0 && weekDay !== 6) {
           businessDays++;
         }
-        // Move to next day
+
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
@@ -877,6 +879,7 @@ export class LeaveService {
       ) {
         throw error;
       }
+
       throw new BadRequestException(
         'Failed to calculate leave duration: ' + error.message,
       );

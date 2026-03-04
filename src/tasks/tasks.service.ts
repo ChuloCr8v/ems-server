@@ -197,7 +197,7 @@ export class TasksService {
 
       //Approval Status
       if (isManager) {
-        createData.approvedById = createdById;
+        createData.approvedBy = { connect: { id: createdById } }
         createData.approvedAt = new Date();
         createData.approvalRequestedAt = new Date();
       } else if (!isManager) {
@@ -239,14 +239,14 @@ export class TasksService {
           )?.departments[0].id);
 
       if (taskCreator.team) {
-        createData.teamId = taskCreator.team.id;
+        createData.team = { connect: { id: taskCreator.team.id } };
       }
 
       const task = await this.prisma.task.create({
         data: {
           ...createData,
           createdBy: { connect: { id: createdById } },
-          departmentId: taskDepts,
+          department: { connect: { id: taskDepts } },
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
@@ -527,7 +527,7 @@ export class TasksService {
           status === ApprovalStatus.APPROVED
             ? TaskStatus.IN_PROGRESS
             : TaskStatus.CANCELLED,
-        approvedById: processorId,
+        approvedBy: { connect: { id: processorId } },
         approvedAt: new Date(),
         ...(status === ApprovalStatus.REJECTED && { rejectionReason }),
         // Update assignees only on approval if provided
@@ -712,7 +712,7 @@ export class TasksService {
         action: 'Due date extended',
         userId: userId,
         taskId: id,
-        comment: note ?? `New due date: ${dueDate.toISOString()}`,
+        comment: note ?? `New due date: ${new Date(dueDate).toISOString()}`,
       });
     } catch (error) {
       bad(error);

@@ -2,7 +2,7 @@
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <title>Your Payslip Is Ready</title>
+    <title>Task Updated</title>
 
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
@@ -133,7 +133,7 @@
                           color: #000000;
                         '
                       >
-                        Your Payslip Is Ready
+                        Task Updated
                       </h1>
 
                       <p
@@ -143,7 +143,7 @@
                           margin: 0 0 16px;
                         '
                       >
-                        Hello
+                        Hi
                         <strong>{{name}}</strong>,
                       </p>
 
@@ -155,11 +155,116 @@
                           margin: 0 0 32px;
                         '
                       >
-                        Your payslip for
-                        <strong>{{month}}</strong>
-                        has been successfully generated. You can now log into
-                        your Zoracom EMS Dashboard to view your payslip anytime.
+                        Your task has been updated by
+                        <span class='focus'>{{updatedBy}}</span>.
                       </p>
+
+                      <!-- Task Details Section -->
+                      <table
+                        width='100%'
+                        cellpadding='0'
+                        cellspacing='0'
+                        style='
+                          margin-bottom: 32px;
+                          border: 1px solid #e5e7eb;
+                          border-radius: 8px;
+                          overflow: hidden;
+                        '
+                      >
+                        <!-- Section Title -->
+                        <tr>
+                          <td
+                            colspan='2'
+                            style='
+                              background-color: #f1f5f9;
+                              padding: 14px 16px;
+                              font-size: 15px;
+                              font-weight: 700;
+                              color: #1e293b;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            Task Details
+                          </td>
+                        </tr>
+
+                        <!-- Row 1 -->
+                        <tr>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            Task ID
+                          </td>
+                          <td
+                            style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            {{taskId}}
+                          </td>
+                        </tr>
+
+                        <!-- Row 2 -->
+                        <tr>
+                          <td
+                            style='
+                              background-color: #f8fafc;
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            Title
+                          </td>
+                          <td
+                            style='
+                              background-color: #f8fafc;
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #0f172a;
+                              font-weight: 600;
+                              border-bottom: 1px solid #e5e7eb;
+                            '
+                          >
+                            {{taskTitle}}
+                          </td>
+                        </tr>
+
+                        <!-- Row 3 (Details) -->
+                        {{#if updateDetails}}
+                          <tr>
+                            <td
+                              style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #334155;
+                            '
+                            >
+                              Update Details
+                            </td>
+                            <td
+                              style='
+                              padding: 14px 16px;
+                              font-size: 14px;
+                              color: #5e5e5e;
+                              line-height: 1.4;
+                            '
+                            >
+                              {{updateDetails}}
+                            </td>
+                          </tr>
+                        {{/if}}
+                      </table>
 
                       <p
                         style='
@@ -168,11 +273,11 @@
                           margin-top: 20px;
                         '
                       >
-                        If you have any questions or notice any discrepancies,
-                        please contact the HR team.
+                        You can view the full task details and track progress in
+                        your dashboard.
                       </p>
 
-                      <a href='{{dashboardUrl}}' class='btn'>Go to Dashboard</a>
+                      <a href='{{dashboardUrl}}' class='btn'>View Task</a>
 
                       <p
                         style='
@@ -182,7 +287,7 @@
                         '
                       >
                         Best Regards,<br />
-                        <strong>Talent Mgt.</strong>
+                        <strong>Talent X</strong>
                       </p>
                     </td>
                   </tr>

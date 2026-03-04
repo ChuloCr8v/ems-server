@@ -325,6 +325,7 @@ export class InviteService {
       await this.mail.sendDeclinedMail({
         email: "talent@zoracom.com",
         name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
+        role: updatedInvite.prospect.role,
       });
 
       return updatedInvite;
