@@ -100,12 +100,16 @@ export class ReportService {
               create: reports.map((r) => ({
                 title: r.title,
                 description: r.description,
-                status: r.status,
-                deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
-                includeAssignees: r.includeAssignees,
-                task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
-                attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
-                comment: r.comment
+                task: r.taskId ? {
+                  connect: {
+                    id: r.taskId
+                  }
+                } : undefined,
+                project: r.projectId && r.projectId.toLowerCase() !== 'unassigned' ? {
+                  connect: {
+                    id: r.projectId
+                  }
+                } : undefined
               })),
             },
           },
@@ -171,12 +175,16 @@ export class ReportService {
             create: reports.map((r) => ({
               title: r.title,
               description: r.description,
-              status: r.status,
-              deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
-              includeAssignees: r.includeAssignees,
-              task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
-              attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
-              comment: r.comment
+              task: r.taskId ? {
+                connect: {
+                  id: r.taskId
+                }
+              } : undefined,
+              project: r.projectId && r.projectId.toLowerCase() !== 'unassigned' ? {
+                connect: {
+                  id: r.projectId
+                }
+              } : undefined
             })),
           },
         },
@@ -583,20 +591,9 @@ export class ReportService {
           department: true,
           reports: {
             include: {
-              task: {
-                include: {
-                  projectLabels: true, // 🔥 required for grouping
-                },
-              },
+              task: true,
+              project: true,
               weeklyReport: true,
-              attachments: {
-                select: {
-                  uri: true,
-                  name: true,
-                  id: true,
-                  size: true,
-                },
-              },
             },
           },
         },
@@ -617,11 +614,12 @@ export class ReportService {
 
         const weekEntry = weeks.get(report.week);
         const deptMap = weekEntry.deptMap;
-        const department = report.departmentId;
+        const department = report.department;
 
         if (!deptMap.has(department)) {
           deptMap.set(department, {
             department,
+            status: report.status,
             projectMap: new Map<string, any>(),
           });
         }
@@ -630,33 +628,31 @@ export class ReportService {
         const projectMap = deptEntry.projectMap;
 
         for (const taskReport of report.reports) {
-          const task = taskReport?.task;
+          const project = taskReport?.project;
 
-          if (!task || !task.projectLabels || task.projectLabels.length === 0) {
+          if (!project) {
             if (!projectMap.has('UNASSIGNED')) {
               projectMap.set('UNASSIGNED', {
                 project: {
                   id: 'UNASSIGNED',
                   title: 'Unassigned',
                 },
-                tasks: [],
+                reports: [],
               });
             }
 
-            projectMap.get('UNASSIGNED').tasks.push(taskReport);
+            projectMap.get('UNASSIGNED').reports.push(taskReport);
             continue;
           }
 
-          for (const label of task.projectLabels) {
-            if (!projectMap.has(label.id)) {
-              projectMap.set(label.id, {
-                project: label,
-                tasks: [],
-              });
-            }
-
-            projectMap.get(label.id).tasks.push(taskReport);
+          if (!projectMap.has(project.id)) {
+            projectMap.set(project.id, {
+              project,
+              reports: [],
+            });
           }
+
+          projectMap.get(project.id).reports.push(taskReport);
         }
       }
 
@@ -671,6 +667,8 @@ export class ReportService {
           return {
             department: dept.department,
             projects,
+            status: dept.status,
+
           };
         });
 
