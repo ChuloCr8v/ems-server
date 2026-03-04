@@ -18,7 +18,6 @@ import {
     PipRecommendedEvent,
     PipRejectedEvent,
 } from 'src/events/pip.event';
-import { CreateClaimDto } from 'src/claims/dto/claims.dto';
 
 @Injectable()
 export class PipService {
@@ -1161,6 +1160,23 @@ export class PipService {
                     pip: true,
                 },
             });
+
+            await this.prisma.pip.update({
+                where: { id: pip.id },
+                data: {
+                    status: 'CLAIM_REQUESTED',
+                },
+            });
+
+            // Notify the recommender (Manager) that PIP claim request is made
+            // const recipientIds = pip.rP?.recommendedById
+            //     ? [pip.rP.recommendedById]
+            //     : [];
+
+            // this.eventEmitter.emit(
+            //     'pip.claim.requested',
+            //     new PipClaimRequestedEvent(claim.id, user.id, recipientIds),
+            // );
             return claim;
 
 

@@ -705,7 +705,7 @@ model Claim {
   dateOfExpense DateTime
   description   String?
   notes         String?
-  type          ClaimType? 
+  type          ClaimType?
   status        ClaimStatus @default(PENDING)
 
   userId    String   @db.Uuid
@@ -885,13 +885,9 @@ model DepartmentWeeklyReport {
 }
 
 model ReportItem {
-  id               String     @id @default(uuid())
-  title            String
-  description      String?
-  status           TaskStatus
-  deliveryDate     DateTime?
-  comment          String?
-  includeAssignees Boolean?   @default(false)
+  id          String  @id @default(uuid())
+  title       String
+  description String?
 
   taskId         String? @db.Uuid
   weeklyReportId String
@@ -900,6 +896,8 @@ model ReportItem {
   weeklyReport DepartmentWeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
 
   attachments Upload[]
+  project     ProjectLabels? @relation(fields: [projectId], references: [id])
+  projectId   String?        @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -937,10 +935,11 @@ model ProjectLabels {
 
   departments Department[]
 
-  userId    String?  @db.Uuid
-  createdBy User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  userId      String?      @db.Uuid
+  createdBy   User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  reportItems ReportItem[]
 }
 
 model UserTask {
@@ -1294,6 +1293,7 @@ enum PipStatus {
   SUBMITTED
   REJECTED
   COMPLETED
+  CLAIM_REQUESTED
 }
 
 enum TaxStatus {
@@ -1443,7 +1443,6 @@ enum ClaimStatus {
 enum ClaimType {
   TRAINING_PLAN
   OTHERS
-
 }
 
 enum Priority {

@@ -44,4 +44,31 @@ export class DebtPaymentDto {
     @IsString()
     @IsOptional()
     notes?: string;
+
+    @IsArray()
+    @IsOptional()
+    uploads?: string[];
+
+}
+
+export class NotesDto {
+    @IsString()
+    @IsOptional()
+    notes?: string;
+
+    @IsArray()
+    @IsOptional()
+    uploads?: string[];
+
+}
+
+export class CommentsDto {
+    @IsString()
+    @IsOptional()
+    comments: string;
+
+    @IsArray()
+    @IsOptional()
+    uploads?: string[];
+
 }
