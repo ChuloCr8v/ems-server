@@ -21,28 +21,13 @@ export class CreateReportDto {
   @IsString()
   description?: string | null;
 
-  @IsEnum(TaskStatus)
-  status: TaskStatus;
-
-  @IsOptional()
-  @IsDateString()
-  deliveryDate?: string;
-
-  @IsUUID()
+  @IsString()
   @IsOptional()
   taskId?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  includeAssignees?: boolean;
-
-  @IsOptional()
-  @IsArray()
-  attachments?: string[];
-
-  @IsOptional()
   @IsString()
-  comment?: string;
+  @IsOptional()
+  projectId?: string;
 }
 
 export class CreateDepartmentWeeklyReportDto {
