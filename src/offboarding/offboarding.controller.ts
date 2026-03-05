@@ -15,7 +15,7 @@ export class OffboardingController {
   constructor(private readonly offboarding: OffboardingService) { }
 
   @Auth([Role.ADMIN, Role.HR])
-  @Post()
+  @Post(':userId')
   async initiateExit(
     @Param('userId') userId: string, 
     @Body() data: InitiateExit,
