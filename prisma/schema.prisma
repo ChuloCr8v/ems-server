@@ -68,6 +68,7 @@ model User {
   notificationActor     Notification[]     @relation("NotificationActor")
   notificationRecipient Notification[]     @relation("NotificationRecipient")
   offboarding           Offboarding?
+  // offboardingSignatures OffboardingSignatures[]
   payroll               Payroll?
   payComponent          PayrollComponent[]
   payslip               Payslip[]
@@ -260,7 +261,9 @@ model Upload {
   reportItemId String?
   reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 
-  appraisalSignatures AppraisalSignatures?
+  appraisalSignatures   AppraisalSignatures?
+  clearanceDeptSignatures ClearanceDeptSignatures?
+  // offboardingSignatures OffboardingSignatures?
 }
 
 model Contacts {
@@ -429,30 +432,49 @@ model Fault {
 //////////////////////////////////////// OFFBOARDING ////////////////////////////////////////
 
 model Offboarding {
-  id           String                 @id @default(uuid()) @db.Uuid
-  type         ExitType
-  lastWorkDate DateTime
-  reason       String
-  noticePeriod Boolean                @default(false)
-  status       Status                 @default(PENDING)
-  userId       String                 @unique @db.Uuid
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  assignments  Assignment[]
-  comment      Comment[]
-  handover     HandoverDocument[]
-  user         User                   @relation(fields: [userId], references: [id])
-  checklist    OffboardingChecklist[]
-  payments     Payment[]
-  uploads      Upload[]
+  id              String                 @id @default(uuid()) @db.Uuid
+  type            ExitType
+  relievingDate   DateTime
+  resignationDate DateTime
+  reason          String
+  noticePeriod    Boolean                @default(false)
+  status          Status                 @default(PENDING)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  deptClearance   DepartmentClearance?
+  assignments     Assignment[]
+  comment         Comment[]
+  handover        HandoverDocument[]
+  userId          String                 @unique @db.Uuid
+  user            User                   @relation(fields: [userId], references: [id])
+  checklists      OffboardingChecklist[]
+  // signatures      OffboardingSignatures[]
+  payments        Payment[]
+  uploads         Upload[]
 }
 
 model OffboardingChecklist {
   id            String      @id @default(uuid()) @db.Uuid
-  task          String
+  checklist     String
   status        Status      @default(PENDING)
   offboardingId String      @db.Uuid
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
+}
+
+model DepartmentClearance {
+  id                 String                   @id @default(uuid()) @db.Uuid
+  task               String
+  status             Status                   @default(PENDING)
+  isCleared          Boolean                  @default(false)
+  clearedAt          DateTime?
+  notes              String?
+  offboardingId      String?                  @unique @db.Uuid
+  offboarding        Offboarding?             @relation(fields: [offboardingId], references: [id])
+  employeeSignature  ClearanceDeptSignatures? @relation("EmployeeSignature")
+  managerSignature   ClearanceDeptSignatures? @relation("ManagerSignature")
+  handoverESignature ClearanceDeptSignatures? @relation("HandoverEmployeeSignature")
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
 }
 
 model HandoverDocument {
@@ -478,6 +500,23 @@ model Payment {
   comment       Comment[]
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
   uploads       Upload[]
+}
+
+model ClearanceDeptSignatures {
+  id                   String                   @id @default(uuid()) @db.Uuid
+  signatureId          String?                  @unique @db.Uuid
+  signature            Upload?                  @relation(fields: [signatureId], references: [id])
+  signedAt             DateTime?
+  // offboardingId        String?                  @db.Uuid
+  // offboarding          Offboarding?             @relation(fields: [offboardingId], references: [id])
+  employeeSignatureId  String?                  @unique @db.Uuid
+  employeeSignature    DepartmentClearance? @relation("EmployeeSignature", fields: [employeeSignatureId], references: [id])
+  managerSignatureId   String?                 @unique @db.Uuid
+  managerSignature     DepartmentClearance? @relation("ManagerSignature", fields: [managerSignatureId], references: [id])
+  handoverESignatureId String?                 @unique @db.Uuid
+  handoverESignature   DepartmentClearance? @relation("HandoverEmployeeSignature", fields: [handoverESignatureId], references: [id])
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
 }
 
 model Entitlement {

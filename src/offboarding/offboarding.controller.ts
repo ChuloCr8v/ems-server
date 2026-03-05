@@ -1,28 +1,30 @@
 import { Body, Get, Controller, Param, Patch, Post, Res, UploadedFiles, UseInterceptors, Req, Header, UploadedFile } from '@nestjs/common';
 import { OffboardingService } from './offboarding.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
+// import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
 import { Response } from 'express';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { join } from 'path';
 import { createReadStream } from 'fs';
+import { InitiateExit } from './dto/offboarding.dto';
 
 @Controller('offboarding')
 export class OffboardingController {
   constructor(private readonly offboarding: OffboardingService) { }
 
-  // @Auth([Role.ADMIN, Role.HR])
-  // @Post()
-  // async initiateExit(
-  //   @Param('userId') userId: string, 
-  //   @Body() data: InitiateExit,
-  //   @Res() res: Response,
-  // ) {
-  //   const exit = await this.offboarding.initiateExit(userId, data);
-  //   return res.status(200).json({ message: `User has initiated Offboarding`, exit});
-  // }
+  @Auth([Role.ADMIN, Role.HR])
+  @Post()
+  async initiateExit(
+    @Param('userId') userId: string, 
+    @Body() data: InitiateExit,
+    @Res() res: Response,
+  ) {
+    const exit = await this.offboarding.initiateExit(userId, data);
+    return res.status(200).json({ message: `User has initiated Offboarding`, exit});
+  }
+
   // @Auth([Role.USER])
   // @Patch(':assetId/return')
   // async returnAsset(

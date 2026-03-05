@@ -12,7 +12,11 @@ export class InitiateExit {
 
     @IsString()
     @IsNotEmpty()
-    lastWorkDate: Date;
+    relievingDate: Date;
+
+    @IsString()
+    @IsNotEmpty()
+    resignationDate: Date;
 
     @IsBoolean()
     @IsNotEmpty()
@@ -23,16 +27,20 @@ export class InitiateExit {
     uploads?: string[];
 }
 
-
-export class ReturnAsset {
-    @IsString()
-    @IsNotEmpty()
-    condition: string;
-
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
+export class DepartmentClearanceDto {
+    
 }
+
+
+// export class ReturnAsset {
+//     @IsString()
+//     @IsNotEmpty()
+//     condition: string;
+
+//     @IsString()
+//     @IsNotEmpty()
+//     reason: string;
+// }
 
 // export class ReportAssetDto {
 //     @IsString()
@@ -40,35 +48,35 @@ export class ReturnAsset {
 //     comment: string;
 // }
 
-export class DebtPaymentDto {
-    @IsString()
-    @IsOptional()
-    notes?: string;
+// export class DebtPaymentDto {
+//     @IsString()
+//     @IsOptional()
+//     notes?: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }
 
-export class NotesDto {
-    @IsString()
-    @IsOptional()
-    notes?: string;
+// export class NotesDto {
+//     @IsString()
+//     @IsOptional()
+//     notes?: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }
 
-export class CommentsDto {
-    @IsString()
-    @IsOptional()
-    comments: string;
+// export class CommentsDto {
+//     @IsString()
+//     @IsOptional()
+//     comments: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }
