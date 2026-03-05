@@ -437,7 +437,7 @@ model Offboarding {
   relievingDate   DateTime
   resignationDate DateTime
   reason          String
-  noticePeriod    Boolean                @default(false)
+  noticePeriod    Boolean?                @default(false)
   status          Status                 @default(PENDING)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt

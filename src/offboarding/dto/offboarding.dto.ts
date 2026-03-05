@@ -20,7 +20,7 @@ export class InitiateExit {
 
     @IsBoolean()
     @IsNotEmpty()
-    noticePeriod: boolean;
+    noticePeriod?: boolean;
 
     @IsOptional()
     @IsArray()
