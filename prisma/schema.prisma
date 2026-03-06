@@ -434,7 +434,7 @@ model Fault {
 model Offboarding {
   id           String                 @id @default(uuid()) @db.Uuid
   type         ExitType
-  lastWorkDate DateTime
+  lastWorkDate DateTime?
   reason       String
   noticePeriod Boolean                @default(false)
   status       Status                 @default(PENDING)
@@ -452,7 +452,7 @@ model Offboarding {
 
 model OffboardingChecklist {
   id            String      @id @default(uuid()) @db.Uuid
-  task          String
+  task          String?
   status        Status      @default(PENDING)
   offboardingId String      @db.Uuid
   offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
