@@ -111,6 +111,7 @@ model User {
   logActor      Logs[]          @relation("LogActor")
   logTo         Logs[]          @relation("LogTo")
   projectLabels ProjectLabels[]
+  emails        Email[]
 
   @@index([email])
   @@index([id])
@@ -144,6 +145,8 @@ model Department {
   updatedAt             DateTime               @default(now()) @updatedAt
   hrDepartmentApprovals HrDepartmentApproval[]
   projectLabels         ProjectLabels[]
+
+  emails Email[]
 }
 
 model Team {
@@ -1204,6 +1207,31 @@ model HrDepartmentApproval {
   createdAt DateTime @default(now())
 
   @@index([departmentId])
+}
+
+//EMAILS
+model Email {
+  id          String       @id @default(uuid()) @db.Uuid
+  to          EmailTo
+  departments Department[]
+  users       User[]
+  subject     String
+  message     String
+  status      EmailStatus  @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum EmailTo {
+  ZORANS
+  EMPLOYEES
+  DEPARTMENTS
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////

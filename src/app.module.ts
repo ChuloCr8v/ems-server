@@ -36,6 +36,9 @@ import { PuppeteerModule } from './puppeteer/puppeteer.module';
 import { PipModule } from './pip/pip.module';
 import { PdfshiftService } from './pdfshift/pdfshift.service';
 import { OffboardingModule } from './offboarding/offboarding.module';
+import { EmailsService } from './emails/emails.service';
+import { EmailsController } from './emails/emails.controller';
+import { EmailsModule } from './emails/emails.module';
 
 @Module({
   imports: [
@@ -66,13 +69,15 @@ import { OffboardingModule } from './offboarding/offboarding.module';
     ScheduleModule.forRoot(),
     PipModule,
     OffboardingModule,
+    EmailsModule,
   ],
   controllers: [
     AppController,
     UploadsController,
     NotificationController,
     CategoryController,
+    EmailsController,
   ],
-  providers: [AppService, UploadsService, NotificationService, CategoryService, PdfshiftService],
+  providers: [AppService, UploadsService, NotificationService, CategoryService, PdfshiftService, EmailsService],
 })
 export class AppModule {}

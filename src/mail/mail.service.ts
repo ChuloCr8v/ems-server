@@ -32,11 +32,14 @@ import {
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
+import { SendEmailEvent } from 'src/events/emailEvent';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class MailService {
   constructor(
     private mailerService: MailerService,
+    private prisma: PrismaService,
     private config: ConfigService,
   ) {
     this.registerHandlebarsHelpers();
@@ -688,6 +691,25 @@ export class MailService {
         dashboardUrl,
         date: new Date().getFullYear(),
       },
+    });
+  }
+
+  async sendEmail(input: SendEmailEvent) {
+    const { recipients, subject, message } = input;
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: recipients
+        }
+      }
+    })
+
+    await this.mailerService.sendMail({
+      to: users.map(u => u.email),
+      subject: subject,
+      template: 'emailTemplate',
+      context: { message, subject, date: new Date().getFullYear() },
     });
   }
 }

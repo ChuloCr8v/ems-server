@@ -5,6 +5,7 @@ import { MailService } from 'src/mail/mail.service';
 import { InviteSentEvent } from 'src/events/employment.event';
 import { ReportSubmittedEvent } from 'src/events/report.event';
 import { Role } from '@prisma/client';
+import { SendEmailEvent } from 'src/events/emailEvent';
 
 
 @Injectable()
@@ -26,6 +27,16 @@ export class MailListener {
             firstName: `${prospect.firstName}`,
             token: event.token,
             attachments: event.attachments,
+        });
+    }
+
+    @OnEvent('emails.sent')
+    async handleSendEmail(event: SendEmailEvent) {
+
+        await this.mailService.sendEmail({
+            recipients: event.recipients,
+            subject: event.subject,
+            message: event.message,
         });
     }
 

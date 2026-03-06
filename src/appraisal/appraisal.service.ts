@@ -16,7 +16,7 @@ import {
   GoalsAndAchievementDto,
   SignatureDto,
 } from './dto/apppraisal.dto';
-import { Prisma, Role, User } from '@prisma/client';
+import { AppraisalStatus, ApprovalStatus, Prisma, Role, User } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
@@ -365,7 +365,7 @@ export class AppraisalService {
   ) {
     const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
 
-    const { objectiveRatings, goalsAndAchievements, managerComment } = data;
+    const { objectiveRatings, goalsAndAchievements, managerComment, appraisalPip } = data;
 
     //Update appraisal in transaction
     await this.prisma.$transaction(async (tx) => {
@@ -380,6 +380,20 @@ export class AppraisalService {
           appraisalId,
           goalsAndAchievements,
         );
+      }
+
+      //update Appraisal Pip
+      if (appraisalPip?.length > 0) {
+        await this.updateAppraisalPip(tx, appraisalId, appraisalPip);
+      }
+
+
+      //Update Manager Comment
+      if (managerComment) {
+        await tx.appraisal.update({
+          where: { id: appraisalId },
+          data: { managerComment, updatedAt: new Date() },
+        });
       }
 
       //Calculate Appraisal Rating Summary
@@ -761,11 +775,32 @@ export class AppraisalService {
       where.departmentId = { in: departmentIds };
     }
 
+    const commonStatus = [AppraisalStatus.APPRAISED, AppraisalStatus.COMPLETED, AppraisalStatus.REVIEWED, AppraisalStatus.GENERATED, ApprovalStatus.PENDING, AppraisalStatus.HR_REVIEW]
+    const statusFilter = () => {
+      switch (true) {
+        case isAdmin:
+        case isHR:
+          return commonStatus
+        case isManager:
+          return [...commonStatus, AppraisalStatus.SUBMITTED, AppraisalStatus.MANAGER_DRAFT]
+        default:
+          return []
+      }
+    }
+
+
     const appraisals = await this.prisma.appraisal.findMany({
-      where,
+      where: {
+        ...where,
+        status: {
+          in: statusFilter()
+        }
+      },
       include: {
         department: true,
-        appraisalObj: true,
+        appraisalObj: {
+          include: { kpiCategory: true },
+        },
         appraisalPip: true,
         goalsAndAchievement: true,
         feedback: true,
@@ -805,8 +840,6 @@ export class AppraisalService {
         { department: { name: 'asc' } },
       ],
     });
-
-
 
     return this.groupByPeriod(appraisals)
 
@@ -1140,11 +1173,11 @@ export class AppraisalService {
     await tx.appraisalSignatures.upsert({
       where,
       update: {
-        signature: { connect: { id: signatureId } },
+        signature: signatureId ? { connect: { id: signatureId } } : undefined,
         date: date ? new Date(date) : new Date(),
       },
       create: {
-        signature: { connect: { id: signatureId } },
+        signature: signatureId ? { connect: { id: signatureId } } : undefined,
         date: date ? new Date(date) : new Date(),
         ...(type === 'employee'
           ? { employeeSignature: { connect: { id: appraisalId } } }
