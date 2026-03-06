@@ -112,6 +112,7 @@ model User {
   logActor      Logs[]          @relation("LogActor")
   logTo         Logs[]          @relation("LogTo")
   projectLabels ProjectLabels[]
+  emails        Email[]
 
   @@index([email])
   @@index([id])
@@ -145,6 +146,8 @@ model Department {
   updatedAt             DateTime               @default(now()) @updatedAt
   hrDepartmentApprovals HrDepartmentApproval[]
   projectLabels         ProjectLabels[]
+
+  emails Email[]
 }
 
 model Team {
@@ -261,7 +264,7 @@ model Upload {
   reportItemId String?
   reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 
-  appraisalSignatures   AppraisalSignatures?
+  appraisalSignatures     AppraisalSignatures?
   clearanceDeptSignatures ClearanceDeptSignatures?
   // offboardingSignatures OffboardingSignatures?
 }
@@ -437,7 +440,7 @@ model Offboarding {
   relievingDate   DateTime
   resignationDate DateTime
   reason          String
-  noticePeriod    Boolean?                @default(false)
+  noticePeriod    Boolean?               @default(false)
   status          Status                 @default(PENDING)
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
@@ -503,20 +506,20 @@ model Payment {
 }
 
 model ClearanceDeptSignatures {
-  id                   String                   @id @default(uuid()) @db.Uuid
-  signatureId          String?                  @unique @db.Uuid
-  signature            Upload?                  @relation(fields: [signatureId], references: [id])
+  id                   String               @id @default(uuid()) @db.Uuid
+  signatureId          String?              @unique @db.Uuid
+  signature            Upload?              @relation(fields: [signatureId], references: [id])
   signedAt             DateTime?
   // offboardingId        String?                  @db.Uuid
   // offboarding          Offboarding?             @relation(fields: [offboardingId], references: [id])
-  employeeSignatureId  String?                  @unique @db.Uuid
+  employeeSignatureId  String?              @unique @db.Uuid
   employeeSignature    DepartmentClearance? @relation("EmployeeSignature", fields: [employeeSignatureId], references: [id])
-  managerSignatureId   String?                 @unique @db.Uuid
+  managerSignatureId   String?              @unique @db.Uuid
   managerSignature     DepartmentClearance? @relation("ManagerSignature", fields: [managerSignatureId], references: [id])
-  handoverESignatureId String?                 @unique @db.Uuid
+  handoverESignatureId String?              @unique @db.Uuid
   handoverESignature   DepartmentClearance? @relation("HandoverEmployeeSignature", fields: [handoverESignatureId], references: [id])
-  createdAt            DateTime                 @default(now())
-  updatedAt            DateTime                 @updatedAt
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 }
 
 model Entitlement {
@@ -1243,6 +1246,31 @@ model HrDepartmentApproval {
   createdAt DateTime @default(now())
 
   @@index([departmentId])
+}
+
+//EMAILS
+model Email {
+  id          String       @id @default(uuid()) @db.Uuid
+  to          EmailTo
+  departments Department[]
+  users       User[]
+  subject     String
+  message     String
+  status      EmailStatus  @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum EmailTo {
+  ZORANS
+  EMPLOYEES
+  DEPARTMENTS
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
 }
 
 ///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
