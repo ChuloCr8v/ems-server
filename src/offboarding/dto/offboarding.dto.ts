@@ -1,38 +1,54 @@
-import { ExitType } from "@prisma/client";
-import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { ExitType } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class InitiateExit {
-    @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
-    @IsNotEmpty()
-    type: ExitType;
+  @IsEnum(ExitType, {
+    each: true,
+    message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION',
+  })
+  @IsNotEmpty()
+  type: ExitType;
 
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 
-    @IsString()
-    @IsNotEmpty()
-    lastWorkDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  relievingDate: Date;
 
-    @IsBoolean()
-    @IsNotEmpty()
-    noticePeriod: boolean;
+  @IsString()
+  @IsNotEmpty()
+  resignationDate: Date;
 
-    @IsOptional()
-    @IsArray()
-    uploads?: string[];
+  @IsBoolean()
+  @IsNotEmpty()
+  noticePeriod?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
 }
 
+export class DepartmentClearanceDto {}
 
-export class ReturnAsset {
-    @IsString()
-    @IsNotEmpty()
-    condition: string;
+// export class ReturnAsset {
+//     @IsString()
+//     @IsNotEmpty()
+//     condition: string;
 
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
-}
+//     @IsString()
+//     @IsNotEmpty()
+//     reason: string;
+// }
 
 // export class ReportAssetDto {
 //     @IsString()
@@ -40,35 +56,35 @@ export class ReturnAsset {
 //     comment: string;
 // }
 
-export class DebtPaymentDto {
-    @IsString()
-    @IsOptional()
-    notes?: string;
+// export class DebtPaymentDto {
+//     @IsString()
+//     @IsOptional()
+//     notes?: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }
 
-export class NotesDto {
-    @IsString()
-    @IsOptional()
-    notes?: string;
+// export class NotesDto {
+//     @IsString()
+//     @IsOptional()
+//     notes?: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }
 
-export class CommentsDto {
-    @IsString()
-    @IsOptional()
-    comments: string;
+// export class CommentsDto {
+//     @IsString()
+//     @IsOptional()
+//     comments: string;
 
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
+//     @IsArray()
+//     @IsOptional()
+//     uploads?: string[];
 
-}
+// }

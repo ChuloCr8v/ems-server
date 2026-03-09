@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { JobType, PayrollComponent, Payslip, PayslipComponent, Prisma } from '@prisma/client';
+import {
+  JobType,
+  PayrollComponent,
+  Payslip,
+  PayslipComponent,
+  Prisma,
+} from '@prisma/client';
 import { ToWords } from 'to-words';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,7 +25,7 @@ export class PayslipTemplateService {
         components: true;
       };
     }>,
-    date: string
+    date: string,
   ): string {
     const user = payslip.user;
     const components = payslip.components;
@@ -35,13 +41,13 @@ export class PayslipTemplateService {
       ),
     )
       ? path.join(
-        process.cwd(),
-        'dist',
-        'src',
-        'payroll',
-        'templates',
-        'payslip.html',
-      )
+          process.cwd(),
+          'dist',
+          'src',
+          'payroll',
+          'templates',
+          'payslip.html',
+        )
       : path.join(process.cwd(), 'src', 'payroll', 'templates', 'payslip.html');
 
     let html = fs.readFileSync(templatePath, 'utf8');

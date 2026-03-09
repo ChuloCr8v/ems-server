@@ -32,11 +32,14 @@ import {
 } from './mail.types';
 import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
+import { SendEmailEvent } from 'src/events/emailEvent';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class MailService {
   constructor(
     private mailerService: MailerService,
+    private prisma: PrismaService,
     private config: ConfigService,
   ) {
     this.registerHandlebarsHelpers();
@@ -130,7 +133,10 @@ export class MailService {
       subject: MAIL_SUBJECT.INVITE_DOCUMENT_UPLOAD,
       template: 'inviteDocumentUpload',
       context: {
-        prospectName: name, prospectEmail: email, role, submittedAt: new Date().toLocaleDateString('en-GB', {
+        prospectName: name,
+        prospectEmail: email,
+        role,
+        submittedAt: new Date().toLocaleDateString('en-GB', {
           day: '2-digit',
           month: 'long',
           year: 'numeric',
@@ -180,10 +186,18 @@ export class MailService {
   }
 
   async sendLeaveRequestMail(data: LeaveRequest) {
-    const { email, leaveType, leaveValue, name, startDate, endDate, reason, approverName } =
-      data;
+    const {
+      email,
+      leaveType,
+      leaveValue,
+      name,
+      startDate,
+      endDate,
+      reason,
+      approverName,
+    } = data;
 
-    const date = new Date().getFullYear()
+    const date = new Date().getFullYear();
 
     await this.mailerService.sendMail({
       to: email,
@@ -312,7 +326,12 @@ export class MailService {
       to: email,
       subject: MAIL_SUBJECT.PAYSLIP_QUEUED,
       template: 'payslipQueued',
-      context: { month, eventDate: date, email, date: new Date().getFullYear() },
+      context: {
+        month,
+        eventDate: date,
+        email,
+        date: new Date().getFullYear(),
+      },
     });
   }
 
@@ -332,12 +351,12 @@ export class MailService {
       },
       attachments: attachment
         ? [
-          {
-            filename: attachment.filename,
-            content: attachment.content,
-            contentType: attachment.contentType,
-          },
-        ]
+            {
+              filename: attachment.filename,
+              content: attachment.content,
+              contentType: attachment.contentType,
+            },
+          ]
         : [],
     });
   }
@@ -632,7 +651,7 @@ export class MailService {
     });
   }
 
-  async sendPipRequestMail(data: PipMailDto) { }
+  async sendPipRequestMail(data: PipMailDto) {}
 
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;
@@ -675,7 +694,8 @@ export class MailService {
   }
 
   async sendReportSubmittedMail(data: ReportSubmittedMailDto) {
-    const { email, name, reportTitle, week, departmentName, dashboardUrl } = data;
+    const { email, name, reportTitle, week, departmentName, dashboardUrl } =
+      data;
     await this.mailerService.sendMail({
       to: email,
       subject: MAIL_SUBJECT.REPORT_SUBMITTED,
@@ -688,6 +708,25 @@ export class MailService {
         dashboardUrl,
         date: new Date().getFullYear(),
       },
+    });
+  }
+
+  async sendEmail(input: SendEmailEvent) {
+    const { recipients, subject, message } = input;
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: recipients,
+        },
+      },
+    });
+
+    await this.mailerService.sendMail({
+      to: users.map((u) => u.email),
+      subject: subject,
+      template: 'emailTemplate',
+      context: { message, subject, date: new Date().getFullYear() },
     });
   }
 }

@@ -24,7 +24,7 @@ import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('department')
 export class DepartmentController {
-  constructor(private readonly departmentService: DepartmentService) { }
+  constructor(private readonly departmentService: DepartmentService) {}
 
   @Auth([Role.ADMIN, Role.SUPERADMIN])
   @Post()

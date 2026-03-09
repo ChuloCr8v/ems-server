@@ -20,7 +20,7 @@ import { ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   @Auth()
   @Get('me')
@@ -51,7 +51,7 @@ export class UserController {
     return res.status(200).json({ message: `Assets assigned`, user });
   }
 
-  @Auth(['ADMIN', 'HR', 'FACILITY', "SUPERADMIN"])
+  @Auth(['ADMIN', 'HR', 'FACILITY', 'SUPERADMIN'])
   @Get()
   async findAllUsers() {
     return await this.userService.findAllUsers();
