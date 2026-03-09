@@ -14,7 +14,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) { }
+  ) {}
 
   private get graphParams() {
     const azureClientId = this.config.get<string>('AZURE_CLIENT_ID');

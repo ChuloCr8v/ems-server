@@ -1,36 +1,44 @@
-import { ExitType } from "@prisma/client";
-import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { ExitType } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class InitiateExit {
-    @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
-    @IsNotEmpty()
-    type: ExitType;
+  @IsEnum(ExitType, {
+    each: true,
+    message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION',
+  })
+  @IsNotEmpty()
+  type: ExitType;
 
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 
-    @IsString()
-    @IsNotEmpty()
-    relievingDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  relievingDate: Date;
 
-    @IsString()
-    @IsNotEmpty()
-    resignationDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  resignationDate: Date;
 
-    @IsBoolean()
-    @IsNotEmpty()
-    noticePeriod?: boolean;
+  @IsBoolean()
+  @IsNotEmpty()
+  noticePeriod?: boolean;
 
-    @IsOptional()
-    @IsArray()
-    uploads?: string[];
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
 }
 
-export class DepartmentClearanceDto {
-    
-}
-
+export class DepartmentClearanceDto {}
 
 // export class ReturnAsset {
 //     @IsString()

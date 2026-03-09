@@ -76,13 +76,12 @@ export class AcceptanceInviteDto {
   role: string;
 }
 
-export class DeclinedInviteDto extends AcceptanceInviteDto { }
+export class DeclinedInviteDto extends AcceptanceInviteDto {}
 
 export class InviteDocumentUploadDto extends AcceptanceInviteDto {
   @IsString()
   role: string;
 }
-
 
 export class UpdateProspectInfoDto {
   @IsEmail()
@@ -130,7 +129,7 @@ export class LeaveRequest {
   name: string;
 
   @IsString()
-  approverName: string
+  approverName: string;
 
   @IsString()
   leaveType: string;

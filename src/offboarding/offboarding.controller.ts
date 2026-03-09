@@ -1,4 +1,17 @@
-import { Body, Get, Controller, Param, Patch, Post, Res, UploadedFiles, UseInterceptors, Req, Header, UploadedFile } from '@nestjs/common';
+import {
+  Body,
+  Get,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Res,
+  UploadedFiles,
+  UseInterceptors,
+  Req,
+  Header,
+  UploadedFile,
+} from '@nestjs/common';
 import { OffboardingService } from './offboarding.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 // import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
@@ -12,23 +25,25 @@ import { InitiateExit } from './dto/offboarding.dto';
 
 @Controller('offboarding')
 export class OffboardingController {
-  constructor(private readonly offboarding: OffboardingService) { }
+  constructor(private readonly offboarding: OffboardingService) {}
 
   @Auth([Role.ADMIN, Role.HR])
   @Post(':userId')
   async initiateExit(
-    @Param('userId') userId: string, 
+    @Param('userId') userId: string,
     @Body() data: InitiateExit,
     @Res() res: Response,
   ) {
     const exit = await this.offboarding.initiateExit(userId, data);
-    return res.status(200).json({ message: `User has initiated Offboarding`, exit});
+    return res
+      .status(200)
+      .json({ message: `User has initiated Offboarding`, exit });
   }
 
   // @Auth([Role.USER])
   // @Patch(':assetId/return')
   // async returnAsset(
-  //   @Param('assetId') assetId: string, 
+  //   @Param('assetId') assetId: string,
   //   @Body() data: ReturnAsset,
   //   @Res() res: Response,
   // ) {
@@ -45,7 +60,7 @@ export class OffboardingController {
   // @Auth([Role.ADMIN, Role.ASSET_MANAGER])
   // @Post(':offboardingId/approve-assets')
   // async approveAllAssets(
-  //   @Param('offboardingId') offboardingId: string, 
+  //   @Param('offboardingId') offboardingId: string,
   //   @Body() data: { notes?: string}
   // ) {
   //   return this.offboarding.approveAllReturnedAssets(offboardingId, data.notes);
@@ -174,7 +189,6 @@ export class OffboardingController {
   //   const approve = await this.offboarding.approveDebtPayment(paymentId, req.admin);
   //   return res.status(200).json({ message: `The Payment For This Asset Has Been Approved`, approve });
   // }
-
 
   // @Get()
   // async getAllOffboarding(){

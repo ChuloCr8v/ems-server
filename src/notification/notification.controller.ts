@@ -2,10 +2,9 @@
 import { Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 
-
 @Controller('notifications')
 export class NotificationController {
-  constructor(private notificationService: NotificationService) { }
+  constructor(private notificationService: NotificationService) {}
 
   @Get(':id')
   async getNotifications(@Param('id') id: string) {

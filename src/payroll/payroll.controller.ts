@@ -27,7 +27,7 @@ export class PayrollController {
   constructor(
     private readonly payroll: PayrollService,
     private readonly prisma: PrismaService,
-  ) { }
+  ) {}
   @Post()
   async createPayroll(@Body() data: PayrollDto) {
     return await this.payroll.createPayroll(data);
@@ -106,7 +106,10 @@ export class PayrollController {
 
   @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
   @Post('generate')
-  async generatePayslipsForPeriod(@Req() req: ReqPayload, @Body() data: { month: number }) {
+  async generatePayslipsForPeriod(
+    @Req() req: ReqPayload,
+    @Body() data: { month: number },
+  ) {
     return this.payroll.queuePayslipsForPeriod(req.user.id, data.month);
   }
 
@@ -127,7 +130,7 @@ export class PayrollController {
   }
 
   @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
-  @Post("/notify/:id")
+  @Post('/notify/:id')
   async notify(@Param('id') id: string) {
     return this.payroll.notify(id);
   }

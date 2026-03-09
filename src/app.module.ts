@@ -78,6 +78,13 @@ import { EmailsModule } from './emails/emails.module';
     CategoryController,
     EmailsController,
   ],
-  providers: [AppService, UploadsService, NotificationService, CategoryService, PdfshiftService, EmailsService],
+  providers: [
+    AppService,
+    UploadsService,
+    NotificationService,
+    CategoryService,
+    PdfshiftService,
+    EmailsService,
+  ],
 })
 export class AppModule {}

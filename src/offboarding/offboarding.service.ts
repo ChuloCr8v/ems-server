@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 // import { CommentsDto, DebtPaymentDto, HandoverDto, HandoverDto, InitiateExit, NotesDto, OffboardingCommentsDto, ReturnAsset } from './dto/offboarding.dto';
 import { UserService } from 'src/user/user.service';
@@ -15,7 +20,7 @@ export class OffboardingService {
     private readonly prisma: PrismaService,
     private readonly user: UserService,
     private readonly mail: MailService,
-  ) { }
+  ) {}
 
   async initiateExit(userId: string, data: InitiateExit) {
     const { type, reason, relievingDate, resignationDate, noticePeriod } = data;
@@ -43,17 +48,17 @@ export class OffboardingService {
           checklists: {
             createMany: {
               data: [
-                { checklist: "Clearance From Department Head" },
-                { checklist: "Clearance From Finance" },
-                { checklist: "Clearance From HR & IT/Facility" },
-              ]
-            }
+                { checklist: 'Clearance From Department Head' },
+                { checklist: 'Clearance From Finance' },
+                { checklist: 'Clearance From HR & IT/Facility' },
+              ],
+            },
           },
           uploads: data.uploads
-          ? {
-            connect: data.uploads.map((id) => ({ id })),
-          }
-          : undefined,
+            ? {
+                connect: data.uploads.map((id) => ({ id })),
+              }
+            : undefined,
         },
         include: {
           user: true,
@@ -62,8 +67,8 @@ export class OffboardingService {
 
       return { exit };
     } catch (error) {
-        console.log(error);
-        bad(`Failed to initiate offboarding: ${error.message}`);
+      console.log(error);
+      bad(`Failed to initiate offboarding: ${error.message}`);
     }
   }
 
@@ -709,33 +714,32 @@ export class OffboardingService {
   //   });
   // }
 
-
   ///////////////////////////////////////  HELPERS /////////////////////////////////////////
   private async findUserById(userId: string) {
-          try {
-              const user = await this.prisma.user.findUnique({
-                  where: { id: userId },
-                  include: { departments: true, approver: true, },
-              });
-              return user;
-          } catch (error) {
-              console.log(error);
-              bad(`Failed to get user: ${error.message}`);
-          }
-      }
-  
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true, approver: true },
+      });
+      return user;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to get user: ${error.message}`);
+    }
+  }
+
   private userHasRole(userObj: any, role: Role) {
-          if (!userObj) return false;
-          // userObj.userRole may be an array of Role or a single Role string
-          const roles = (userObj.userRole ?? userObj.role) as any;
-          if (Array.isArray(roles)) return roles.includes(role);
-          return roles === role;
-      }
+    if (!userObj) return false;
+    // userObj.userRole may be an array of Role or a single Role string
+    const roles = (userObj.userRole ?? userObj.role) as any;
+    if (Array.isArray(roles)) return roles.includes(role);
+    return roles === role;
+  }
 
   private async findUserAssets(userId: string) {
     try {
       const user = await this.findUserById(userId);
-      if(!user) throw bad("User Not Found");
+      if (!user) throw bad('User Not Found');
 
       const assets = await this.prisma.asset.findMany({
         where: {
