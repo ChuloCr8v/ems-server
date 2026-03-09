@@ -6,15 +6,9 @@ import { UserModule } from 'src/user/user.module';
 import { AuthService } from 'src/auth/auth.service';
 import { MailService } from 'src/mail/mail.service';
 
-
 @Module({
   imports: [UserModule],
   controllers: [OffboardingController],
-  providers: [
-    OffboardingService, 
-    PrismaService, 
-    AuthService,
-    MailService,
-  ],
+  providers: [OffboardingService, PrismaService, AuthService, MailService],
 })
 export class OffboardingModule {}

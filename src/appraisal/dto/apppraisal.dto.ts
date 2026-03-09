@@ -145,7 +145,6 @@ export class AppraisalPipDto {
   @IsEnum(AppraisalPipStatus)
   @IsOptional()
   status?: AppraisalPipStatus;
-
 }
 
 export class FillAppraisalDto {
@@ -179,7 +178,6 @@ export class FillAppraisalDto {
   @ValidateNested({ each: true })
   @Type(() => AppraisalPipDto)
   appraisalPip?: AppraisalPipDto[];
-
 }
 
 // appraise-submission.dto.ts (same as before)

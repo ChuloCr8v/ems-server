@@ -40,7 +40,7 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 @ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetService) { }
+  constructor(private readonly assetsService: AssetService) {}
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()

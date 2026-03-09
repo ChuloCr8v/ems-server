@@ -5,16 +5,16 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 
 @Controller('emails')
 export class EmailsController {
-    constructor(private readonly emailService: EmailsService) { }
-    @Post('send')
-    @Auth(["ADMIN", "SUPERADMIN", "HR"])
-    async sendEmail(@Body() body: SendEmailDto) {
-        return this.emailService.sendEmail(body);
-    }
+  constructor(private readonly emailService: EmailsService) {}
+  @Post('send')
+  @Auth(['ADMIN', 'SUPERADMIN', 'HR'])
+  async sendEmail(@Body() body: SendEmailDto) {
+    return this.emailService.sendEmail(body);
+  }
 
-    // @Get('all')
-    // @Auth(["ADMIN", "SUPERADMIN", "HR"])
-    // async getAllEmails() {
-    //     return this.emailService.getAllEmails();
-    // }
+  // @Get('all')
+  // @Auth(["ADMIN", "SUPERADMIN", "HR"])
+  // async getAllEmails() {
+  //     return this.emailService.getAllEmails();
+  // }
 }

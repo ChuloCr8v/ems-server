@@ -4,7 +4,7 @@ import { Department, Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async getApproversForDepartment(user: any) {
     const departments = user.defaultDepartment
@@ -92,10 +92,10 @@ export class ApproverService {
       return await this.prisma.user.findMany({
         where: {
           userRole: {
-            hasSome: [Role.SUPERADMIN]
-          }
-        }
-      })
+            hasSome: [Role.SUPERADMIN],
+          },
+        },
+      });
     }
 
     // Regular employees get department approvers + global approvers
@@ -117,7 +117,6 @@ export class ApproverService {
     approverUserId: string,
     targetUserId: string,
   ): Promise<boolean> {
-
     const approverUser = await this.prisma.user.findUnique({
       where: { id: approverUserId },
       include: {
@@ -126,10 +125,14 @@ export class ApproverService {
       },
     });
 
-    if (approverUser.userRole.includes(Role.SUPERADMIN)) return true
+    if (approverUser.userRole.includes(Role.SUPERADMIN)) return true;
 
     // Prevent self-approval
-    if (approverUserId === targetUserId && !approverUser.userRole.includes(Role.SUPERADMIN)) return false;
+    if (
+      approverUserId === targetUserId &&
+      !approverUser.userRole.includes(Role.SUPERADMIN)
+    )
+      return false;
 
     // Fetch approver user with roles + departments
 

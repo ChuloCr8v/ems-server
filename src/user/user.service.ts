@@ -4,7 +4,10 @@ import { JobType, Prisma, Role, Status } from '@prisma/client';
 import { AddEmployeeDto, ApproveUserDto, UpdateUserDto } from './dto/user.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { EmploymentApprovedEvent, InviteDocumentsSubmittedEvent } from 'src/events/employment.event';
+import {
+  EmploymentApprovedEvent,
+  InviteDocumentsSubmittedEvent,
+} from 'src/events/employment.event';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 @Injectable()
 export class UserService {
@@ -14,7 +17,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
   async getMe(sub: string) {
     try {
@@ -73,12 +76,12 @@ export class UserService {
 
           ...(data.userDocuments?.length
             ? {
-              userDocuments: {
-                set: data.userDocuments.map((docId: string) => ({
-                  id: docId,
-                })),
-              },
-            }
+                userDocuments: {
+                  set: data.userDocuments.map((docId: string) => ({
+                    id: docId,
+                  })),
+                },
+              }
             : {}),
 
           contacts: {
@@ -105,10 +108,10 @@ export class UserService {
                   relationship: contact.relationship,
                   ...(contact.document?.length
                     ? {
-                      document: {
-                        connect: contact.document.map((d) => ({ id: d })),
-                      },
-                    }
+                        document: {
+                          connect: contact.document.map((d) => ({ id: d })),
+                        },
+                      }
                     : {}),
                 })),
               },
@@ -407,7 +410,7 @@ export class UserService {
       //   requester.userRole?.includes(Role.ADMIN) ||
       //   requester.userRole?.includes(Role.ASSET_MANAGER)
       // )
-        return user;
+      return user;
       if (user.id === requesterId) return user;
 
       return bad('You do not have permission to view this user');
@@ -488,10 +491,10 @@ export class UserService {
             contactId: contact.id,
             ...(g.document?.length
               ? {
-                document: {
-                  connect: g.document.map((docId) => ({ id: docId })),
-                },
-              }
+                  document: {
+                    connect: g.document.map((docId) => ({ id: docId })),
+                  },
+                }
               : {}),
           },
         });

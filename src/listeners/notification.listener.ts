@@ -25,10 +25,7 @@ import {
   ClaimCreatedEvent,
   ClaimRejectedEvent,
 } from 'src/events/claim.event';
-import {
-  TaskApprovedEvent,
-  TaskRejectedEvent,
-} from 'src/events/tasks.event';
+import { TaskApprovedEvent, TaskRejectedEvent } from 'src/events/tasks.event';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 // import { TaskApprovedPayload, TaskAssignedPayload, TaskAssigneeChangePayload, TaskCreatePayload, TaskDueDateChangePayload, TaskPriorityChangePayload, TaskReassignedPayload, TaskRejectedPayload, TaskStatusChangePayload, TaskUpdatedPayload } from 'src/events/tasks.event';
 // import { MailService } from 'src/mail/mail.service';
@@ -59,7 +56,7 @@ export class NotificationListener {
     private gateway: NotificationGateway,
     private prisma: PrismaService,
     private mailService: MailService,
-  ) { }
+  ) {}
 
   @OnEvent('employment.accepted')
   async handleEmploymentAccepted(event: EmploymentAcceptedEvent) {
@@ -87,7 +84,7 @@ export class NotificationListener {
     }
 
     await this.mailService.sendAcceptanceMail({
-      email: "talent@zoracom.com",
+      email: 'talent@zoracom.com',
       // email: "bonaventure@zoracom.com",
       name: `${prospect.firstName} ${prospect.lastName}`.trim(),
       role: prospect.role,
@@ -144,10 +141,10 @@ export class NotificationListener {
     }
 
     await this.mailService.sendDocumentUploadMail({
-      email: "talent@zoracom.com",
+      email: 'talent@zoracom.com',
       // email: "bonaventure@zoracom.com",
       name: `${user.firstName} ${user.lastName}`,
-      role: user.role
+      role: user.role,
     });
   }
 
@@ -779,7 +776,7 @@ export class NotificationListener {
   }
 
   @OnEvent('Offboarding.Initated')
-  async handleOffboardingInitated(event: any) { }
+  async handleOffboardingInitated(event: any) {}
 
   @OnEvent('task.approved')
   async handleTaskApproved(event: TaskApprovedEvent) {

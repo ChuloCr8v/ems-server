@@ -3,7 +3,7 @@ export class PipCreatedEvent {
     public pipId: string,
     public employeeId: string,
     public recipientIds: string[],
-  ) { }
+  ) {}
 }
 
 export class PipRecommendedEvent {
@@ -12,7 +12,7 @@ export class PipRecommendedEvent {
     public recommenderId: string,
     public employeeId: string,
     public recipientIds: string[],
-  ) { }
+  ) {}
 }
 
 export class PipApprovedEvent {
@@ -21,7 +21,7 @@ export class PipApprovedEvent {
     public approverId: string,
     public employeeId: string,
     public recipientIds: string[],
-  ) { }
+  ) {}
 }
 
 export class PipRejectedEvent {
@@ -30,7 +30,7 @@ export class PipRejectedEvent {
     public rejectorId: string,
     public employeeId: string,
     public recipientIds: string[],
-  ) { }
+  ) {}
 }
 
 export class PipCompletedEvent {
@@ -38,5 +38,5 @@ export class PipCompletedEvent {
     public pipId: string,
     public employeeId: string,
     public recipientIds: string[],
-  ) { }
+  ) {}
 }

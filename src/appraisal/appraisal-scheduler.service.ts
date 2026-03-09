@@ -14,7 +14,7 @@ import { KpiCategoryStatus } from '@prisma/client';
 export class AppraisalSchedulerService {
   private readonly logger = new Logger(AppraisalSchedulerService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   @Cron(CronExpression.EVERY_QUARTER)
   async generateQuaterlyAppraisals() {
