@@ -10,12 +10,13 @@ import {
 } from 'class-validator';
 
 export class InitiateExit {
-  @IsEnum(ExitType, {
-    each: true,
-    message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION',
-  })
-  @IsNotEmpty()
-  type: ExitType;
+    @IsString()
+    @IsNotEmpty()
+    employeeId: string;
+
+    @IsEnum(ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION' })
+    @IsNotEmpty()
+    type: ExitType;
 
   @IsString()
   @IsNotEmpty()
@@ -38,53 +39,44 @@ export class InitiateExit {
   uploads?: string[];
 }
 
-export class DepartmentClearanceDto {}
+export class HandoverTaskDto {
+    @IsString()
+    @IsNotEmpty()
+    toUserId: string;
 
-// export class ReturnAsset {
-//     @IsString()
-//     @IsNotEmpty()
-//     condition: string;
+    // @IsString()
+    // @IsNotEmpty()
+    // fromUserId: string;
 
-//     @IsString()
-//     @IsNotEmpty()
-//     reason: string;
-// }
+    @IsString()
+    @IsOptional()
+    note?: string;
 
-// export class ReportAssetDto {
-//     @IsString()
-//     @IsNotEmpty()
-//     comment: string;
-// }
+    @IsArray()
+    @IsOptional()
+    uploads?: string[];
 
-// export class DebtPaymentDto {
-//     @IsString()
-//     @IsOptional()
-//     notes?: string;
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
+}
 
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
+export class DepartmentClearanceDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
 
-// }
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
 
-// export class NotesDto {
-//     @IsString()
-//     @IsOptional()
-//     notes?: string;
+export class UploadHandoverSignatureDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
 
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
-
-// }
-
-// export class CommentsDto {
-//     @IsString()
-//     @IsOptional()
-//     comments: string;
-
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
-
-// }
+    @IsString()
+    @IsNotEmpty()
+    handoverUserId: string; // The user they are receiving the task from
+}
