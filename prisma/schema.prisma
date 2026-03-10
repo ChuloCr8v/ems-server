@@ -1310,6 +1310,7 @@ enum EmailStatus {
 
 enum ApproverRole {
   DEPARTMENT_HEAD
+  ASS_DEPT_HEAD
   DEPARTMENT_LEAD
   HR
   CISO
@@ -1479,6 +1480,7 @@ enum Role {
   ADMIN
   USER
   DEPT_MANAGER
+  ASST_DEPT_MANAGER
   FACILITY
   HR
   ASSET_MANAGER
