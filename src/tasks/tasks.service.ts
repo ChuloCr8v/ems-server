@@ -46,7 +46,7 @@ export class TasksService {
   constructor(
     private prisma: PrismaService,
     private readonly event: EventEmitter2,
-  ) {}
+  ) { }
 
   private async getUserRole(userId: string): Promise<string[]> {
     const user = await this.prisma.user.findUnique({
@@ -80,10 +80,10 @@ export class TasksService {
         }),
         ...(params.attachments &&
           params.attachments.length > 0 && {
-            attachments: {
-              connect: params.attachments.map((id) => ({ id })),
-            },
-          }),
+          attachments: {
+            connect: params.attachments.map((id) => ({ id })),
+          },
+        }),
       },
     });
   }
@@ -107,37 +107,37 @@ export class TasksService {
       rejectionReason: task.rejectionReason,
       createdBy: task.createdBy
         ? {
-            id: task.createdById,
-            name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
-            email: task.createdBy.email,
-            role: task.createdBy.role,
-          }
+          id: task.createdById,
+          name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
+          email: task.createdBy.email,
+          role: task.createdBy.role,
+        }
         : undefined,
       approvedBy: task.approvedBy
         ? {
-            id: task.approvedBy.id,
-            name: `${task.approvedBy.firstName} ${task.approvedBy.lastName}`,
-            email: task.approvedBy.email,
-          }
+          id: task.approvedBy.id,
+          name: `${task.approvedBy.firstName} ${task.approvedBy.lastName}`,
+          email: task.approvedBy.email,
+        }
         : undefined,
       assignees: task.assignees
         ? task.assignees.map((at) => ({
-            id: at.user.id,
-            name: `${at.user.firstName} ${at.user.lastName}`,
-            email: at.user.email,
-            assignedAt: at.assignedAt,
-          }))
+          id: at.user.id,
+          name: `${at.user.firstName} ${at.user.lastName}`,
+          email: at.user.email,
+          assignedAt: at.assignedAt,
+        }))
         : [],
       files: task.uploads
         ? task.uploads.map((upload) => ({
-            id: upload.id,
-            filename: upload.key || '',
-            originalName: upload.name,
-            mimetype: upload.type,
-            size: upload.size,
-            uploadedAt: upload.createdAt,
-            uri: upload.uri || undefined,
-          }))
+          id: upload.id,
+          filename: upload.key || '',
+          originalName: upload.name,
+          mimetype: upload.type,
+          size: upload.size,
+          uploadedAt: upload.createdAt,
+          uri: upload.uri || undefined,
+        }))
         : [],
     };
   }
@@ -239,11 +239,11 @@ export class TasksService {
         (taskCreator.defaultDepartment
           ? taskCreator.defaultDepartment.id
           : (
-              await this.prisma.user.findUnique({
-                where: { id: createdById },
-                include: { departments: true },
-              })
-            )?.departments[0].id);
+            await this.prisma.user.findUnique({
+              where: { id: createdById },
+              include: { departments: true },
+            })
+          )?.departments[0].id);
 
       if (taskCreator.team) {
         createData.team = { connect: { id: taskCreator.team.id } };
@@ -257,24 +257,24 @@ export class TasksService {
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
-                uploads: {
-                  connect: uploads.map((id) => ({ id })),
-                },
-              }
+              uploads: {
+                connect: uploads.map((id) => ({ id })),
+              },
+            }
             : {}),
           ...(category && category.length > 0
             ? {
-                category: {
-                  connect: category.map((id) => ({ id })),
-                },
-              }
+              category: {
+                connect: category.map((id) => ({ id })),
+              },
+            }
             : {}),
           ...(projectLabels && projectLabels.length > 0
             ? {
-                projectLabels: {
-                  connect: projectLabels.map((id) => ({ id })),
-                },
-              }
+              projectLabels: {
+                connect: projectLabels.map((id) => ({ id })),
+              },
+            }
             : {}),
         },
         // include: this.getTaskInclude(),
@@ -524,7 +524,7 @@ export class TasksService {
       throw new BadRequestException('Task is not pending approval');
     }
 
-    const { status, assignees, rejectionReason } = dto;
+    const { status, rejectionReason } = dto;
 
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
@@ -537,15 +537,7 @@ export class TasksService {
         approvedBy: { connect: { id: processorId } },
         approvedAt: new Date(),
         ...(status === ApprovalStatus.REJECTED && { rejectionReason }),
-        // Update assignees only on approval if provided
-        ...(status === ApprovalStatus.APPROVED &&
-          assignees &&
-          assignees.length > 0 && {
-            assignees: {
-              deleteMany: {},
-              create: assignees.map((userId) => ({ userId })),
-            },
-          }),
+
       },
     });
 
@@ -563,7 +555,7 @@ export class TasksService {
         new TaskApprovedEvent(
           processorId,
           task.createdById,
-          assignees || task.assignees.map((a) => a.userId),
+          task.assignees.map((a) => a.userId),
           task.id,
           task.title,
         ),
@@ -1432,21 +1424,21 @@ export class TasksService {
             data:
               status === 'ISSUES'
                 ? {
-                    hasIssues: true,
-                    status,
-                    taskIssues: {
-                      create: {
-                        issue: issue,
-                        reportedBy: {
-                          connect: { id: userId },
-                        },
+                  hasIssues: true,
+                  status,
+                  taskIssues: {
+                    create: {
+                      issue: issue,
+                      reportedBy: {
+                        connect: { id: userId },
                       },
                     },
-                  }
-                : {
-                    status: completedStatus(),
-                    hasIssues: false,
                   },
+                }
+                : {
+                  status: completedStatus(),
+                  hasIssues: false,
+                },
           });
 
           // --- Update Task Base Data ---
