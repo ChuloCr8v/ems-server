@@ -31,7 +31,7 @@ export class LeaveService {
     private readonly mail: MailService,
     private readonly approver: ApproverService,
     private eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   async createLeaveRequest(userId: string, data: CreateLeaveRequestDto) {
     const { typeId, doaId, reason, startDate, endDate, uploads } = data;
@@ -870,8 +870,6 @@ export class LeaveService {
       finalDate.setHours(0, 0, 0, 0);
 
       let businessDays = 0;
-
-      currentDate.setDate(currentDate.getDate() + 1);
 
       while (currentDate <= finalDate) {
         const weekDay = currentDate.getDay();
