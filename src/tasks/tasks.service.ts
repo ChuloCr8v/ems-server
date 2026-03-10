@@ -173,11 +173,13 @@ export class TasksService {
           }
           return createTaskDto.status;
         }
-        if (isManager) {
-          return 'IN_PROGRESS';
-        } else {
-          return 'PENDING_APPROVAL';
-        }
+
+        return "IN_PROGRESS"
+        // if (isManager) {
+        //   return 'IN_PROGRESS';
+        // } else {
+        //   return 'PENDING_APPROVAL';
+        // }
       };
 
       const createData: any = {
@@ -185,7 +187,8 @@ export class TasksService {
         description: taskData.description,
         priority: taskData.priority,
         status: taskStatus(),
-        approvalStatus: isManager ? 'APPROVED' : 'PENDING',
+        // approvalStatus: isManager ? 'APPROVED' : 'PENDING',
+        approvalStatus: 'APPROVED',
       };
 
       if (
@@ -203,13 +206,13 @@ export class TasksService {
       }
 
       //Approval Status
-      if (isManager) {
-        createData.approvedBy = { connect: { id: createdById } };
-        createData.approvedAt = new Date();
-        createData.approvalRequestedAt = new Date();
-      } else if (!isManager) {
-        createData.approvalRequestedAt = new Date();
-      }
+      // if (isManager) {
+      //   createData.approvedBy = { connect: { id: createdById } };
+      //   createData.approvedAt = new Date();
+      //   createData.approvalRequestedAt = new Date();
+      // } else if (!isManager) {
+      //   createData.approvalRequestedAt = new Date();
+      // }
 
       //Assignees
       if (assignees && assignees.length > 0) {
@@ -767,7 +770,7 @@ export class TasksService {
         action: 'Extension requested',
         userId: userId,
         taskId: id,
-        comment: note ?? `Requested due date: ${dueDate.toISOString()}`,
+        comment: note ?? `Requested due date: ${new Date(dueDate).toISOString()}`,
       });
     } catch (error) {
       bad(error);

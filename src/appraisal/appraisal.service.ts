@@ -844,7 +844,11 @@ export class AppraisalService {
         },
         appraisalPip: true,
         goalsAndAchievement: true,
-        feedback: true,
+        feedback: {
+          include: {
+            questions: true
+          }
+        },
         employeeSignature: {
           include: { signature: true },
         },

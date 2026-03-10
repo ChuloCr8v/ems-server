@@ -20,7 +20,7 @@ import { CreateCategoryDto } from 'src/category/category.dto';
 
 @Controller('tasks')
 export class TasksController {
-  constructor(private readonly tasksService: TasksService) {}
+  constructor(private readonly tasksService: TasksService) { }
 
   //Categories
 
@@ -191,7 +191,7 @@ export class TasksController {
     );
   }
 
-  @Auth(['DEPT_MANAGER', 'ADMIN', 'TEAM_LEAD'])
+  @Auth()
   @Post(':id/extend')
   async extendDueDate(
     @Param('id') id: string,
