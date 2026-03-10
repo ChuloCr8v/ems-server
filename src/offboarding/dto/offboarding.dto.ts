@@ -2,7 +2,11 @@ import { ExitType } from "@prisma/client";
 import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class InitiateExit {
-    @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
+    @IsString()
+    @IsNotEmpty()
+    employeeId: string;
+
+    @IsEnum(ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION' })
     @IsNotEmpty()
     type: ExitType;
 
@@ -27,56 +31,44 @@ export class InitiateExit {
     uploads?: string[];
 }
 
-export class DepartmentClearanceDto {
-    
+export class HandoverTaskDto {
+    @IsString()
+    @IsNotEmpty()
+    toUserId: string;
+
+    // @IsString()
+    // @IsNotEmpty()
+    // fromUserId: string;
+
+    @IsString()
+    @IsOptional()
+    note?: string;
+
+    @IsArray()
+    @IsOptional()
+    uploads?: string[];
+
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
 }
 
+export class DepartmentClearanceDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
 
-// export class ReturnAsset {
-//     @IsString()
-//     @IsNotEmpty()
-//     condition: string;
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}
 
-//     @IsString()
-//     @IsNotEmpty()
-//     reason: string;
-// }
+export class UploadHandoverSignatureDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
 
-// export class ReportAssetDto {
-//     @IsString()
-//     @IsNotEmpty()
-//     comment: string;
-// }
-
-// export class DebtPaymentDto {
-//     @IsString()
-//     @IsOptional()
-//     notes?: string;
-
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
-
-// }
-
-// export class NotesDto {
-//     @IsString()
-//     @IsOptional()
-//     notes?: string;
-
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
-
-// }
-
-// export class CommentsDto {
-//     @IsString()
-//     @IsOptional()
-//     comments: string;
-
-//     @IsArray()
-//     @IsOptional()
-//     uploads?: string[];
-
-// }
+    @IsString()
+    @IsNotEmpty()
+    handoverUserId: string; // The user they are receiving the task from
+}
