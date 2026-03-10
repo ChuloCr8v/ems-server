@@ -778,6 +778,40 @@ export class NotificationListener {
   @OnEvent('Offboarding.Initated')
   async handleOffboardingInitated(event: any) {}
 
+  @OnEvent('taskHandover.signatureRequested')
+  async handleTaskHandoverSignatureRequested(event: any) { // using any to avoid cyclic import, ideally use TaskHandoverSignatureRequestedEvent
+    const assigner = await this.prisma.user.findUnique({
+      where: { id: event.assignerId },
+    });
+
+    const assignee = await this.prisma.user.findUnique({
+      where: { id: event.assigneeId },
+    });
+
+    if (!assigner || !assignee) return;
+
+    const notification = {
+      recipientId: event.assigneeId,
+      actorId: event.assignerId,
+      type: 'TASK_HANDOVER_SIGNATURE_REQUESTED',
+      title: 'Task Handover Signature Required',
+      message: `${assigner.firstName} ${assigner.lastName} has handed over a task to you. Please review and provide your signature for the handover documentation.`,
+      actionType: NotificationActionType.TASK_ASSIGNED, 
+      actionData: {
+        taskId: event.taskId,
+        offboardingId: event.offboardingId
+      },
+    };
+
+    await this.notificationService.createMany([notification]);
+
+    this.gateway.sendToUser(event.assigneeId, {
+      type: 'TASK_HANDOVER_SIGNATURE_REQUESTED',
+      title: 'Task Handover Signature Required',
+      message: `${assigner.firstName} ${assigner.lastName} has handed over a task to you. Please review and provide your signature for the handover documentation.`,
+    });
+  }
+
   @OnEvent('task.approved')
   async handleTaskApproved(event: TaskApprovedEvent) {
     const approver = await this.prisma.user.findUnique({
