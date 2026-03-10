@@ -806,36 +806,36 @@ export class AppraisalService {
       where.departmentId = { in: departmentIds };
     }
 
-    const commonStatus = [
-      AppraisalStatus.APPRAISED,
-      AppraisalStatus.COMPLETED,
-      AppraisalStatus.REVIEWED,
-      AppraisalStatus.GENERATED,
-      ApprovalStatus.PENDING,
-      AppraisalStatus.HR_REVIEW,
-    ];
-    const statusFilter = () => {
-      switch (true) {
-        case isAdmin:
-        case isHR:
-          return commonStatus;
-        case isManager:
-          return [
-            ...commonStatus,
-            AppraisalStatus.SUBMITTED,
-            AppraisalStatus.MANAGER_DRAFT,
-          ];
-        default:
-          return [];
-      }
-    };
+    // const commonStatus = [
+    //   AppraisalStatus.APPRAISED,
+    //   AppraisalStatus.COMPLETED,
+    //   AppraisalStatus.REVIEWED,
+    //   AppraisalStatus.GENERATED,
+    //   ApprovalStatus.PENDING,
+    //   AppraisalStatus.HR_REVIEW,
+    // ];
+    // const statusFilter = () => {
+    //   switch (true) {
+    //     case isAdmin:
+    //     case isHR:
+    //       return commonStatus;
+    //     case isManager:
+    //       return [
+    //         ...commonStatus,
+    //         AppraisalStatus.SUBMITTED,
+    //         AppraisalStatus.MANAGER_DRAFT,
+    //       ];
+    //     default:
+    //       return [];
+    //   }
+    // };
 
     const appraisals = await this.prisma.appraisal.findMany({
       where: {
         ...where,
-        status: {
-          in: statusFilter(),
-        },
+        // status: {
+        //   in: statusFilter(),
+        // },
       },
       include: {
         department: true,
@@ -894,7 +894,7 @@ export class AppraisalService {
       if (!period.has(appraisal.quarter)) {
         period.set(appraisal.quarter, {
           period: appraisal.period,
-          title: `Appraisal - Quarter ${appraisal.period}`,
+          title: `Appraisal - ${appraisal.period}`,
           departments: [],
           deptMap: new Map<string, any>(),
         });
@@ -968,11 +968,12 @@ export class AppraisalService {
 
     if (isManager && !isAdmin && !isHR) {
       const managedDepartments = await this.prisma.department.findMany({
-        where: { user: { some: { id: userId } } },
+        where: { user: { some: { id: userId } }, },
         select: { id: true },
       });
       const departmentIds = managedDepartments.map((d) => d.id);
       where.departmentId = { in: departmentIds };
+      where.status = { not: "GENERATED" }
     }
 
     const commonStatus = [
