@@ -1,4 +1,12 @@
-import { Controller, Delete, Get, Post, Req, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  Body,
+  Param,
+} from '@nestjs/common';
 import { ReportService } from './report.service';
 import { ReqPayload } from 'src/auth/dto/auth.dto';
 import { Auth } from 'src/auth/decorators/auth.decorator';
@@ -11,14 +19,14 @@ export class ReportController {
   constructor(
     private readonly report: ReportService,
     private readonly prisma: PrismaService,
-  ) { }
-
+  ) {}
 
   @Auth()
   @Post('create')
   createReport(
     @Req() req: ReqPayload,
-    @Body() body: CreateDepartmentWeeklyReportDto) {
+    @Body() body: CreateDepartmentWeeklyReportDto,
+  ) {
     const userId = req.user.id;
     return this.report.createReport(body, userId);
   }
@@ -56,7 +64,7 @@ export class ReportController {
     return this.report.listDepartmentWeeklyReports(userId);
   }
 
-  @Auth(["ADMIN", "SUPERADMIN"])
+  @Auth(['ADMIN', 'SUPERADMIN'])
   @Delete('')
   async deleteReport() {
     try {

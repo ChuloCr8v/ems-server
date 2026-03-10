@@ -14,7 +14,10 @@ import { CreateProspectDto, SendInviteDto } from './dto/invite.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
 import { JobType, Role } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EmploymentAcceptedEvent, InviteSentEvent } from 'src/events/employment.event';
+import {
+  EmploymentAcceptedEvent,
+  InviteSentEvent,
+} from 'src/events/employment.event';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { v4 as uuidv4 } from 'uuid';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -29,7 +32,7 @@ export class InviteService {
     private eventEmitter: EventEmitter2,
     private uploadService: UploadsService,
     private jwt: JwtService,
-  ) { }
+  ) {}
 
   async sendInvite(
     input: SendInviteDto & { uploads: Express.Multer.File[] },
@@ -139,10 +142,10 @@ export class InviteService {
             startDate,
             ...(departments?.length
               ? {
-                departments: {
-                  connect: departments.map((id) => ({ id })),
-                },
-              }
+                  departments: {
+                    connect: departments.map((id) => ({ id })),
+                  },
+                }
               : {}),
             ...(jobType === JobType.CONTRACT ? { duration } : {}),
           },
@@ -286,7 +289,6 @@ export class InviteService {
     } catch (error) {
       bad(error);
     }
-
   }
 
   async declineInvite(token: string, reasons?: Array<string>) {
@@ -323,7 +325,7 @@ export class InviteService {
       });
 
       await this.mail.sendDeclinedMail({
-        email: "talent@zoracom.com",
+        email: 'talent@zoracom.com',
         name: `${updatedInvite.prospect.firstName} ${updatedInvite.prospect.lastName}`.trim(),
         role: updatedInvite.prospect.role,
       });

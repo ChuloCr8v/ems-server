@@ -144,7 +144,10 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true, message: 'Each project label must be a valid user ID' })
+  @IsString({
+    each: true,
+    message: 'Each project label must be a valid user ID',
+  })
   @ArrayMinSize(0)
   projectLabels?: string[];
 }

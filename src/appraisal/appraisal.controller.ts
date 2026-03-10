@@ -6,7 +6,7 @@ import {
   Patch,
   Post,
   Query,
-  Res
+  Res,
 } from '@nestjs/common';
 import { AppraisalStatus, Role } from '@prisma/client';
 import { Response } from 'express';
@@ -14,10 +14,7 @@ import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { AppraisalSchedulerService } from './appraisal-scheduler.service';
 import { AppraisalService } from './appraisal.service';
-import {
-  FillAppraisalDto,
-  GetAppraisalsDto
-} from './dto/apppraisal.dto';
+import { FillAppraisalDto, GetAppraisalsDto } from './dto/apppraisal.dto';
 
 @Controller('appraisal')
 // @UseGuards(AuthGuard, RolesGuard)
@@ -58,7 +55,7 @@ export class AppraisalController {
       userId,
       appraisalId,
       data,
-      true
+      true,
     );
     return res
       .status(200)
@@ -98,6 +95,12 @@ export class AppraisalController {
   @Get()
   async listAppraisals(@AuthUser() user: IAuthUser) {
     return this.appraisal.listAppraisals(user.sub);
+  }
+
+  @Auth()
+  @Get('templates')
+  async listAppraisalTemplates(@AuthUser() user: IAuthUser) {
+    return this.appraisal.listAppraisalTemplates(user.sub);
   }
 
   // @Auth

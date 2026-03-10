@@ -44,7 +44,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Readable } from 'stream';
 import fetch from 'node-fetch';
 
-
 const templates = resolve(__dirname, '../payroll/templates');
 
 @Injectable()
@@ -56,7 +55,7 @@ export class PayrollService {
     private readonly event: EventEmitter2,
     private readonly payslipTemplate: PayslipTemplateService,
     private readonly puppeteerService: PuppeteerService,
-  ) { }
+  ) {}
 
   async calculatePayRoll(data: PayrollDto) {
     try {
@@ -423,9 +422,9 @@ export class PayrollService {
           where: {
             user: {
               NOT: {
-                status: "INACTIVE"
-              }
-            }
+                status: 'INACTIVE',
+              },
+            },
           },
           // skip,
           // take,
@@ -676,7 +675,20 @@ export class PayrollService {
   async queuePayslipsForPeriod(userId: string, month: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
 
     const currentMonth = months[month - 1] + ' ' + new Date().getFullYear();
 
@@ -684,11 +696,10 @@ export class PayrollService {
       const payrolls = await this.prisma.payroll.findMany({
         where: {
           user: {
-            status: "ACTIVE"
-          }
+            status: 'ACTIVE',
+          },
         },
         include: {
-
           user: true,
           component: {
             include: {
@@ -698,7 +709,7 @@ export class PayrollService {
         },
       });
 
-      console.log({ payrolls })
+      console.log({ payrolls });
 
       if (!payrolls.length) {
         return { message: 'No payroll records found' };
@@ -733,8 +744,6 @@ export class PayrollService {
     month: string,
   ): Promise<void> {
     try {
-
-
       const year = new Date().getFullYear();
       const dateLabel = `${month} ${year}`;
 
@@ -810,7 +819,6 @@ export class PayrollService {
       bad(error);
     }
   }
-
 
   async listUserPayslips(userId?: string) {
     try {
@@ -919,8 +927,8 @@ export class PayrollService {
 
       const filterByRole =
         user.userRole.includes(Role.ADMIN) ||
-          user.userRole.includes(Role.SUPERADMIN) ||
-          user.userRole.includes(Role.HR)
+        user.userRole.includes(Role.SUPERADMIN) ||
+        user.userRole.includes(Role.HR)
           ? allPayslips
           : allPayslips.filter((payslip) => payslip.userId === user.id);
       return Object.values(groupByMonth(filterByRole));
@@ -943,13 +951,9 @@ export class PayrollService {
       throw new NotFoundException('Payslip not found');
     }
 
-
     const date = `${payslip.month} ${payslip.year}`;
 
-    const html = this.payslipTemplate.generateHTML(
-      payslip,
-      date
-    );
+    const html = this.payslipTemplate.generateHTML(payslip, date);
 
     const response = await fetch(process.env.PDFSHIFT_URL, {
       method: 'POST',
@@ -960,7 +964,6 @@ export class PayrollService {
       body: JSON.stringify({
         source: html,
         format: 'A4',
-
       }),
     });
 
@@ -976,7 +979,6 @@ export class PayrollService {
       disposition: `attachment; filename="payslip-${payslipId}.pdf"`,
     });
   }
-
 
   async notify(id: string) {
     const payslip = await this.prisma.payslip.findUnique({
@@ -999,11 +1001,10 @@ export class PayrollService {
           date: `${payslip.month} ${payslip.year}`,
           email: user.email,
           dashboardUrl: 'https://ems.miro.zoracom.com',
-        })
-      )
+        }),
+      ),
     );
   }
-
 
   async downloadDeductionsExcel(
     deductionId: string,
@@ -1308,8 +1309,6 @@ export class PayrollService {
     }
   }
 
-
-
   private async generateDeductionsExcel({
     deductions,
     month,
@@ -1377,7 +1376,4 @@ export class PayrollService {
       throw error;
     }
   }
-
-
-
 }

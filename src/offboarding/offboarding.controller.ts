@@ -1,4 +1,17 @@
-import { Body, Get, Controller, Param, Patch, Post, Res, UploadedFiles, UseInterceptors, Req, Header, UploadedFile } from '@nestjs/common';
+import {
+  Body,
+  Get,
+  Controller,
+  Param,
+  Patch,
+  Post,
+  Res,
+  UploadedFiles,
+  UseInterceptors,
+  Req,
+  Header,
+  UploadedFile,
+} from '@nestjs/common';
 import { OffboardingService } from './offboarding.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 // import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
@@ -12,7 +25,7 @@ import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit, UploadHandoverSi
 
 @Controller('offboarding')
 export class OffboardingController {
-  constructor(private readonly offboarding: OffboardingService) { }
+  constructor(private readonly offboarding: OffboardingService) {}
 
   @Auth([Role.ADMIN, Role.HR])
   @Post()

@@ -19,7 +19,7 @@ import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('leave')
 export class LeaveController {
-  constructor(private readonly leave: LeaveService) { }
+  constructor(private readonly leave: LeaveService) {}
 
   @Post(':userId')
   async createLeaveRequest(

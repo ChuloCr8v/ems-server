@@ -61,7 +61,7 @@ export class TaskStatusChangeEvent implements TaskStatusChangePayload {
     public assigneeIds: string[],
     public creatorId: string,
     public reason?: string,
-  ) {}
+  ) { }
 }
 
 export class TaskAssigneeChangeEvent implements TaskAssigneeChangePayload {
@@ -73,7 +73,7 @@ export class TaskAssigneeChangeEvent implements TaskAssigneeChangePayload {
     public removedAssigneeIds: string[],
     public currentAssigneeIds: string[],
     public creatorId: string,
-  ) {}
+  ) { }
 }
 
 export class TaskPriorityChangeEvent implements TaskPriorityChangePayload {
@@ -85,7 +85,7 @@ export class TaskPriorityChangeEvent implements TaskPriorityChangePayload {
     public newPriority: string,
     public assigneeIds: string[],
     public creatorId: string,
-  ) {}
+  ) { }
 }
 
 export class TaskDueDateChangeEvent implements TaskDueDateChangePayload {
@@ -97,7 +97,7 @@ export class TaskDueDateChangeEvent implements TaskDueDateChangePayload {
     public newDueDate: Date | undefined,
     public assigneeIds: string[],
     public creatorId: string,
-  ) {}
+  ) { }
 }
 
 export class TaskCreatedEvent implements TaskCreatePayload {
@@ -110,7 +110,7 @@ export class TaskCreatedEvent implements TaskCreatePayload {
     public taskDescription?: string,
     public priority?: string,
     public dueDate?: Date,
-  ) {}
+  ) { }
 }
 
 // Task Assignment Event
@@ -133,7 +133,7 @@ export class TaskAssignedEvent implements TaskAssignedPayload {
     // public taskDescription?: string,
     public priority?: string,
     public dueDate?: Date,
-  ) {}
+  ) { }
 }
 
 // Task Update Event
@@ -152,14 +152,14 @@ export class TaskUpdatedEvent implements TaskUpdatedPayload {
     public taskId: string,
     public taskTitle: string,
     public updateDetails: string,
-  ) {}
+  ) { }
 }
 
 // Task Approval Event
 export interface TaskApprovedPayload {
   approverId: string;
   creatorId: string;
-  assigneeIds: string[];
+  assigneeIds?: string[];
   taskId: string;
   taskTitle: string;
 }
@@ -171,7 +171,7 @@ export class TaskApprovedEvent implements TaskApprovedPayload {
     public assigneeIds: string[],
     public taskId: string,
     public taskTitle: string,
-  ) {}
+  ) { }
 }
 
 // Task Rejection Event
@@ -190,7 +190,7 @@ export class TaskRejectedEvent implements TaskRejectedPayload {
     public taskId: string,
     public taskTitle: string,
     public rejectionReason: string,
-  ) {}
+  ) { }
 }
 
 // Task Reassignment/Transfer Event
@@ -213,5 +213,5 @@ export class TaskReassignedEvent implements TaskReassignedPayload {
     public taskTitle: string,
     public note?: string,
     public newDueDate?: Date,
-  ) {}
+  ) { }
 }

@@ -3,9 +3,15 @@
  * Adjust contents to match your Prisma schema and desired default objectives/questions.
  */
 export const DEFAULT_FEEDBACK_QUESTIONS = [
-  { question: 'How would you rate your emotional stability at work?', order: 1 },
+  {
+    question: 'How would you rate your emotional stability at work?',
+    order: 1,
+  },
 
-  { question: 'What aspects of your work are you most satisfied with?', order: 2 },
+  {
+    question: 'What aspects of your work are you most satisfied with?',
+    order: 2,
+  },
 
   { question: 'What challenges are you facing in your role?', order: 3 },
 
@@ -17,7 +23,10 @@ export const DEFAULT_FEEDBACK_QUESTIONS = [
 
   { question: 'What can management do to support?', order: 5 },
 
-  { question: 'Any recommendations for improving the work enviroment?', order: 6 },
+  {
+    question: 'Any recommendations for improving the work enviroment?',
+    order: 6,
+  },
 
   {
     question:

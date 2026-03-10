@@ -11,7 +11,6 @@ import { MailListener } from 'src/listeners/mail.listener';
   imports: [
     PrismaModule,
     MailerModule.forRoot({
-
       transport: {
         host: process.env.EMAIL_HOST,
         port: +process.env.EMAIL_PORT,
@@ -21,7 +20,6 @@ import { MailListener } from 'src/listeners/mail.listener';
           user: process.env.EMAIL_ID,
           pass: process.env.EMAIL_PASS,
         },
-
       },
       defaults: {
         from: process.env.EMAIL_FROM,
@@ -38,4 +36,4 @@ import { MailListener } from 'src/listeners/mail.listener';
   providers: [MailService, MailListener],
   exports: [MailService],
 })
-export class MailModule { }
+export class MailModule {}

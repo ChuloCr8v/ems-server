@@ -1,5 +1,13 @@
-import { ExitType } from "@prisma/client";
-import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { ExitType } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class InitiateExit {
     @IsString()
@@ -10,25 +18,25 @@ export class InitiateExit {
     @IsNotEmpty()
     type: ExitType;
 
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
 
-    @IsString()
-    @IsNotEmpty()
-    relievingDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  relievingDate: Date;
 
-    @IsString()
-    @IsNotEmpty()
-    resignationDate: Date;
+  @IsString()
+  @IsNotEmpty()
+  resignationDate: Date;
 
-    @IsBoolean()
-    @IsNotEmpty()
-    noticePeriod?: boolean;
+  @IsBoolean()
+  @IsNotEmpty()
+  noticePeriod?: boolean;
 
-    @IsOptional()
-    @IsArray()
-    uploads?: string[];
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
 }
 
 export class HandoverTaskDto {

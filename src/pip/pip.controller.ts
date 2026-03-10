@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { PipService } from './pip.service';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
@@ -43,9 +52,15 @@ export class PipController {
 
   @Auth()
   @Patch(':pipId')
-  async updatePip(@Param('pipId') pipId: string, @Body() data: Partial<CreatePipDto>, @Res() res: Response) {
+  async updatePip(
+    @Param('pipId') pipId: string,
+    @Body() data: Partial<CreatePipDto>,
+    @Res() res: Response,
+  ) {
     const update = await this.pipService.updatePip(pipId, data);
-    return res.status(200).json({ message: 'A New PIP Has Been Updated', update });
+    return res
+      .status(200)
+      .json({ message: 'A New PIP Has Been Updated', update });
   }
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
@@ -81,21 +96,43 @@ export class PipController {
     const pip = await this.pipService.approvePip(userId, pipId, data);
     return res.status(200).json({ message: 'PIP Has Been Approved', pip });
   }
-  
+
   @Auth([Role.HR, Role.ADMIN])
   @Patch(':departmentId/approve-department-pips')
-  async approveDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason?: string }, @Res() res: Response) {
+  async approveDepartmentsPip(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Body() data: { reason?: string },
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
-    const pips = await this.pipService.approveDepartmentsPip(userId, departmentId, data.reason);
-    return res.status(200).json({ message: 'Department PIPs Have Been Approved', pips });
+    const pips = await this.pipService.approveDepartmentsPip(
+      userId,
+      departmentId,
+      data.reason,
+    );
+    return res
+      .status(200)
+      .json({ message: 'Department PIPs Have Been Approved', pips });
   }
 
   @Auth([Role.HR, Role.ADMIN])
   @Patch(':departmentId/reject-department-pips')
-  async rejectDepartmentsPip(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Body() data: { reason: string }, @Res() res: Response) {
+  async rejectDepartmentsPip(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Body() data: { reason: string },
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
-    const pips = await this.pipService.rejectDepartmentPip(userId, departmentId, data.reason);
-    return res.status(200).json({ message: 'Department PIPs Have Been Rejected', pips });
+    const pips = await this.pipService.rejectDepartmentPip(
+      userId,
+      departmentId,
+      data.reason,
+    );
+    return res
+      .status(200)
+      .json({ message: 'Department PIPs Have Been Rejected', pips });
   }
 
   @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
@@ -128,10 +165,14 @@ export class PipController {
 
   @Auth([Role.DEPT_MANAGER])
   @Post(':departmentId/send')
-  async sendToHr(@AuthUser() user: IAuthUser, @Param('departmentId') departmentId: string, @Res() res: Response) {
+  async sendToHr(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Res() res: Response,
+  ) {
     const userId = user.sub;
     const pip = await this.pipService.sendToHr(userId, departmentId);
-     return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
+    return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
   }
 
   @Auth([Role.SUPERADMIN])
@@ -141,7 +182,7 @@ export class PipController {
     return await this.pipService.getAllManagersPip(userId);
   }
 
-  @Auth([Role.USER]) 
+  @Auth([Role.USER])
   @Post(':pipId/claim')
   async makePipClaimRequest(
     @AuthUser() user: IAuthUser,
@@ -150,7 +191,9 @@ export class PipController {
   ) {
     const userId = user.sub;
     const claim = await this.pipService.makePipClaimRequest(pipId, userId);
-    return res.status(200).json({ message: 'PIP Claim Request Made Successfully', claim });
+    return res
+      .status(200)
+      .json({ message: 'PIP Claim Request Made Successfully', claim });
   }
 
   @Auth([Role.SUPERADMIN])

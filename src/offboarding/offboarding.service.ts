@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 // import { CommentsDto, DebtPaymentDto, HandoverDto, HandoverDto, InitiateExit, NotesDto, OffboardingCommentsDto, ReturnAsset } from './dto/offboarding.dto';
 import { UserService } from 'src/user/user.service';
@@ -298,7 +303,6 @@ export class OffboardingService {
   //     },
   //   });
   // }
-
 
   ///////////////////////////////////////  HELPERS /////////////////////////////////////////
   private async findUserById(userId: string) {
