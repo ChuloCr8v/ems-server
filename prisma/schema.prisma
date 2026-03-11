@@ -441,7 +441,7 @@ model Offboarding {
   id              String       @id @default(uuid()) @db.Uuid
   type            ExitType
   relievingDate   DateTime
-  resignationDate DateTime
+  resignationDate DateTime?
   reason          String
   noticePeriod    Boolean?     @default(false)
   status          Status       @default(PENDING)
@@ -500,7 +500,6 @@ model TaskHandover {
 
 model DepartmentClearance {
   id                 String                   @id @default(uuid()) @db.Uuid
-  // status             Status                   @default(PENDING)
   tasksHandedOver    Boolean                  @default(false)
   handover           TaskHandover[]
   clearedAt          DateTime?
@@ -513,18 +512,6 @@ model DepartmentClearance {
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 }
-
-// model HandoverDocument {
-//   id            String       @id @default(uuid()) @db.Uuid
-//   offboardingId String?      @db.Uuid
-//   isApproved    Boolean      @default(false)
-//   approvedAt    DateTime?
-//   notes         String?
-//   createdAt     DateTime     @default(now())
-//   comments      Comment[]
-//   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-//   upload        Upload[]
-// }
 
 model Payment {
   id            String       @id @default(uuid()) @db.Uuid
@@ -1362,6 +1349,7 @@ enum ClearanceType {
 
 enum ClearanceStatus {
   PENDING
+  COMPLETED
   APPROVED
   REJECTED
 }
