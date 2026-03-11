@@ -39,6 +39,7 @@ import { OffboardingModule } from './offboarding/offboarding.module';
 import { EmailsService } from './emails/emails.service';
 import { EmailsController } from './emails/emails.controller';
 import { EmailsModule } from './emails/emails.module';
+import { LeadershipModule } from './leadership/leadership.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { EmailsModule } from './emails/emails.module';
     PipModule,
     OffboardingModule,
     EmailsModule,
+    LeadershipModule,
   ],
   controllers: [
     AppController,

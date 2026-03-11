@@ -55,7 +55,7 @@ export class PayrollService {
     private readonly event: EventEmitter2,
     private readonly payslipTemplate: PayslipTemplateService,
     private readonly puppeteerService: PuppeteerService,
-  ) {}
+  ) { }
 
   async calculatePayRoll(data: PayrollDto) {
     try {
@@ -429,7 +429,9 @@ export class PayrollService {
           // skip,
           // take,
           include: {
-            component: true,
+            component: {
+              where: { isActive: true },
+            },
             user: {
               select: {
                 id: true,
@@ -588,6 +590,7 @@ export class PayrollService {
       where: {
         payrollId: { in: payrolls.map((p) => p.id) },
         category: { in: ['STATIC_DEDUCTION'] },
+        isActive: true,
       },
       include: { user: true },
     });
@@ -597,6 +600,7 @@ export class PayrollService {
         payrollId: { in: payrolls.map((p) => p.id) },
         category: { in: ['STATIC_EARNING'] },
         createdAt: { gte: monthStart, lte: monthEnd },
+        isActive: true,
       },
       include: { user: true },
     });
@@ -702,6 +706,7 @@ export class PayrollService {
         include: {
           user: true,
           component: {
+            where: { isActive: true },
             include: {
               user: true,
             },
@@ -927,8 +932,8 @@ export class PayrollService {
 
       const filterByRole =
         user.userRole.includes(Role.ADMIN) ||
-        user.userRole.includes(Role.SUPERADMIN) ||
-        user.userRole.includes(Role.HR)
+          user.userRole.includes(Role.SUPERADMIN) ||
+          user.userRole.includes(Role.HR)
           ? allPayslips
           : allPayslips.filter((payslip) => payslip.userId === user.id);
       return Object.values(groupByMonth(filterByRole));
@@ -1118,6 +1123,7 @@ export class PayrollService {
         },
         include: {
           component: {
+            where: { isActive: true },
             orderBy: [{ category: 'asc' }, { title: 'asc' }],
           },
           user: {
@@ -1245,7 +1251,9 @@ export class PayrollService {
       const payroll = await this.prisma.payroll.findUnique({
         where: { id: payrollId },
         include: {
-          component: true,
+          component: {
+            where: { isActive: true },
+          },
           user: {
             select: {
               id: true,
