@@ -440,7 +440,7 @@ model Fault {
 model Offboarding {
   id              String       @id @default(uuid()) @db.Uuid
   type            ExitType
-  relievingDate   DateTime
+  relievingDate   DateTime?
   resignationDate DateTime?
   reason          String
   noticePeriod    Boolean?     @default(false)

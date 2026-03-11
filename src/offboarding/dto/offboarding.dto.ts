@@ -23,8 +23,8 @@ export class InitiateExit {
   reason: string;
 
   @IsString()
-  @IsNotEmpty()
-  relievingDate: Date;
+  @IsOptional()
+  relievingDate?: Date;
 
   @IsString()
   @IsOptional()
