@@ -1,18 +1,13 @@
 import {
   BadRequestException,
-  ConflictException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-// import { CommentsDto, DebtPaymentDto, HandoverDto, HandoverDto, InitiateExit, NotesDto, OffboardingCommentsDto, ReturnAsset } from './dto/offboarding.dto';
 import { UserService } from 'src/user/user.service';
 import { Role, Status } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
-import { UploadValidationUtil } from 'src/utils/uploads.utils';
-import { HandoverTaskDto, InitiateExit } from './dto/offboarding.dto';
+import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit } from './dto/offboarding.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskHandoverSignatureRequestedEvent } from 'src/events/offboarding';
 
@@ -43,8 +38,8 @@ export class OffboardingService {
           relievingDate,
           resignationDate,
           noticePeriod,
-          initiatedBy: { connect: { id: userId } },
-          user: { connect: { id: employeeId } },
+          initiatedById: userId,
+          userId: employeeId,
           clearance: {
             create: [
               { type: 'DEPARTMENT' },
@@ -170,6 +165,27 @@ export class OffboardingService {
     }
   }
 
+  async tasksHandoverReceiver(fromUserId: string, toUserId: string) {
+    try {
+      // Fetch all handover records where the current user is the recipient
+      const handovers = await this.prisma.taskHandover.findMany({
+        where: {
+          fromUserId,
+          toUserId,
+        },
+        include: {
+          task: true,
+          clearance: true,
+        },
+      });
+
+      return handovers;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to fetch handed-over tasks: ${error.message}`);
+    }
+  }
+
   async validateDepartmentClearance(userId: string) {
     try {
       const remainingTasks = await this.prisma.task.count({
@@ -196,87 +212,80 @@ export class OffboardingService {
     }
   }
 
-  async uploadHandoverESignature(userId: string, handoverUserId: string, signatureId: string) {
+  async uploadHandoverESignature(userId: string, fromUserId: string, signatureId: string) {
     try {
-      // Find the specific task handover(s) involving this handing over user and the specific receiver
-      const handover = await this.prisma.taskHandover.findFirst({
-        where: {
-          fromUserId: userId,
-          toUserId: handoverUserId,
-          clearanceId: { not: null }
-        }
-      });
-      if (!handover) throw bad("Task handover not found between these users");
+      // Step 1: Fetch all tasks that were handed over to this user from the specified sender
+      const handovers = await this.tasksHandoverReceiver(fromUserId, userId);
+      if (!handovers || handovers.length === 0) {
+        throw bad("No tasks were handed over to you from this user");
+      }
 
+      // Step 2: Find the associated DepartmentClearance from one of the handover records
+      const handoverWithClearance = handovers.find((h) => h.clearanceId !== null);
+      if (!handoverWithClearance) {
+        throw bad("No department clearance is linked to these task handovers");
+      }
+
+      // Step 3: Ensure no handover e-signature has already been recorded
+      const existing = await this.prisma.clearanceDeptSignatures.findFirst({
+        where: { handoverESignatureId: handoverWithClearance.clearanceId },
+      });
+      if (existing) {
+        throw bad("Handover acceptance signature has already been uploaded");
+      }
+
+      // Step 4: Record the receiver's e-signature as acceptance of the handover
       await this.prisma.clearanceDeptSignatures.create({
         data: {
           signature: { connect: { id: signatureId } },
           signedAt: new Date(),
-          handoverESignature: { connect: { id: handover.clearanceId } }
-        }
+          handoverESignature: { connect: { id: handoverWithClearance.clearanceId } },
+        },
       });
 
-      return { message: "Handover signature uploaded successfully" };
+      return {
+        message: "Handover acceptance signature uploaded successfully",
+        tasksAccepted: handovers.length,
+      };
     } catch (error) {
       console.log(error);
       bad(`Failed to upload handover signature: ${error.message}`);
     }
   }
 
-  async departmentClearance(userId: string, managerId: string, data: { notes?: string, signatureId: string }) {
+  async departmentClearance(userId: string, managerId: string, data: DepartmentClearanceDto) {
     try {
+      const { notes, signatureId } = data;
+
       const manager = await this.user.__findUserById(managerId);
       const isManager = this.userHasRole(manager, Role.DEPT_MANAGER);
       if (!isManager) throw bad("User is not a department manager");
 
       await this.validateDepartmentClearance(userId);
 
-      const clearance = await this.prisma.clearance.findFirst({
+      //Confirm that the fromUser and toUser have already uploaded their signatures
+      const signatures = await this.prisma.departmentClearance.findFirst({
         where: {
-          offboarding: { userId },
-          type: 'DEPARTMENT',
-        },
-        include: {
-          departmentClearance: true,
+          employeeSignature: { isNot: null },
+          handoverESignature: { isNot: null },
         }
       });
+      if (!signatures) throw bad("Employee signature has not been uploaded");
 
-      if (!clearance) throw bad("Department clearance not found for user's offboarding");
-
-      let deptClearanceId = clearance.departmentClearance?.id;
-      if (!deptClearanceId) {
-        const dc = await this.prisma.departmentClearance.create({
-          data: {
-            clearance: { connect: { id: clearance.id } },
-            tasksHandedOver: true,
-            clearedAt: new Date(),
-            notes: data.notes,
-          }
-        });
-        deptClearanceId = dc.id;
-      } else {
-        await this.prisma.departmentClearance.update({
-          where: { id: deptClearanceId },
-          data: {
-            tasksHandedOver: true,
-            clearedAt: new Date(),
-            notes: data.notes,
-          }
-        });
-      }
+      const { deptClearanceId, clearanceId } = await this.findUserClearance(userId, notes); 
 
       await this.prisma.clearanceDeptSignatures.create({
         data: {
-          signature: { connect: { id: data.signatureId } },
+          signature: { connect: { id: signatureId } },
           signedAt: new Date(),
           managerSignature: { connect: { id: deptClearanceId } }
         }
       });
 
       await this.prisma.clearance.update({
-        where: { id: clearance.id },
+        where: { id: clearanceId },
         data: {
-          status: 'APPROVED',
+          status: 'COMPLETED',
           approvedBy: managerId,
           approvedAt: new Date(),
         }
@@ -324,6 +333,40 @@ export class OffboardingService {
     const roles = (userObj.userRole ?? userObj.role) as any;
     if (Array.isArray(roles)) return roles.includes(role);
     return roles === role;
+  }
+
+  private async findUserClearance(userId: string, notes?: string) {
+    try {
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          type: 'DEPARTMENT',
+          offboarding: { userId },
+        },
+        include: {
+          departmentClearance: true,
+        },
+      });
+      if (!clearance) throw bad("Department clearance not found for user's offboarding");
+
+      const dc = await this.prisma.departmentClearance.upsert({
+        where: { clearanceId: clearance.id },
+        update: {
+          tasksHandedOver: true,
+          clearedAt: new Date(),
+          notes,
+        },
+        create: {
+          clearance: { connect: { id: clearance.id } },
+          tasksHandedOver: true,
+          clearedAt: new Date(),
+          notes,
+        },
+      });
+      return { deptClearanceId: dc.id, clearanceId: clearance.id };
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to find user clearance: ${error.message}`);
+    }
   }
 
   private async findUserAssets(userId: string) {

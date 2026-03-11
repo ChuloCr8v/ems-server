@@ -10,28 +10,28 @@ import {
 } from 'class-validator';
 
 export class InitiateExit {
-    @IsString()
-    @IsNotEmpty()
-    employeeId: string;
+  @IsString()
+  @IsNotEmpty()
+  employeeId: string;
 
-    @IsEnum(ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION' })
-    @IsNotEmpty()
-    type: ExitType;
+  @IsEnum(ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION' })
+  @IsNotEmpty()
+  type: ExitType;
 
   @IsString()
   @IsNotEmpty()
   reason: string;
 
   @IsString()
-  @IsNotEmpty()
-  relievingDate: Date;
+  @IsOptional()
+  relievingDate?: Date;
 
   @IsString()
-  @IsNotEmpty()
-  resignationDate: Date;
+  @IsOptional()
+  resignationDate?: Date;
 
   @IsBoolean()
-  @IsNotEmpty()
+  @IsOptional()
   noticePeriod?: boolean;
 
   @IsOptional()
