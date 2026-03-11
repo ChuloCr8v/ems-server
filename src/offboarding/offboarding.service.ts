@@ -38,8 +38,8 @@ export class OffboardingService {
           relievingDate,
           resignationDate,
           noticePeriod,
-          initiatedBy: { connect: { id: userId } },
-          user: { connect: { id: employeeId } },
+          initiatedById: userId,
+          userId: employeeId,
           clearance: {
             create: [
               { type: 'DEPARTMENT' },
