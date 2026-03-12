@@ -58,6 +58,11 @@ export class OffboardingService {
         },
       });
 
+      await this.prisma.user.update({
+        where: { id: employeeId },
+        data: { isOffboarding: true },
+      });
+
       return { exit };
     } catch (error) {
       console.log(error);
