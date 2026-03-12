@@ -78,7 +78,7 @@ export class OffboardingController {
   @Auth([Role.USER])
   @Post(':userId/department-clearance/handover-signature')
   async uploadHandoverSignature(
-    // @Param('userId') userId: string,
+
     @Body() data: UploadHandoverSignatureDto,
     @AuthUser() user: IAuthUser,
     @Res() res: Response,
