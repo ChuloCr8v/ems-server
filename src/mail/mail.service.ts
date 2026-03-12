@@ -351,12 +351,12 @@ export class MailService {
       },
       attachments: attachment
         ? [
-            {
-              filename: attachment.filename,
-              content: attachment.content,
-              contentType: attachment.contentType,
-            },
-          ]
+          {
+            filename: attachment.filename,
+            content: attachment.content,
+            contentType: attachment.contentType,
+          },
+        ]
         : [],
     });
   }
@@ -651,7 +651,7 @@ export class MailService {
     });
   }
 
-  async sendPipRequestMail(data: PipMailDto) {}
+  async sendPipRequestMail(data: PipMailDto) { }
 
   async sendPipApprovedMail(data: PipMailDto) {
     const { email, name, approverName, dashboardUrl } = data;
