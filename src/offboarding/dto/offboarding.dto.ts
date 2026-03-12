@@ -78,5 +78,5 @@ export class UploadHandoverSignatureDto {
 
     @IsString()
     @IsNotEmpty()
-    handoverUserId: string; // The user they are receiving the task from
+    fromUserId: string; // The user they are receiving the task from
 }
