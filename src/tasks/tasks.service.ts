@@ -417,11 +417,9 @@ export class TasksService {
   async approveTask(
     taskId: string,
     approvedById: string,
-    assignees?: string[],
   ) {
     return this.processTaskApproval(taskId, approvedById, {
       status: ApprovalStatus.APPROVED,
-      assignees,
     });
   }
 
@@ -501,7 +499,7 @@ export class TasksService {
   async processTaskApproval(
     taskId: string,
     processorId: string,
-    dto: ProcessTaskApprovalDto,
+    dto?: ProcessTaskApprovalDto,
   ) {
     const userRole = await this.getUserRole(processorId);
 
