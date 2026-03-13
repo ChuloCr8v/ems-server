@@ -161,7 +161,7 @@ export class TasksController {
     @Req() req: ReqPayload,
   ) {
     const approvedById = req.user.id;
-    return this.tasksService.approveTask(id, approvedById, body.assignees);
+    return this.tasksService.approveTask(id, approvedById, body?.assignees ?? undefined);
   }
 
   @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
