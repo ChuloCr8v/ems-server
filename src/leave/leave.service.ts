@@ -7,7 +7,13 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateLeaveRequestDto } from './dto/leave.dto';
 import { bad, mustHave } from 'src/utils/error.utils';
-import { Approval, LeaveStatus, Prisma, PrismaClient, Role } from '@prisma/client';
+import {
+  Approval,
+  LeaveStatus,
+  Prisma,
+  PrismaClient,
+  Role,
+} from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MailService } from 'src/mail/mail.service';
 import { ApproverService } from 'src/approver/approver.service';
@@ -40,24 +46,26 @@ export class LeaveService {
       // 2. Check pending requests
       if (!process.env.IS_DEV) {
         const pending = await tx.leaveRequest.findFirst({
-          where: { userId, status: "PENDING" },
+          where: { userId, status: 'PENDING' },
         });
         if (pending) {
-          throw new ConflictException("You already have a pending leave request");
+          throw new ConflictException(
+            'You already have a pending leave request',
+          );
         }
 
         // 3. Check active approved leave overlap
         const activeLeave = await tx.leaveRequest.findFirst({
           where: {
             userId,
-            status: "APPROVED",
+            status: 'APPROVED',
             startDate: { lte: endDate },
             endDate: { gte: startDate },
           },
         });
         if (activeLeave) {
           throw new ConflictException(
-            "You already have an active approved leave in this period"
+            'You already have an active approved leave in this period',
           );
         }
       }
@@ -173,9 +181,13 @@ export class LeaveService {
       if (!user) mustHave(user, 'User not found', 404);
 
       if (
-        [Role.ADMIN, Role.LEAVE_MANAGER, Role.HR, Role.SUPERADMIN, Role.ADMIN].some((role) =>
-          user.userRole.includes(role),
-        )
+        [
+          Role.ADMIN,
+          Role.LEAVE_MANAGER,
+          Role.HR,
+          Role.SUPERADMIN,
+          Role.ADMIN,
+        ].some((role) => user.userRole.includes(role))
       ) {
         return await this.prisma.leaveRequest.findMany({
           include: {
@@ -216,7 +228,6 @@ export class LeaveService {
         },
         orderBy: { createdAt: 'desc' },
       });
-
 
       if (user.approver.length) {
         return leaveRequests.filter((l) =>
@@ -498,23 +509,23 @@ export class LeaveService {
       const leaveRequest = await this.prisma.leaveRequest.findFirst({
         where: {
           approvals: {
-            some: { id: approvalId }
-          }
+            some: { id: approvalId },
+          },
         },
         include: {
-          approvals: true
-        }
-      })
+          approvals: true,
+        },
+      });
 
-      if (!leaveRequest) mustHave(leaveRequest, "Request not found", 404)
+      if (!leaveRequest) mustHave(leaveRequest, 'Request not found', 404);
 
       const approver = await this.prisma.user.findUnique({
         where: {
-          id: approverId
-        }
-      })
+          id: approverId,
+        },
+      });
 
-      if (!approver) bad("Unauthorized")
+      if (!approver) bad('Unauthorized');
 
       const approval = await this.prisma.approval.findUnique({
         where: { id: approvalId },
@@ -534,23 +545,23 @@ export class LeaveService {
       if (approver.userRole.includes(Role.SUPERADMIN)) {
         await this.prisma.approval.updateMany({
           where: {
-            leaveRequestId: leaveRequest.id
+            leaveRequestId: leaveRequest.id,
           },
-          data: { status: "APPROVED" }
-        })
+          data: { status: 'APPROVED' },
+        });
 
         await this.prisma.leaveRequest.update({
           where: {
-            id: leaveRequest.id
+            id: leaveRequest.id,
           },
           data: {
-            status: "APPROVED"
-          }
-        })
+            status: 'APPROVED',
+          },
+        });
 
-        await this.leaveApprovedNotification(approval, approverId)
+        await this.leaveApprovedNotification(approval, approverId);
 
-        return { message: "Leave Request approved" }
+        return { message: 'Leave Request approved' };
       }
 
       // Check if the user can approve this request
@@ -603,7 +614,9 @@ export class LeaveService {
           ),
         );
 
-        await this.sendLeaveRequestMail(approval.leaveRequestId).catch(console.error);
+        await this.sendLeaveRequestMail(approval.leaveRequestId).catch(
+          console.error,
+        );
 
         return {
           approval: nextApproval,
@@ -621,7 +634,7 @@ export class LeaveService {
         });
       }
 
-      await this.leaveApprovedNotification(approval, approvalId)
+      await this.leaveApprovedNotification(approval, approvalId);
 
       return {
         approval: null,
@@ -858,8 +871,6 @@ export class LeaveService {
 
       let businessDays = 0;
 
-      currentDate.setDate(currentDate.getDate() + 1);
-
       while (currentDate <= finalDate) {
         const weekDay = currentDate.getDay();
 
@@ -955,19 +966,20 @@ export class LeaveService {
     }
   }
 
-  private async leaveApprovedNotification(approval: Prisma.ApprovalGetPayload<{
-    include: {
-      leaveRequest: {
-        include: {
-          user: true,
-        },
-      },
-    };
-  }>, approverId: string) {
+  private async leaveApprovedNotification(
+    approval: Prisma.ApprovalGetPayload<{
+      include: {
+        leaveRequest: {
+          include: {
+            user: true;
+          };
+        };
+      };
+    }>,
+    approverId: string,
+  ) {
     try {
-      await this.sendApprovalMail(approval.leaveRequestId).catch(
-        console.error,
-      );
+      await this.sendApprovalMail(approval.leaveRequestId).catch(console.error);
 
       this.event.emit(
         'leave.approved',
@@ -979,7 +991,7 @@ export class LeaveService {
         ),
       );
     } catch (error) {
-      bad(error)
+      bad(error);
     }
   }
 

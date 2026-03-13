@@ -1,12 +1,15 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
 import { UserService } from 'src/user/user.service';
-import { Status } from '@prisma/client';
+import { Role, Status } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
-import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { MailService } from 'src/mail/mail.service';
-import { UploadValidationUtil } from 'src/utils/uploads.utils';
+import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit, UploadHandoverSignatureDto } from './dto/offboarding.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { TaskHandoverSignatureRequestedEvent } from 'src/events/offboarding';
 
 @Injectable()
 export class OffboardingService {
@@ -14,688 +17,293 @@ export class OffboardingService {
     private readonly prisma: PrismaService,
     private readonly user: UserService,
     private readonly mail: MailService,
+    private eventEmitter: EventEmitter2,
   ) { }
 
-  // async initiateExit(userId: string, data: InitiateExit) {
-  //   const { type, reason, lastWorkDate, noticePeriod } = data;
-
-  //   try {
-  //     // Verify user is ACTIVE
-  //     const user = await this.user.__findUserById(userId);
-  //     if (user.status !== Status.ACTIVE) {
-  //       throw new BadRequestException('User is not active');
-  //     }
-
-  //     // Create offboarding record
-  //     const exit = await this.prisma.offboarding.create({
-  //       data: {
-  //         type,
-  //         reason,
-  //         lastWorkDate,
-  //         noticePeriod,
-  //         user: {
-  //           connect: {
-  //             id: userId,
-  //           },
-  //         },
-  //         checklist: {
-  //           createMany: {
-  //             data: [
-  //               { task: "Return Assigned Assets" },
-  //               { task: "Upload Proof of Payment (if applicable)" },
-  //               { task: "Submit Handover Form" },
-  //             ]
-  //           }
-  //         },
-  //         uploads: data.uploads
-  //         ? {
-  //           connect: data.uploads.map((id) => ({ id })),
-  //         }
-  //         : undefined,
-  //       },
-  //       include: {
-  //         user: true,
-  //       },
-  //     });
-
-  //     //Send Offboarding Email
-  //     await this.mail.initiateOffboardingMail({
-  //       email: exit.user.email,
-  //       name: `${exit.user.firstName} ${exit.user.lastName}`.trim(),
-  //     });
-
-  //     return { exit };
-  //   } catch (error) {
-  //       console.log(error);
-  //       bad(`Failed to initiate offboarding: ${error.message}`);
-  //   }
-  // }
-
-  // async returnAsset(assetId: string, data: ReturnAsset) {
-  //   const { condition, reason } = data;
-
-  //   try {
-  //     return await this.prisma.$transaction(async (tx) => {
-  //       // Find asset with assignments
-  //       const asset = await tx.asset.findUnique({
-  //         where: { id: assetId },
-  //         include: {
-  //           assignments: {
-  //             include: {
-  //               offboarding: true,
-  //               user: true,
-  //             },
-  //             where: {
-  //               returnedAt: null,
-  //             },
-  //           },
-  //         },
-  //       });
-
-  //       if (!asset) {
-  //         throw new NotFoundException('Asset Not Found');
-  //       }
-
-  //       // Check if asset is already RETURNED
-  //       // if (asset.a === 'RETURNED') {
-  //       //   throw new ConflictException('Asset Has Already Been Returned');
-  //       // }
-
-  //       // Check if asset has active assignments
-  //       // if (!asset.assignments.length) {
-  //       //   throw new BadRequestException('Asset is not currently assigned to anyone');
-  //       // }
-
-  //       // Update the Asset
-  //       const updatedAsset = await tx.asset.update({
-  //         where: { id: assetId },
-  //         data: {
-  //           isReturned: true,
-  //         },
-  //       });
-
-  //       // Update multiple active assignments if needed
-  //       await tx.assignment.updateMany({
-  //         where: {
-  //           assetId,
-  //           returnedAt: null, // Only update active assignments
-  //         },
-  //         data: {
-  //           condition,
-  //           notes: reason,
-  //           returnedAt: new Date(),
-  //           offboardingId: asset.assignments[0].offboardingId,
-  //         },
-  //       });
-
-  //       return updatedAsset;
-  //     });
-  //   } catch (error) {
-  //       console.log(error);
-  //        bad(`Failed to return asset: ${error.message}`);
-  //   }
-  // }
-
-  // async checkAllAssetReturned(offboardingId: string) {
-  //   try {
-  //     const offboarding = await this.prisma.offboarding.findUnique({
-  //       where: { id: offboardingId },
-  //       include: { user: true },
-  //     });
-  //     if (!offboarding) {
-  //       throw new NotFoundException('Offboarding record not found');
-  //     }
-
-  //     //Check if all assets are returned
-  //     const pendingAssets = await this.prisma.asset.count({
-  //       where: {
-  //         assignments: { some: { userId: offboarding.userId } },
-  //         isReturned: false,
-  //       },
-  //     });
-
-  //     //Update checklist if all returned
-  //     if (pendingAssets === 0) {
-  //       await this.prisma.offboardingChecklist.updateMany({
-  //         where: {
-  //           offboardingId,
-  //           task: 'Return Assigned Assets',
-  //         },
-  //         data: { status: 'IN_PROGRESS' },
-  //       });
-  //       return { success: true, message: 'All Assigned Assets Have Been Returned ' };
-  //     }
-  //     return { success: false, message: `${pendingAssets} asset(s) pending return` };
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process debt payment');
-  //   }
-
-  // }
-
-  // async approveAllReturnedAssets(offboardingId: string, notes?: string) {
-  //   try {
-  //     //Get offboarding record with user info
-  //     const offboarding = await this.prisma.offboarding.findUnique({
-  //       where: { id: offboardingId },
-  //       include: { user: true },
-  //     });
-
-  //     if (!offboarding) {
-  //       throw new NotFoundException('Offboarding record not found');
-  //     }
-
-  //     //Get all RETURNED but UNVERIFIED assets
-  //     const returnedAssets = await this.prisma.assignment.findMany({
-  //       where: {
-  //         userId: offboarding.userId,
-  //         asset: { isReturned: true },
-  //         isVerified: false,
-  //       },
-  //       include: { asset: true },
-  //     });
-
-  //     if (returnedAssets.length === 0) {
-  //       throw new BadRequestException('No pending assets to approve');
-  //     }
-
-  //     //Bulk update verification status
-  //     await this.prisma.$transaction([
-  //       // Update all assignments
-  //       this.prisma.assignment.updateMany({
-  //         where: {
-  //           id: { in: returnedAssets.map(a => a.id) },
-  //         },
-  //         data: {
-  //           isVerified: true,
-  //           verifiedAt: new Date(),
-  //           notes,
-  //         },
-  //       }),
-
-  //       // Update checklist if all assets are now verified
-  //       this.prisma.offboardingChecklist.updateMany({
-  //         where: {
-  //           offboardingId,
-  //           task: 'Return Assigned Assets',
-  //         },
-  //         data: { status: 'COMPLETED' },
-  //       }),
-  //     ]);
-
-  //     return {
-  //       success: true,
-  //       message: `${returnedAssets.length} asset(s) approved`,
-  //       assets: returnedAssets.map(a => a.asset.name),
-  //     };
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process debt payment');
-  //   }
-
-  // }
-
-  // async commentOffboardingAsset(assignmentId: string, comments: string, user: IAuthUser, uploads: Express.Multer.File[]) {
-  //   try {
-  //     //Verify that Assignment Exist And Assets has been returned
-  //     const assignment = await this.prisma.assignment.findUnique({
-  //       where: { id: assignmentId },
-  //       include: { asset: true, offboarding: true },
-  //     });
-
-  //     if (!assignment) {
-  //       throw bad("Assignment Not Found");
-  //     }
-  //     if (!assignment.returnedAt) {
-  //       throw bad("Asset Not Returned Yet");
-  //     }
-  //     if (assignment.isVerified) {
-  //       throw bad("Asset Is Already Verified");
-  //     }
-
-  //     //Create Comment and Uploads (Optional)
-  //     return await this.prisma.$transaction(async (tx) => {
-  //       const comment = await tx.comment.create({
-  //         data: {
-  //           comment: comments,
-  //           userId: user.sub,
-  //           // assignmentId: assignment.id,
-  //           offboardingId: assignment.offboardingId
-  //         },
-  //         include: { uploads: true }
-  //       });
-  //       //Handle Uploads
-  //       if (uploads?.length > 0) {
-  //         const assetUploads = uploads.map((upload) => ({
-  //           name: upload.originalname,
-  //           size: upload.size,
-  //           type: upload.mimetype,
-  //           bytes: upload.buffer,
-  //           assignmentId: assignmentId,
-  //           offboardingId: assignment.offboardingId,
-  //         }));
-
-  //         await this.prisma.upload.createMany({
-  //           data: assetUploads,
-  //         });
-  //       }
-
-  //       return { comment, };
-  //     });
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process asset debt payment');
-  //   }
-
-  // }
-
-  // async assetPaymentReceipt(assignmentId: string, uploads: Express.Multer.File[], notes?: string) {
-  //   const assignment = await this.prisma.assignment.findUnique({
-  //     where: { id: assignmentId },
-  //     include: { asset: true },
-  //   });
-  //   if (!assignment) {
-  //     throw bad("Assignment Not Found");
-  //   }
-  //   if (assignment.asset.status !== 'REPORTED' && assignment.asset.status !== 'FAULTY') {
-  //     throw bad("Asset must be REPORTED or FAULTY");
-  //   }
-
-  //   const receipt = uploads.map((upload) => ({
-  //     name: upload.originalname,
-  //     size: upload.size,
-  //     type: upload.mimetype,
-  //     bytes: upload.buffer,
-  //     assignmentId: assignment.id,
-  //   }));
-  //   await this.prisma.upload.createMany({
-  //     data: receipt,
-  //   });
-
-  //   const updatedAssignment = await this.prisma.assignment.update({
-  //     where: { id: assignmentId },
-  //     data: {
-  //       notes: notes,
-  //       isVerified: false,
-  //     }
-  //   });
-  //   return { updatedAssignment, receipt };
-  // }
-
-  // async approveAssetPayment(assignmentId: string) {
-  //   const assignment = await this.prisma.assignment.findUnique({
-  //     where: { id: assignmentId },
-  //     include: { asset: true, },
-  //   });
-
-  //   if (!assignment) {
-  //     throw bad("Assignment Record Not Found");
-  //   }
-
-  //   return this.prisma.$transaction([
-  //     // Update assignment status
-  //     this.prisma.assignment.update({
-  //       where: { id: assignmentId },
-  //       data: {
-  //         isPaid: true,
-  //       },
-  //     }),
-
-  //     // Update asset status if approved
-  //     ...(assignment.isPaid
-  //       ? [
-  //         this.prisma.asset.update({
-  //           where: { id: assignment.assetId },
-  //           data: { status: 'MAINTENANCE' },
-  //         }),
-  //       ]
-  //       : []),
-  //   ]);
-  // }
-
-  // async submitHandover(
-  //   offboardingId: string,
-  //   file: Express.Multer.File,
-  //   notes?: string
-  // ) {
-  //   const offboarding = await this.prisma.offboarding.findUnique({
-  //     where: { id: offboardingId },
-  //     include: { handover: true },
-  //   });
-  //   if (!offboarding) {
-  //     throw new NotFoundException('Offboarding record not found');
-  //   }
-
-  //   return this.prisma.$transaction(async (prisma) => {
-  //     // Create upload record
-  //     const upload = await prisma.upload.create({
-  //       data: {
-  //         name: file.originalname,
-  //         size: file.size,
-  //         type: file.mimetype,
-  //         bytes: file.buffer,
-  //         offboardingId,
-  //       },
-  //     });
-
-  //     // Create or update handover document
-  //     return prisma.handoverDocument.upsert({
-  //       where: { id: offboarding.id },
-  //       create: {
-  //         offboardingId,
-  //         upload: { connect: { id: upload.id } },
-  //         notes,
-  //       },
-  //       update: {
-  //         upload: { connect: { id: upload.id } },
-  //         notes,
-  //         isApproved: false, // Reset approval if re-uploading
-  //         approvedAt: null,
-  //       },
-  //       include: { upload: true },
-  //     });
-  //   });
-  // }
-
-  // async commentHandover(handoverId: string, comment: string, user: IAuthUser, uploads: Express.Multer.File[]) {
-  //   try {
-  //     //Verify Handover Exist
-  //     const handover = await this.prisma.handoverDocument.findUnique({
-  //       where: { id: handoverId },
-  //       include: {
-  //         offboarding: {
-  //           include: { user: true },
-  //         },
-  //       },
-  //     });
-  //     if (!handover) {
-  //       throw bad("Handover Document Not Found");
-  //     }
-  //     if (handover.isApproved) {
-  //       throw bad("Handover Document Already Approved");
-  //     }
-  //     //Create Comment
-  //     const commentRecord = await this.prisma.comment.create({
-  //       data: {
-  //         comment,
-  //         userId: user.sub,
-  //         handoverId: handover.id,
-  //         offboardingId: handover.offboardingId,
-  //       },
-  //       include: { uploads: true },
-  //     });
-
-  //     if (uploads?.length > 0) {
-  //       const handoverUploads = uploads.map((upload) => ({
-  //         name: upload.originalname,
-  //         size: upload.size,
-  //         type: upload.mimetype,
-  //         bytes: upload.buffer,
-  //         handoverId: handoverId,
-  //         commentId: commentRecord.id,
-  //       }));
-
-  //       await this.prisma.upload.createMany({
-  //         data: handoverUploads,
-  //       });
-  //     }
-  //     return commentRecord;
-
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to comment on handover');
-  //   }
-  // }
-
-  // async approveHandoverSub(handoverId: string, user: IAuthUser) {
-  //   const handover = await this.prisma.handoverDocument.findUnique({
-  //     where: { id: handoverId },
-  //     include: {
-  //       offboarding: {
-  //         include: {
-  //           user: {
-  //             include: {
-  //               departments: true
-  //             },
-  //           },
-  //         },
-  //       },
-  //     },
-  //   });
-  //   if (!handover) {
-  //     throw bad("Handover Document Not Found");
-  //   }
-
-  //   //Verify manager is from the same department
-  //   const manager = await this.prisma.user.findUnique({
-  //     where: { id: user.sub },
-  //     include: { departments: true }
-  //   });
-
-  //   if (!manager) {
-  //     throw bad('Manager not found');
-  //   }
-
-  //   // if (manager.departmentId !== handover.offboarding.user.departmentId) {
-  //   //   throw bad("Only managers from the same department can approve handovers");
-  //   // }
-
-  //   //Approve handover submission
-  //   return this.prisma.handoverDocument.update({
-  //     where: { id: handoverId },
-  //     data: {
-  //       isApproved: true,
-  //       approvedAt: new Date(),
-  //     },
-  //     include: {
-  //       offboarding: {
-  //         include: {
-  //           user: {
-  //             select: {
-  //               firstName: true,
-  //               lastName: true,
-  //               email: true,
-  //               departments: true
-  //             }
-  //           }
-  //         }
-  //       },
-  //       upload: true
-  //     }
-  //   });
-
-  // }
-
-  // async deptPayment(
-  //   offboardingId: string,
-  //   uploads: Express.Multer.File[],
-  //   user: IAuthUser,
-  //   dto: DebtPaymentDto,
-  // ) {
-  //   const { notes } = dto;
-
-  //   //Validate uploads
-  //   UploadValidationUtil.validateFiles(uploads, {
-  //     allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
-  //     maxFileSize: 10 * 1024 * 1024,
-  //   });
-
-  //   try {
-  //     // Validate offboarding exists and belongs to user
-  //     const offboarding = await this.prisma.offboarding.findUnique({
-  //       where: {
-  //         id: offboardingId,
-  //         userId: user.sub
-  //       },
-  //       include: {
-  //         user: true,
-  //         payments: {
-  //           where: {
-  //             approved: false, // Only consider pending payments
-  //           }
-  //         },
-  //       }
-  //     });
-
-  //     if (!offboarding) {
-  //       throw bad('Offboarding record not found');
-  //     }
-
-  //     //Check for unapproved payment
-  //     if (offboarding.payments.length > 0) {
-  //       throw bad('There is already a pending payment for this offboarding');
-  //     }
-
-  //     //Create Payment Record
-  //     const payment = await this.prisma.payment.create({
-  //       data: {
-  //         notes,
-  //         offboardingId: offboardingId,
-  //       },
-  //       include: { uploads: true }
-  //     });
-
-  //     //Create Upload Records
-  //     if (uploads?.length > 0) {
-  //       const paymentUploads = uploads.map((upload) => ({
-  //         name: upload.originalname,
-  //         size: upload.size,
-  //         type: upload.mimetype,
-  //         bytes: upload.buffer,
-  //         paymentId: payment.id,
-  //         offboardingId: offboarding.id,
-  //         userId: user.sub,
-  //       }));
-
-  //       await this.prisma.upload.createMany({
-  //         data: paymentUploads,
-  //       });
-
-  //       return paymentUploads
-  //     }
-  //     return payment;
-
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process debt payment');
-  //   }
-  // }
-
-  // async commentdebtPayment(paymentId: string, comment: string, user: IAuthUser, uploads: Express.Multer.File[]) {
-  //   try {
-  //     //Verify Payment Exists
-  //     const payment = await this.prisma.payment.findUnique({
-  //       where: { id: paymentId },
-  //       include: {
-  //         offboarding: {
-  //           include: { user: true, }
-  //         },
-  //       },
-  //     });
-
-  //     if (!payment) {
-  //       throw bad("Payment Record Not Found");
-  //     }
-  //     if (payment.approved) {
-  //       throw bad("Payment Already Approved");
-  //     }
-
-  //     //Create Comment
-  //     const comments = await this.prisma.comment.create({
-  //       data: {
-  //         comment,
-  //         userId: user.sub,
-  //         paymentId: payment.id,
-  //         offboardingId: payment.offboardingId,
-  //       },
-  //       include: { uploads: true },
-  //     });
-
-  //     if (uploads?.length > 0) {
-  //       const paymentUploads = uploads.map((upload) => ({
-  //         name: upload.originalname,
-  //         size: upload.size,
-  //         type: upload.mimetype,
-  //         bytes: upload.buffer,
-  //         paymentId: paymentId,
-  //         commentId: comments.id,
-  //       }));
-
-  //       await this.prisma.upload.createMany({
-  //         data: paymentUploads,
-  //       });
-  //     }
-  //     return comments;
-
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process debt payment');
-  //   }
-  // }
-
-  // async approveDebtPayment(paymentId: string, admin: IAuthUser) {
-  //   try {
-  //     const payment = await this.prisma.payment.findUnique({
-  //       where: { id: paymentId },
-  //       include: {
-  //         offboarding: true,
-  //       },
-  //     });
-
-  //     if (!payment) throw new NotFoundException('Payment not found');
-
-  //     return this.prisma.$transaction([
-  //       this.prisma.payment.update({
-  //         where: { id: paymentId },
-  //         data: {
-  //           approved: true,
-  //           approvedBy: admin.sub,
-  //           approvedAt: new Date(),
-  //         },
-  //       }),
-
-  //       // Update checklist after payment has been approved
-  //       this.prisma.offboardingChecklist.updateMany({
-  //         where: {
-  //           offboardingId: payment.offboardingId,
-  //           task: "Upload Proof of Payment (if applicable)",
-  //         },
-  //         data: { status: 'COMPLETED' },
-  //       }),
-  //     ]);
-  //   } catch (error) {
-  //     if (error instanceof BadRequestException ||
-  //       error instanceof NotFoundException ||
-  //       error instanceof ConflictException) {
-  //       throw error;
-  //     }
-  //     throw new BadRequestException('Failed to process debt payment');
-  //   }
-  // }
+  async initiateExit(userId: string, data: InitiateExit) {
+    const { employeeId, type, reason, relievingDate, resignationDate, noticePeriod } = data;
+
+    try {
+      // Verify user is ACTIVE
+      const user = await this.user.__findUserById(userId);
+      if (user.status !== Status.ACTIVE) {
+        throw new BadRequestException('User is not active');
+      }
+
+      // Create offboarding record
+      const exit = await this.prisma.offboarding.create({
+        data: {
+          type,
+          reason,
+          relievingDate,
+          resignationDate,
+          noticePeriod,
+          initiatedById: userId,
+          userId: employeeId,
+          clearance: {
+            create: [
+              { type: 'DEPARTMENT' },
+              { type: 'FINANCE' },
+              { type: 'FACILITIES' },
+            ],
+          },
+          uploads: data.uploads
+            ? {
+              connect: data.uploads.map((id) => ({ id })),
+            }
+            : undefined,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      await this.prisma.user.update({
+        where: { id: employeeId },
+        data: { isOffboarding: true },
+      });
+
+      return { exit };
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to initiate offboarding: ${error.message}`);
+    }
+  }
+
+  async getTasksForHandover(userId: string) {
+    try {
+      return await this.prisma.task.findMany({
+        where: {
+          assignees: { some: { userId: userId } },
+          status: { not: 'COMPLETED' },
+          // createdById: userId,
+        },
+        include: { assignees: true, }
+      });
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to get tasks for handover: ${error.message}`);
+    }
+  }
+
+  async taskHandOver(userId: string, data: HandoverTaskDto) {
+    try {
+      const user = await this.findUserById(userId);
+      if (!user) throw bad("User Not Found");
+
+      const { toUserId, note, uploads, signatureId } = data;
+
+      const tasks = await this.getTasksForHandover(userId);
+      if (tasks.length === 0) throw bad("No non-completed tasks found for handover");
+
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          offboarding: { userId },
+          type: 'DEPARTMENT',
+        },
+        include: {
+          departmentClearance: true,
+        }
+      });
+
+      if (!clearance) throw bad("Department clearance not found for user's offboarding");
+
+      let deptClearanceId = clearance.departmentClearance?.id;
+      if (!deptClearanceId) {
+        const dc = await this.prisma.departmentClearance.create({
+          data: {
+            clearance: { connect: { id: clearance.id } },
+          }
+        });
+        deptClearanceId = dc.id;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const task of tasks) {
+          const assignment = task.assignees.find(a => a.userId === userId);
+          if (!assignment) continue;
+
+          await tx.taskHandover.create({
+            data: {
+              note,
+              task: { connect: { id: task.id } },
+              fromUser: { connect: { id: user.id } },
+              toUser: { connect: { id: toUserId } },
+              clearance: { connect: { id: deptClearanceId } },
+              upload: uploads
+                ? { connect: uploads.map((id) => ({ id })) }
+                : undefined,
+            },
+          });
+
+          //Update task assignments
+          await tx.userTask.update({
+            where: { id: assignment.id },
+            data: { userId: toUserId },
+          });
+
+          //Update task history
+          await tx.task.update({
+            where: { id: task.id },
+            data: { hasTransfer: true },
+          });
+        }
+
+        await tx.clearanceDeptSignatures.create({
+          data: {
+            signature: { connect: { id: signatureId } },
+            signedAt: new Date(),
+            employeeSignature: { connect: { id: deptClearanceId } }
+          }
+        });
+      });
+
+      this.eventEmitter.emit(
+        'taskHandover.signatureRequested',
+        new TaskHandoverSignatureRequestedEvent(userId, toUserId, tasks[0].id, clearance.offboardingId)
+      );
+
+      return { message: "Tasks handed over successfully", count: tasks.length };
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to initiate task handover: ${error.message}`);
+    }
+  }
+
+  async tasksHandoverReceiver(fromUserId: string, toUserId: string) {
+    try {
+      // Fetch all handover records where the current user is the recipient
+      const handovers = await this.prisma.taskHandover.findMany({
+        where: {
+          fromUserId,
+          toUserId,
+        },
+        include: {
+          task: true,
+          clearance: true,
+        },
+      });
+
+      return handovers;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to fetch handed-over tasks: ${error.message}`);
+    }
+  }
+
+  async validateDepartmentClearance(userId: string) {
+    try {
+      const remainingTasks = await this.prisma.task.count({
+        where: {
+          assignees: {
+            some: { userId }
+          },
+          status: {
+            not: "COMPLETED"
+          }
+        }
+      });
+
+      if (remainingTasks > 0) {
+        throw new BadRequestException(
+          "All tasks must be transferred before department clearance"
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to validate department clearance: ${error.message}`);
+    }
+  }
+
+  async uploadHandoverESignature(userId: string, data: UploadHandoverSignatureDto) {
+    try {
+      const { fromUserId, signatureId } = data;
+      // Step 1: Fetch all tasks that were handed over to this user from the specified sender
+      const handovers = await this.tasksHandoverReceiver(fromUserId, userId);
+      if (!handovers || handovers.length === 0) {
+        throw bad("No tasks were handed over to you from this user");
+      }
+
+      // Step 2: Find the associated DepartmentClearance from one of the handover records
+      const handoverWithClearance = handovers.find((h) => h.clearanceId !== null);
+      if (!handoverWithClearance) {
+        throw bad("No department clearance is linked to these task handovers");
+      }
+
+      // Step 3: Ensure no handover e-signature has already been recorded
+      const existing = await this.prisma.clearanceDeptSignatures.findFirst({
+        where: { handoverESignatureId: handoverWithClearance.clearanceId },
+      });
+      if (existing) {
+        throw bad("Handover acceptance signature has already been uploaded");
+      }
+
+      // Step 4: Record the receiver's e-signature as acceptance of the handover
+      await this.prisma.clearanceDeptSignatures.create({
+        data: {
+          signature: { connect: { id: signatureId } },
+          signedAt: new Date(),
+          handoverESignature: { connect: { id: handoverWithClearance.clearanceId } },
+        },
+      });
+
+      return {
+        message: "Handover acceptance signature uploaded successfully",
+        tasksAccepted: handovers.length,
+      };
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to upload handover signature: ${error.message}`);
+    }
+  }
+
+  async departmentClearance(userId: string, managerId: string, data: DepartmentClearanceDto) {
+    try {
+      const { notes, signatureId } = data;
+
+      const manager = await this.user.__findUserById(managerId);
+      const isManager = this.userHasRole(manager, Role.DEPT_MANAGER);
+      if (!isManager) throw bad("User is not a department manager");
+
+      await this.validateDepartmentClearance(userId);
+
+      //Confirm that the fromUser and toUser have already uploaded their signatures
+      const signatures = await this.prisma.departmentClearance.findFirst({
+        where: {
+          employeeSignature: { isNot: null },
+          handoverESignature: { isNot: null },
+        }
+      });
+      if (!signatures) throw bad("Employee signature has not been uploaded");
+
+      const { deptClearanceId, clearanceId } = await this.findUserClearance(userId, notes); 
+
+      await this.prisma.clearanceDeptSignatures.create({
+        data: {
+          signature: { connect: { id: signatureId } },
+          signedAt: new Date(),
+          managerSignature: { connect: { id: deptClearanceId } }
+        }
+      });
+
+      await this.prisma.clearance.update({
+        where: { id: clearanceId },
+        data: {
+          status: 'COMPLETED',
+          approvedBy: managerId,
+          approvedAt: new Date(),
+        }
+      });
+
+      return { message: "Department clearance completed successfully" };
+
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to complete department clearance: ${error.message}`);
+    }
+  }
 
   // async getAllOffboarding() {
   //   return await this.prisma.offboarding.findMany({
@@ -710,4 +318,79 @@ export class OffboardingService {
   //     },
   //   });
   // }
+
+  ///////////////////////////////////////  HELPERS /////////////////////////////////////////
+  private async findUserById(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: true, approver: true, },
+      });
+      return user;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to get user: ${error.message}`);
+    }
+  }
+
+  private userHasRole(userObj: any, role: Role) {
+    if (!userObj) return false;
+    // userObj.userRole may be an array of Role or a single Role string
+    const roles = (userObj.userRole ?? userObj.role) as any;
+    if (Array.isArray(roles)) return roles.includes(role);
+    return roles === role;
+  }
+
+  private async findUserClearance(userId: string, notes?: string) {
+    try {
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          type: 'DEPARTMENT',
+          offboarding: { userId },
+        },
+        include: {
+          departmentClearance: true,
+        },
+      });
+      if (!clearance) throw bad("Department clearance not found for user's offboarding");
+
+      const dc = await this.prisma.departmentClearance.upsert({
+        where: { clearanceId: clearance.id },
+        update: {
+          tasksHandedOver: true,
+          clearedAt: new Date(),
+          notes,
+        },
+        create: {
+          clearance: { connect: { id: clearance.id } },
+          tasksHandedOver: true,
+          clearedAt: new Date(),
+          notes,
+        },
+      });
+      return { deptClearanceId: dc.id, clearanceId: clearance.id };
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to find user clearance: ${error.message}`);
+    }
+  }
+
+  private async findUserAssets(userId: string) {
+    try {
+      const user = await this.findUserById(userId);
+      if (!user) throw bad("User Not Found");
+
+      const assets = await this.prisma.asset.findMany({
+        where: {
+          assignments: {
+            some: { userId: user.id, returnedAt: null },
+          },
+        },
+      });
+      return assets;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to get user: ${error.message}`);
+    }
+  }
 }

@@ -1,14 +1,12 @@
 import {
   BadRequestException,
-  ConflictException,
   Controller,
   Logger,
-  NotFoundException,
-  Post,
+  Post
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { KpiCategoryStatus, Role } from '@prisma/client';
 import { DEFAULT_FEEDBACK_QUESTIONS } from 'src/constants/kpi-components';
-import { KpiCategoryStatus } from '@prisma/client';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('appraisal-scheduler')
 export class AppraisalSchedulerController {
@@ -39,49 +37,63 @@ export class AppraisalSchedulerController {
 
     try {
       // Fetch all active departments with their active managers
-      const departments = await this.prisma.department.findMany({
-        where: { status: 'ACTIVE' },
+      const employees = await this.prisma.user.findMany({
+        where: { status: 'ACTIVE', NOT: { userRole: { has: Role.DEPT_MANAGER } } },
         include: {
-          approver: {
-            where: {
-              role: 'DEPT_MANAGER',
-              user: { status: 'ACTIVE' },
+          defaultDepartment: {
+            include: {
+              approver: {
+                include: {
+                  user: true,
+                },
+              },
             },
-            include: { user: true },
           },
-        },
+          departments: {
+            include: {
+              approver: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+        }
+
+
       });
 
       const appraisalsToCreate = [];
 
-      for (const department of departments) {
+      for (const employee of employees) {
         summary.departmentsChecked++;
 
         // Ensure department has an active manager
-        if (!department.approver || department.approver.length === 0) {
-          this.logger.warn(
-            `No active department manager found for department ${department.name}. Skipping.`,
-          );
-          summary.skippedNoManager++;
-          continue;
-        }
+        // if (!employee.department.approver || employee.department.approver.length === 0) {
+        //   this.logger.warn(
+        //     `No active department manager found for department ${department.name}. Skipping.`,
+        //   );
+        //   summary.skippedNoManager++;
+        //   continue;
+        // }
 
-        const manager = department.approver[0];
+        const manager = employee.departments.length > 1 ? employee.defaultDepartment.approver.find(a => a.role === Role.DEPT_MANAGER) : employee.departments[0].approver.find(a => a.role === Role.DEPT_MANAGER);
+
+        const department = employee.departments.length > 1 ? employee.defaultDepartment : employee.departments[0];
 
         // Check if appraisal template already exists for this quarter/year
         const existing = await this.prisma.appraisal.findFirst({
           where: {
             quarter: `${quarter}`,
             year,
-            departmentId: department.id,
-            appraisedId: null,
+            appraisedId: employee.id,
             isTemplate: true,
           },
         });
 
         if (existing) {
           this.logger.log(
-            `Appraisal template already exists for department ${department.name} (${period}). Skipping.`,
+            `Appraisal template already exists for employee ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
           );
           summary.alreadyExisting++;
           continue;
@@ -93,20 +105,21 @@ export class AppraisalSchedulerController {
           include: { objectives: true },
         });
 
-        const departmentCategories = await this.prisma.kpiCategory.findMany({
-          where: {
-            departmentId: department.id,
-            isGlobal: false,
-            status: KpiCategoryStatus.APPROVED,
-          },
-          include: { objectives: true },
-        });
+        // const departmentCategories = await this.prisma.kpiCategory.findMany({
+        //   where: {
+        //     departmentId: department.id,
+        //     isGlobal: false,
+        //     status: KpiCategoryStatus.APPROVED,
+        //   },
+        //   include: { objectives: true },
+        // });
 
-        const allCategories = [...globalCategories, ...departmentCategories];
+        // const allCategories = [...globalCategories, ...departmentCategories];
+        const allCategories = [...globalCategories];
 
         if (allCategories.length === 0) {
           this.logger.warn(
-            `No KPI categories found for department ${department.name}. Skipping.`,
+            `No KPI categories found for employee ${employee.firstName} ${employee.lastName}. Skipping.`,
           );
           summary.skippedNoKPI++;
           continue;
@@ -118,7 +131,7 @@ export class AppraisalSchedulerController {
           year,
           period,
           appraiserId: manager.userId,
-          appraisedId: null,
+          appraisedId: employee.id,
           status: 'GENERATED',
           autoGenerated: true,
           departmentId: department.id,

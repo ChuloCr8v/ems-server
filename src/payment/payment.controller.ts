@@ -40,7 +40,7 @@
 //     try {
 //       // Get banks from Paystack
 //       const banks = await this.paystackService.getBanks();
-      
+
 //       return {
 //         success: true,
 //         message: 'Banks retrieved successfully',
@@ -65,7 +65,7 @@
 //         verifyBankAccountDto.accountNumber,
 //         verifyBankAccountDto.bankCode,
 //       );
-      
+
 //       if (verificationResult.status) {
 //         return {
 //           success: true,
@@ -78,7 +78,7 @@
 //           },
 //         };
 //       }
-      
+
 //       throw new Error(verificationResult.message || 'Account verification failed');
 //     } catch (error) {
 //       throw new BadRequestException({
@@ -105,7 +105,7 @@
 //         accountNumber: processPaymentDto.accountNumber,
 //         accountName: processPaymentDto.accountName,
 //       });
-      
+
 //       return {
 //         success: true,
 //         message: 'Payment processed successfully',
@@ -128,19 +128,19 @@
 //   ) {
 //     try {
 //       const claim = await this.claimsService.findOne(claimId);
-      
+
 //       if (!claim) {
 //         throw new BadRequestException('Claim not found');
 //       }
-      
+
 //       // Get the latest payment from claimPayments array
-//       const latestPayment = claim.claimPayments?.length > 0 
+//       const latestPayment = claim.claimPayments?.length > 0
 //         ? claim.claimPayments[claim.claimPayments.length - 1]
 //         : null;
-      
+
 //       let transferStatus = null;
 //       let paystackData = null;
-      
+
 //       // If payment exists and has transfer reference, verify with Paystack
 //       if (latestPayment?.transferReference) {
 //         try {
@@ -151,7 +151,7 @@
 //           console.error('Paystack verification failed:', error);
 //         }
 //       }
-      
+
 //       return {
 //         success: true,
 //         message: 'Payment status retrieved',
@@ -187,25 +187,25 @@
 //   ) {
 //     try {
 //       const claim = await this.claimsService.findOne(claimId);
-      
+
 //       if (!claim) {
 //         throw new BadRequestException('Claim not found');
 //       }
-      
+
 //       // Get the latest payment
-//       const latestPayment = claim.claimPayments?.length > 0 
+//       const latestPayment = claim.claimPayments?.length > 0
 //         ? claim.claimPayments[claim.claimPayments.length - 1]
 //         : null;
-      
+
 //       const transferReference = reference || latestPayment?.transferReference;
-      
+
 //       if (!transferReference) {
 //         throw new BadRequestException('No transfer reference available for this claim');
 //       }
-      
+
 //       // Verify transfer with Paystack
 //       const verificationResult = await this.paystackService.verifyTransfer(transferReference);
-      
+
 //       return {
 //         success: true,
 //         message: 'Transaction details retrieved',
@@ -235,36 +235,36 @@
 //     try {
 //       const signature = req.headers['x-paystack-signature'];
 //       const secret = process.env.PAYSTACK_SECRET_KEY;
-      
+
 //       // Verify webhook signature
 //       const isValid = this.validateWebhookSignature(signature, webhookData, secret);
 //       if (!isValid) {
 //         throw new Error('Invalid webhook signature');
 //       }
-      
+
 //       const event = webhookData.event;
 //       const data = webhookData.data;
-      
+
 //       switch (event) {
 //         case 'transfer.success':
 //           console.log('Transfer successful:', data.reference);
 //           await this.handleTransferEvent(data.reference, 'SUCCESS');
 //           break;
-          
+
 //         case 'transfer.failed':
 //           console.log('Transfer failed:', data.reference);
 //           await this.handleTransferEvent(data.reference, 'FAILED', data.reason);
 //           break;
-          
+
 //         case 'transfer.reversed':
 //           console.log('Transfer reversed:', data.reference);
 //           await this.handleTransferEvent(data.reference, 'REVERSED', data.reason);
 //           break;
-          
+
 //         default:
 //           console.log(`Unhandled webhook event: ${event}`);
 //       }
-      
+
 //       return { success: true, message: 'Webhook processed' };
 //     } catch (error) {
 //       console.error('Webhook processing failed:', error);
@@ -289,33 +289,33 @@
 //     try {
 //       // Get the claim
 //       const claim = await this.claimsService.findOne(claimId);
-      
+
 //       if (!claim) {
 //         throw new BadRequestException('Claim not found');
 //       }
-      
+
 //       // Check if there's an existing failed payment
 //       const existingPayments = claim.claimPayments || [];
 //       const hasFailedPayment = existingPayments.some(p => p.status === 'FAILED');
-      
+
 //       if (existingPayments.some(p => p.status === 'SUCCESS')) {
 //         throw new BadRequestException('Claim already has a successful payment');
 //       }
-      
+
 //       // Prepare payment details
 //       const paymentDetails = {
 //         bankCode: retryData?.bankCode || claim.user?.bank?.bankCode,
 //         accountNumber: retryData?.accountNumber || claim.user?.bank?.accountNumber,
 //         accountName: retryData?.accountName || `${claim.user.firstName} ${claim.user.lastName}`,
 //       };
-      
+
 //       if (!paymentDetails.bankCode || !paymentDetails.accountNumber) {
 //         throw new BadRequestException('Bank details are required for payment retry');
 //       }
-      
+
 //       // Process the retry payment
 //       const result = await this.claimsService.processPayment(claimId, paymentDetails);
-      
+
 //       return {
 //         success: true,
 //         message: hasFailedPayment ? 'Payment retry processed successfully' : 'Payment processed successfully',
@@ -339,11 +339,11 @@
 //   ) {
 //     try {
 //       const claim = await this.claimsService.findOne(claimId);
-      
+
 //       if (!claim) {
 //         throw new BadRequestException('Claim not found');
 //       }
-      
+
 //       return {
 //         success: true,
 //         message: 'Claim payments retrieved successfully',
@@ -351,7 +351,7 @@
 //           claimId,
 //           totalPayments: claim.claimPayments?.length || 0,
 //           payments: claim.claimPayments || [],
-//           latestPayment: claim.claimPayments?.length > 0 
+//           latestPayment: claim.claimPayments?.length > 0
 //             ? claim.claimPayments[claim.claimPayments.length - 1]
 //             : null,
 //         },
@@ -375,7 +375,7 @@
 //       // You need to implement this method in ClaimsService
 //       if (typeof this.claimsService.findByTransferReference === 'function') {
 //         const claim = await this.claimsService.findByTransferReference(transferReference);
-        
+
 //         if (claim && typeof this.claimsService.updatePaymentStatus === 'function') {
 //           await this.claimsService.updatePaymentStatus(
 //             claim.id,
@@ -386,7 +386,7 @@
 //               verifiedAt: new Date(),
 //             }
 //           );
-          
+
 //           console.log(`Updated payment status for claim ${claim.id} to ${status}`);
 //         }
 //       }

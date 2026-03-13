@@ -25,10 +25,7 @@ import {
   ClaimCreatedEvent,
   ClaimRejectedEvent,
 } from 'src/events/claim.event';
-import {
-  TaskApprovedEvent,
-  TaskRejectedEvent,
-} from 'src/events/tasks.event';
+import { TaskApprovedEvent, TaskRejectedEvent } from 'src/events/tasks.event';
 import { PayslipGeneratedEvent } from 'src/events/payroll.event';
 // import { TaskApprovedPayload, TaskAssignedPayload, TaskAssigneeChangePayload, TaskCreatePayload, TaskDueDateChangePayload, TaskPriorityChangePayload, TaskReassignedPayload, TaskRejectedPayload, TaskStatusChangePayload, TaskUpdatedPayload } from 'src/events/tasks.event';
 // import { MailService } from 'src/mail/mail.service';
@@ -59,7 +56,7 @@ export class NotificationListener {
     private gateway: NotificationGateway,
     private prisma: PrismaService,
     private mailService: MailService,
-  ) { }
+  ) {}
 
   @OnEvent('employment.accepted')
   async handleEmploymentAccepted(event: EmploymentAcceptedEvent) {
@@ -87,7 +84,7 @@ export class NotificationListener {
     }
 
     await this.mailService.sendAcceptanceMail({
-      email: "talent@zoracom.com",
+      email: 'talent@zoracom.com',
       // email: "bonaventure@zoracom.com",
       name: `${prospect.firstName} ${prospect.lastName}`.trim(),
       role: prospect.role,
@@ -144,10 +141,10 @@ export class NotificationListener {
     }
 
     await this.mailService.sendDocumentUploadMail({
-      email: "talent@zoracom.com",
+      email: 'talent@zoracom.com',
       // email: "bonaventure@zoracom.com",
       name: `${user.firstName} ${user.lastName}`,
-      role: user.role
+      role: user.role,
     });
   }
 
@@ -779,7 +776,41 @@ export class NotificationListener {
   }
 
   @OnEvent('Offboarding.Initated')
-  async handleOffboardingInitated(event: any) { }
+  async handleOffboardingInitated(event: any) {}
+
+  @OnEvent('taskHandover.signatureRequested')
+  async handleTaskHandoverSignatureRequested(event: any) { // using any to avoid cyclic import, ideally use TaskHandoverSignatureRequestedEvent
+    const assigner = await this.prisma.user.findUnique({
+      where: { id: event.assignerId },
+    });
+
+    const assignee = await this.prisma.user.findUnique({
+      where: { id: event.assigneeId },
+    });
+
+    if (!assigner || !assignee) return;
+
+    const notification = {
+      recipientId: event.assigneeId,
+      actorId: event.assignerId,
+      type: 'TASK_HANDOVER_SIGNATURE_REQUESTED',
+      title: 'Task Handover Signature Required',
+      message: `${assigner.firstName} ${assigner.lastName} has handed over a task to you. Please review and provide your signature for the handover documentation.`,
+      actionType: NotificationActionType.TASK_ASSIGNED, 
+      actionData: {
+        taskId: event.taskId,
+        offboardingId: event.offboardingId
+      },
+    };
+
+    await this.notificationService.createMany([notification]);
+
+    this.gateway.sendToUser(event.assigneeId, {
+      type: 'TASK_HANDOVER_SIGNATURE_REQUESTED',
+      title: 'Task Handover Signature Required',
+      message: `${assigner.firstName} ${assigner.lastName} has handed over a task to you. Please review and provide your signature for the handover documentation.`,
+    });
+  }
 
   @OnEvent('task.approved')
   async handleTaskApproved(event: TaskApprovedEvent) {

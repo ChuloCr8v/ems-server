@@ -1,47 +1,82 @@
-import { ExitType } from "@prisma/client";
-import { IsArray, IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { ExitType } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class InitiateExit {
-    @IsEnum( ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION'})
-    @IsNotEmpty()
-    type: ExitType;
+  @IsString()
+  @IsNotEmpty()
+  employeeId: string;
 
+  @IsEnum(ExitType, { each: true, message: 'Exit Type must be one of the following: RESIGNATION, TERMINATION' })
+  @IsNotEmpty()
+  type: ExitType;
+
+  @IsString()
+  @IsNotEmpty()
+  reason: string;
+
+  @IsString()
+  @IsOptional()
+  relievingDate?: Date;
+
+  @IsString()
+  @IsOptional()
+  resignationDate?: Date;
+
+  @IsBoolean()
+  @IsOptional()
+  noticePeriod?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  uploads?: string[];
+}
+
+export class HandoverTaskDto {
     @IsString()
     @IsNotEmpty()
-    reason: string;
+    toUserId: string;
+
+    // @IsString()
+    // @IsNotEmpty()
+    // fromUserId: string;
 
     @IsString()
-    @IsNotEmpty()
-    lastWorkDate: Date;
-
-    @IsBoolean()
-    @IsNotEmpty()
-    noticePeriod: boolean;
-
     @IsOptional()
+    note?: string;
+
     @IsArray()
-    uploads?: string[];
-}
-
-
-export class ReturnAsset {
-    @IsString()
-    @IsNotEmpty()
-    condition: string;
-
-    @IsString()
-    @IsNotEmpty()
-    reason: string;
-}
-
-// export class ReportAssetDto {
-//     @IsString()
-//     @IsNotEmpty()
-//     comment: string;
-// }
-
-export class DebtPaymentDto {
-    @IsString()
     @IsOptional()
+    uploads?: string[];
+
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
+}
+
+export class DepartmentClearanceDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
+
+    @IsOptional()
+    @IsString()
     notes?: string;
+}
+
+export class UploadHandoverSignatureDto {
+    @IsString()
+    @IsNotEmpty()
+    signatureId: string;
+
+    @IsString()
+    @IsNotEmpty()
+    fromUserId: string; // The user they are receiving the task from
 }

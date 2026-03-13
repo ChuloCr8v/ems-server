@@ -1,5 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { Report, Task, UserTask, TaskStatus, Prisma, User, ReportStatus } from '@prisma/client';
+import {
+  Report,
+  Task,
+  UserTask,
+  TaskStatus,
+  Prisma,
+  User,
+  ReportStatus,
+  Department,
+  ProjectLabels,
+} from '@prisma/client';
 
 import { PrismaService } from 'src/prisma/prisma.service';
 import { bad, mustHave } from 'src/utils/error.utils';
@@ -8,13 +18,56 @@ import { randomBytes } from 'crypto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ReportSubmittedEvent } from 'src/events/report.event';
 
+const reportWithRelationsInclude = Prisma.validator<Prisma.ReportDefaultArgs>()(
+  {
+    include: {
+      tasks: {
+        include: {
+          department: true,
+          category: true,
+          assignees: { include: { user: true } },
+          taskIssues: true,
+          createdBy: true,
+          taskTransfers: {
+            include: {
+              user: true,
+            },
+          },
+          projectLabels: true,
+        },
+      },
+      user: {
+        include: {
+          departments: true,
+        },
+      },
+    },
+  },
+);
+
+type ReportWithRelations = Prisma.ReportGetPayload<{
+  include: typeof reportWithRelationsInclude.include;
+}>;
+
+export interface ProjectGroup {
+  project: ProjectLabels | { id: string; title: string };
+  tasks: Task[];
+}
+
+export interface DepartmentWeeklyEntry {
+  department: Department | null;
+  projects: ProjectGroup[];
+  week: number;
+}
+
 @Injectable()
 export class ReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-  ) { }
+  ) {}
 
+  private readonly reportWithRelations = reportWithRelationsInclude;
 
   async createReport(body: CreateDepartmentWeeklyReportDto, userId: string) {
     try {
@@ -27,32 +80,36 @@ export class ReportService {
         bad('User not authorized', 401);
 
       const { title, department, week, reports, isDraft } = body;
-      const departmentField = department ?? (user.defaultId ? user.defaultId : user.departments[0].id);
+      const departmentField =
+        department ??
+        (user.defaultId ? user.defaultId : user.departments[0].id);
 
-      const existingReport = await this.prisma.departmentWeeklyReport.findFirst({
-        where: {
-          week,
-          departmentId: departmentField
+      const existingReport = await this.prisma.departmentWeeklyReport.findFirst(
+        {
+          where: {
+            week,
+            departmentId: departmentField,
+          },
+          include: {
+            reports: true,
+          },
         },
-        include: {
-          reports: true
-        }
-      });
+      );
 
-      if (existingReport && existingReport.status === ReportStatus.SUBMITTED
-      ) bad(`Report for week ${week} has been submitted already`)
+      if (existingReport && existingReport.status === ReportStatus.SUBMITTED)
+        bad(`Report for week ${week} has been submitted already`);
       if (existingReport && existingReport.status !== ReportStatus.SUBMITTED) {
         // Delete existing sub-reports
         await this.prisma.reportItem.deleteMany({
           where: {
-            weeklyReportId: existingReport.id
-          }
+            weeklyReportId: existingReport.id,
+          },
         });
 
         // Update the main report
         const updatedReport = await this.prisma.departmentWeeklyReport.update({
           where: {
-            id: existingReport.id
+            id: existingReport.id,
           },
           data: {
             title,
@@ -61,12 +118,21 @@ export class ReportService {
               create: reports.map((r) => ({
                 title: r.title,
                 description: r.description,
-                status: r.status,
-                deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
-                includeAssignees: r.includeAssignees,
-                task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
-                attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
-                comment: r.comment
+                task: r.taskId
+                  ? {
+                      connect: {
+                        id: r.taskId,
+                      },
+                    }
+                  : undefined,
+                project:
+                  r.projectId && r.projectId.toLowerCase() !== 'unassigned'
+                    ? {
+                        connect: {
+                          id: r.projectId,
+                        },
+                      }
+                    : undefined,
               })),
             },
           },
@@ -77,11 +143,11 @@ export class ReportService {
                   include: {
                     taskTransfers: {
                       include: {
-                        user: true
-                      }
+                        user: true,
+                      },
                     },
-                    createdBy: true
-                  }
+                    createdBy: true,
+                  },
                 },
               },
             },
@@ -125,19 +191,28 @@ export class ReportService {
           status: isDraft ? ReportStatus.DRAFT : ReportStatus.SUBMITTED,
           department: {
             connect: {
-              id: departmentField
+              id: departmentField,
             },
           },
           reports: {
             create: reports.map((r) => ({
               title: r.title,
               description: r.description,
-              status: r.status,
-              deliveryDate: r?.deliveryDate ? new Date(r.deliveryDate) : null,
-              includeAssignees: r.includeAssignees,
-              task: r?.taskId ? { connect: { id: r.taskId } } : undefined,
-              attachments: r.attachments?.length ? { connect: r.attachments.map((id) => ({ id })) } : undefined,
-              comment: r.comment
+              task: r.taskId
+                ? {
+                    connect: {
+                      id: r.taskId,
+                    },
+                  }
+                : undefined,
+              project:
+                r.projectId && r.projectId.toLowerCase() !== 'unassigned'
+                  ? {
+                      connect: {
+                        id: r.projectId,
+                      },
+                    }
+                  : undefined,
             })),
           },
         },
@@ -280,54 +355,147 @@ export class ReportService {
     }
   }
 
-  async listWeeklyReports(userId: string) {
+  async listWeeklyReportsByProjects(userId: string) {
     try {
-      const [user, reports] = await Promise.all([
-        this.prisma.user.findUnique({ where: { id: userId } }),
-        this.prisma.report.findMany({
-          include: {
-            tasks: {
-              include: {
-                department: true,
-                category: true,
-                assignees: { include: { user: true } },
-                taskIssues: true,
-                createdBy: true,
-                taskTransfers: {
-                  include: {
-                    user: true
-                  }
-                }
-              },
-            },
-            user: {
-              include: {
-                departments: true
-              }
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-        }),
-      ]);
-
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) bad('User not found');
+
+      const reports = await this.prisma.report.findMany({
+        include: this.reportWithRelations.include,
+        orderBy: { createdAt: 'desc' },
+      });
 
       const accessibleReports = await this.filterReportsByRole(user, reports);
 
       const weeklyData = this.groupByWeekAndDepartment(accessibleReports);
 
-      return {
-        message: 'Report Returned Successfully',
-        totalWeeks: weeklyData.length,
-        data: weeklyData,
-      };
+      return weeklyData;
     } catch (error) {
       bad(error);
     }
   }
 
-  private async filterReportsByRole(user: User, reports: Report[]) {
-    if (user.userRole.includes('ADMIN') || user.userRole.includes('SUPERADMIN')) {
+  async listWeeklyReports(userId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (!user) bad('User not found');
+
+      const reports = await this.prisma.report.findMany({
+        include: this.reportWithRelations.include,
+        orderBy: { createdAt: 'desc' },
+      });
+
+      const accessibleReports = await this.filterReportsByRole(user, reports);
+
+      return this.groupByWeekDeptUser(accessibleReports);
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  private groupByWeekDeptUser(reports: ReportWithRelations[]) {
+    const weeks = new Map<
+      number,
+      {
+        week: number;
+        title: string;
+        deptMap: Map<
+          string,
+          {
+            department: Department | null;
+            userMap: Map<
+              string,
+              {
+                user: Pick<
+                  User,
+                  'id' | 'firstName' | 'lastName' | 'email' | 'userRole'
+                >;
+                tasks: Task[];
+              }
+            >;
+          }
+        >;
+      }
+    >();
+
+    for (const report of reports) {
+      if (!weeks.has(report.week)) {
+        weeks.set(report.week, {
+          week: report.week,
+          title: `Weekly Report - Week ${report.week}`,
+          deptMap: new Map(),
+        });
+      }
+
+      const weekEntry = weeks.get(report.week)!;
+      const userDepartments = report.user.departments ?? [];
+      const user = report.user;
+      const tasks = report.tasks;
+
+      const depts: (Department | { id: string; name: string })[] =
+        userDepartments.length > 0
+          ? userDepartments
+          : [{ id: 'NO_DEPARTMENT', name: 'No Department' }];
+
+      for (const dept of depts) {
+        if (!weekEntry.deptMap.has(dept.id)) {
+          weekEntry.deptMap.set(dept.id, {
+            department:
+              dept.id === 'NO_DEPARTMENT' ? null : (dept as Department),
+            userMap: new Map(),
+          });
+        }
+
+        const deptEntry = weekEntry.deptMap.get(dept.id)!;
+        if (!deptEntry.userMap.has(user.id)) {
+          deptEntry.userMap.set(user.id, {
+            user: {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              userRole: user.userRole,
+            },
+            tasks: [],
+          });
+        }
+
+        deptEntry.userMap.get(user.id)!.tasks.push(...(tasks as any));
+      }
+    }
+
+    return Array.from(weeks.values()).map((week) => ({
+      week: week.week,
+      title: week.title,
+      departments: Array.from(week.deptMap.values()).map((dept) => ({
+        department: dept.department,
+        users: Array.from(dept.userMap.values()),
+      })),
+    }));
+  }
+
+  async getUserReports(userId: string) {
+    try {
+      const reports = await this.prisma.report.findMany({
+        where: { userId },
+        include: this.reportWithRelations.include,
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return reports;
+    } catch (error) {
+      bad(error);
+    }
+  }
+
+  private async filterReportsByRole(
+    user: User,
+    reports: ReportWithRelations[],
+  ): Promise<ReportWithRelations[]> {
+    if (
+      user.userRole.includes('ADMIN') ||
+      user.userRole.includes('SUPERADMIN')
+    ) {
       return reports;
     }
 
@@ -337,7 +505,7 @@ export class ReportService {
         select: { id: true },
       });
 
-      const deptIds = departments.map(d => d.id);
+      const deptIds = departments.map((d) => d.id);
 
       const deptUsers = await this.prisma.user.findMany({
         where: {
@@ -347,79 +515,94 @@ export class ReportService {
         select: { id: true },
       });
 
-      const userIds = new Set(deptUsers.map(u => u.id));
+      const userIds = new Set(deptUsers.map((u) => u.id));
 
-      return reports.filter(r => userIds.has(r.userId));
+      return reports.filter((r) => userIds.has(r.userId));
     }
 
-    return reports.filter(r => r.userId === user.id);
+    return reports.filter((r) => r.userId === user.id);
   }
 
-  private groupByWeekAndDepartment(reports: any[]) {
-    const weeks = new Map<number, any>();
+  private groupByWeekAndDepartment(
+    reports: ReportWithRelations[],
+  ): DepartmentWeeklyEntry[] {
+    const flatEntries: DepartmentWeeklyEntry[] = [];
+    const groupingMap = new Map<
+      number,
+      Map<
+        string,
+        { department: Department | null; projectMap: Map<string, ProjectGroup> }
+      >
+    >();
 
     for (const report of reports) {
-      if (!weeks.has(report.week)) {
-        weeks.set(report.week, {
-          week: report.week,
-          title: `Weekly Report - Week ${report.week}`,
-          departments: [],
-          deptMap: new Map<string, any>(),
-        });
+      const week = report.week;
+      if (!groupingMap.has(week)) {
+        groupingMap.set(week, new Map());
       }
+      const weekDepts = groupingMap.get(week)!;
 
-      const weekEntry = weeks.get(report.week);
-      const deptMap = weekEntry.deptMap;
+      const userDepts: (Department | null)[] =
+        report.user.departments.length > 0 ? report.user.departments : [null];
 
-      const userDepartments = report.user.departments ?? [];
-
-      if (userDepartments.length === 0) {
-        if (!deptMap.has('NO_DEPARTMENT')) {
-          deptMap.set('NO_DEPARTMENT', {
-            department: null,
-            reports: [],
-          });
-        }
-
-        deptMap.get('NO_DEPARTMENT').reports.push({
-          ...report,
-          tasks: [],
-        });
-
-        continue;
-      }
-
-      for (const dept of userDepartments) {
-        if (!deptMap.has(dept.id)) {
-          deptMap.set(dept.id, {
+      for (const dept of userDepts) {
+        const deptId = dept ? dept.id : 'NO_DEPARTMENT';
+        if (!weekDepts.has(deptId)) {
+          weekDepts.set(deptId, {
             department: dept,
-            reports: [],
+            projectMap: new Map(),
           });
         }
+        const deptEntry = weekDepts.get(deptId)!;
+        const projectMap = deptEntry.projectMap;
 
-        deptMap.get(dept.id).reports.push(report);
+        for (const task of report.tasks) {
+          if (!task.projectLabels || task.projectLabels.length === 0) {
+            if (!projectMap.has('UNASSIGNED')) {
+              projectMap.set('UNASSIGNED', {
+                project: { id: 'UNASSIGNED', title: 'Unassigned' },
+                tasks: [],
+              });
+            }
+            projectMap.get('UNASSIGNED')!.tasks.push(task as any); // Task includes relations not in Task base
+          } else {
+            for (const label of task.projectLabels) {
+              if (!projectMap.has(label.id)) {
+                projectMap.set(label.id, {
+                  project: label,
+                  tasks: [],
+                });
+              }
+              projectMap.get(label.id)!.tasks.push(task as any);
+            }
+          }
+        }
       }
     }
 
-    for (const weekEntry of weeks.values()) {
-      weekEntry.departments = Array.from(weekEntry.deptMap.values());
-      delete weekEntry.deptMap;
+    for (const [week, weekDepts] of groupingMap) {
+      for (const [deptId, deptEntry] of weekDepts) {
+        flatEntries.push({
+          department: deptEntry.department,
+          projects: Array.from(deptEntry.projectMap.values()),
+          week: week,
+        });
+      }
     }
 
-    return Array.from(weeks.values());
+    return flatEntries;
   }
 
   async listDepartmentWeeklyReports(userId: string) {
     try {
-
       const user = await this.prisma.user.findUnique({
         where: {
           id: userId,
           userRole: {
-            hasSome: ['DEPT_MANAGER', "SUPERADMIN", "ADMIN"]
-          }
-        }
-      })
+            hasSome: ['DEPT_MANAGER', 'SUPERADMIN', 'ADMIN'],
+          },
+        },
+      });
 
       if (!user) bad('Unauthorized');
 
@@ -427,57 +610,51 @@ export class ReportService {
         where: {
           approver: {
             some: {
-              userId: user.id
-            }
-          }
-        }
-      })
-
-      const deptIds = departments.map(d => d.id);
-
-      const baseFindArgs = {
-        where: {
-          departmentId: {
-            in: deptIds
+              userId: user.id,
+            },
           },
-          status: ReportStatus.SUBMITTED
-        }
-      }
+        },
+      });
 
-      if (user.userRole.includes('SUPERADMIN') || user.userRole.includes('ADMIN')) {
-        delete baseFindArgs.where.departmentId;
+      const deptIds = departments.map((d) => d.id);
 
+      const where: Prisma.DepartmentWeeklyReportWhereInput = {
+        departmentId: {
+          in: deptIds,
+        },
+        status: ReportStatus.SUBMITTED,
+      };
+
+      if (
+        user.userRole.includes('SUPERADMIN') ||
+        user.userRole.includes('ADMIN')
+      ) {
+        delete where.departmentId;
       }
 
       if (user.userRole.includes('DEPT_MANAGER')) {
-        delete baseFindArgs.where.status;
-        baseFindArgs.where.departmentId = {
-          in: deptIds
-        }
+        delete where.status;
+        where.departmentId = {
+          in: deptIds,
+        };
       }
 
       const reports = await this.prisma.departmentWeeklyReport.findMany({
-        ...baseFindArgs,
+        where,
         include: {
           department: true,
           reports: {
             include: {
               task: true,
-              attachments: {
-                select: {
-                  uri: true,
-                  name: true,
-                  id: true,
-                  size: true
-                }
-              }
-            }
-          }
+              project: true,
+              weeklyReport: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
-      })
+      });
 
-      const weeks = new Map<number, any>()
+      const weeks = new Map<number, any>();
 
       for (const report of reports) {
         if (!weeks.has(report.week)) {
@@ -489,38 +666,65 @@ export class ReportService {
           });
         }
 
-
         const weekEntry = weeks.get(report.week);
         const deptMap = weekEntry.deptMap;
+        const department = report.department;
 
-        const userDepartments = report.department;
-
-        if (userDepartments) {
-          if (!deptMap.has('NO_DEPARTMENT')) {
-            deptMap.set('NO_DEPARTMENT', {
-              department: userDepartments,
-              tasks: [],
-              status: report.status
-            });
-          }
-
-          deptMap.get('NO_DEPARTMENT').tasks.push(...report.reports);
-
-          continue;
-        }
-
-        if (!deptMap.has(userDepartments.id)) {
-          deptMap.set(userDepartments.id, {
-            department: userDepartments,
+        if (!deptMap.has(department)) {
+          deptMap.set(department, {
+            department,
+            status: report.status,
+            projectMap: new Map<string, any>(),
           });
         }
 
-        deptMap.get(userDepartments.id).tasks.push(...report.reports);
+        const deptEntry = deptMap.get(department);
+        const projectMap = deptEntry.projectMap;
+
+        for (const taskReport of report.reports) {
+          const project = taskReport?.project;
+
+          if (!project) {
+            if (!projectMap.has('UNASSIGNED')) {
+              projectMap.set('UNASSIGNED', {
+                project: {
+                  id: 'UNASSIGNED',
+                  title: 'Unassigned',
+                },
+                reports: [],
+              });
+            }
+
+            projectMap.get('UNASSIGNED').reports.push(taskReport);
+            continue;
+          }
+
+          if (!projectMap.has(project.id)) {
+            projectMap.set(project.id, {
+              project,
+              reports: [],
+            });
+          }
+
+          projectMap.get(project.id).reports.push(taskReport);
+        }
       }
 
-
       for (const weekEntry of weeks.values()) {
-        weekEntry.departments = Array.from(weekEntry.deptMap.values());
+        weekEntry.departments = Array.from(weekEntry.deptMap.values()).map(
+          (dept: any) => {
+            const projects = Array.from(dept.projectMap.values());
+
+            delete dept.projectMap;
+
+            return {
+              department: dept.department,
+              projects,
+              status: dept.status,
+            };
+          },
+        );
+
         delete weekEntry.deptMap;
       }
 
@@ -529,8 +733,6 @@ export class ReportService {
       bad(error);
     }
   }
-
-
 }
 
 function getCurrentWeek(date = new Date()): number {

@@ -2,7 +2,7 @@
   <head>
     <meta charset='UTF-8' />
     <meta name='viewport' content='width=device-width, initial-scale=1.0' />
-    <title>New Document Submission</title>
+    <title>New Claim Submitted</title>
 
     <link rel='preconnect' href='https://fonts.googleapis.com' />
     <link rel='preconnect' href='https://fonts.gstatic.com' crossorigin />
@@ -133,126 +133,10 @@
                           color: #000000;
                         '
                       >
-                        Document Upload
+                        {{subject}}
                       </h1>
 
-                      <p
-                        style='
-                          font-size: 16px;
-                          color: #384860;
-                          margin: 0 0 16px;
-                        '
-                      >
-                        Hello,
-                      </p>
-
-                      <p
-                        style='
-                          font-size: 16px;
-                          color: #5e5e5e;
-                          line-height: 1.5;
-                          margin: 0 0 32px;
-                        '
-                      >
-                        This is to notify you that a prospect has successfully
-                        submitted their onboarding documents.
-                      </p>
-
-                      <!-- Submission Details -->
-                      <table
-                        width='100%'
-                        cellpadding='0'
-                        cellspacing='0'
-                        style='
-                          margin-bottom: 32px;
-                          border: 1px solid #e5e7eb;
-                          border-radius: 8px;
-                          overflow: hidden;
-                        '
-                      >
-                        <tr>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #334155;
-                              border-bottom: 1px solid #e5e7eb;
-                            '
-                          >
-                            Prospect Name
-                          </td>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #0f172a;
-                              font-weight: 600;
-                              border-bottom: 1px solid #e5e7eb;
-                            '
-                          >
-                            {{prospectName}}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #334155;
-                              border-bottom: 1px solid #e5e7eb;
-                            '
-                          >
-                            Position
-                          </td>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #0f172a;
-                              font-weight: 600;
-                              border-bottom: 1px solid #e5e7eb;
-                            '
-                          >
-                            {{role}}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #334155;
-                            '
-                          >
-                            Date Submitted
-                          </td>
-                          <td
-                            style='
-                              padding: 14px 16px;
-                              font-size: 14px;
-                              color: #0f172a;
-                              font-weight: 600;
-                            '
-                          >
-                            {{submittedAt}}
-                          </td>
-                        </tr>
-                      </table>
-
-                      <p
-                        style='
-                          font-size: 16px;
-                          color: #5e5e5e;
-                          line-height: 1.5;
-                          margin: 0 0 32px;
-                        '
-                      >
-                        Please review the submitted documents and proceed with
-                        the next steps in the onboarding process.
-                      </p>
-
-                      <a href='{{adminLink}}' class='btn'>View Documents</a>
-
+                      {{{message}}}
                       <p
                         style='
                           margin-top: 40px;
@@ -260,7 +144,7 @@
                           color: #5e5e5e;
                         '
                       >
-                        Regards,<br />
+                        Best Regards,<br />
                         <strong>Talent X</strong>
                       </p>
                     </td>

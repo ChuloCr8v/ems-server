@@ -105,12 +105,14 @@ export class TasksService {
       approvalRequestedAt: task.approvalRequestedAt,
       approvedAt: task.approvedAt,
       rejectionReason: task.rejectionReason,
-      createdBy: task.createdBy ? {
-        id: task.createdById,
-        name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
-        email: task.createdBy.email,
-        role: task.createdBy.role,
-      } : undefined,
+      createdBy: task.createdBy
+        ? {
+          id: task.createdById,
+          name: `${task.createdBy.firstName} ${task.createdBy.lastName}`,
+          email: task.createdBy.email,
+          role: task.createdBy.role,
+        }
+        : undefined,
       approvedBy: task.approvedBy
         ? {
           id: task.approvedBy.id,
@@ -118,27 +120,32 @@ export class TasksService {
           email: task.approvedBy.email,
         }
         : undefined,
-      assignees: task.assignees ? task.assignees.map((at) => ({
-        id: at.user.id,
-        name: `${at.user.firstName} ${at.user.lastName}`,
-        email: at.user.email,
-        assignedAt: at.assignedAt,
-      })) : [],
-      files: task.uploads ? task.uploads.map((upload) => ({
-        id: upload.id,
-        filename: upload.key || '',
-        originalName: upload.name,
-        mimetype: upload.type,
-        size: upload.size,
-        uploadedAt: upload.createdAt,
-        uri: upload.uri || undefined,
-      })) : [],
+      assignees: task.assignees
+        ? task.assignees.map((at) => ({
+          id: at.user.id,
+          name: `${at.user.firstName} ${at.user.lastName}`,
+          email: at.user.email,
+          assignedAt: at.assignedAt,
+        }))
+        : [],
+      files: task.uploads
+        ? task.uploads.map((upload) => ({
+          id: upload.id,
+          filename: upload.key || '',
+          originalName: upload.name,
+          mimetype: upload.type,
+          size: upload.size,
+          uploadedAt: upload.createdAt,
+          uri: upload.uri || undefined,
+        }))
+        : [],
     };
   }
 
   async createTask(createTaskDto: CreateTaskDto, createdById: string) {
     try {
-      const { uploads, assignees, category, projectLabels, ...taskData } = createTaskDto;
+      const { uploads, assignees, category, projectLabels, ...taskData } =
+        createTaskDto;
 
       const taskCreator = await this.prisma.user.findUnique({
         where: {
@@ -166,11 +173,13 @@ export class TasksService {
           }
           return createTaskDto.status;
         }
-        if (isManager) {
-          return 'IN_PROGRESS';
-        } else {
-          return 'PENDING_APPROVAL';
-        }
+
+        return "IN_PROGRESS"
+        // if (isManager) {
+        //   return 'IN_PROGRESS';
+        // } else {
+        //   return 'PENDING_APPROVAL';
+        // }
       };
 
       const createData: any = {
@@ -178,7 +187,8 @@ export class TasksService {
         description: taskData.description,
         priority: taskData.priority,
         status: taskStatus(),
-        approvalStatus: isManager ? 'APPROVED' : 'PENDING',
+        // approvalStatus: isManager ? 'APPROVED' : 'PENDING',
+        approvalStatus: 'APPROVED',
       };
 
       if (
@@ -196,13 +206,13 @@ export class TasksService {
       }
 
       //Approval Status
-      if (isManager) {
-        createData.approvedById = createdById;
-        createData.approvedAt = new Date();
-        createData.approvalRequestedAt = new Date();
-      } else if (!isManager) {
-        createData.approvalRequestedAt = new Date();
-      }
+      // if (isManager) {
+      //   createData.approvedBy = { connect: { id: createdById } };
+      //   createData.approvedAt = new Date();
+      //   createData.approvalRequestedAt = new Date();
+      // } else if (!isManager) {
+      //   createData.approvalRequestedAt = new Date();
+      // }
 
       //Assignees
       if (assignees && assignees.length > 0) {
@@ -517,7 +527,7 @@ export class TasksService {
       throw new BadRequestException('Task is not pending approval');
     }
 
-    const { status, assignees, rejectionReason } = dto;
+    const { status, rejectionReason } = dto;
 
     const updatedTask = await this.prisma.task.update({
       where: { id: taskId },
@@ -527,23 +537,16 @@ export class TasksService {
           status === ApprovalStatus.APPROVED
             ? TaskStatus.IN_PROGRESS
             : TaskStatus.CANCELLED,
-        approvedById: processorId,
+        approvedBy: { connect: { id: processorId } },
         approvedAt: new Date(),
         ...(status === ApprovalStatus.REJECTED && { rejectionReason }),
-        // Update assignees only on approval if provided
-        ...(status === ApprovalStatus.APPROVED &&
-          assignees &&
-          assignees.length > 0 && {
-          assignees: {
-            deleteMany: {},
-            create: assignees.map((userId) => ({ userId })),
-          },
-        }),
+
       },
     });
 
     await this.logTaskAction({
-      action: status === ApprovalStatus.APPROVED ? 'Task approved' : 'Task rejected',
+      action:
+        status === ApprovalStatus.APPROVED ? 'Task approved' : 'Task rejected',
       userId: processorId,
       taskId: taskId,
       comment: rejectionReason,
@@ -555,7 +558,7 @@ export class TasksService {
         new TaskApprovedEvent(
           processorId,
           task.createdById,
-          assignees || task.assignees.map((a) => a.userId),
+          task.assignees.map((a) => a.userId),
           task.id,
           task.title,
         ),
@@ -590,7 +593,10 @@ export class TasksService {
         orderBy: { createdAt: 'desc' },
       };
 
-      if (user.userRole.includes(Role.ADMIN) || user.userRole.includes(Role.SUPERADMIN)) {
+      if (
+        user.userRole.includes(Role.ADMIN) ||
+        user.userRole.includes(Role.SUPERADMIN)
+      ) {
         return this.prisma.task.findMany(baseFindArgs);
       }
 
@@ -620,10 +626,10 @@ export class TasksService {
                       approver: {
                         some: {
                           userId: userId,
-                        }
-                      }
-                    }
-                  ]
+                        },
+                      },
+                    },
+                  ],
                 },
               },
               {
@@ -712,7 +718,7 @@ export class TasksService {
         action: 'Due date extended',
         userId: userId,
         taskId: id,
-        comment: note ?? `New due date: ${dueDate.toISOString()}`,
+        comment: note ?? `New due date: ${new Date(dueDate).toISOString()}`,
       });
     } catch (error) {
       bad(error);
@@ -726,7 +732,6 @@ export class TasksService {
     note?: string,
   ) {
     try {
-
       const task = await this.prisma.task.findUnique({
         where: {
           id,
@@ -765,14 +770,19 @@ export class TasksService {
         action: 'Extension requested',
         userId: userId,
         taskId: id,
-        comment: note ?? `Requested due date: ${dueDate.toISOString()}`,
+        comment: note ?? `Requested due date: ${new Date(dueDate).toISOString()}`,
       });
     } catch (error) {
       bad(error);
     }
   }
 
-  async acceptExtensionRequest(id: string, userId: string, userRole: Role[], dueDate?: Date) {
+  async acceptExtensionRequest(
+    id: string,
+    userId: string,
+    userRole: Role[],
+    dueDate?: Date,
+  ) {
     try {
       const canAccept =
         userRole.includes(Role.DEPT_MANAGER) ||
@@ -1097,7 +1107,6 @@ export class TasksService {
     }
   }
 
-
   // Project labels
   async listTaskProjectLabels(userId: string) {
     try {
@@ -1114,11 +1123,11 @@ export class TasksService {
         include: {
           departments: {
             select: {
-              id: true
-            }
-          }
-        }
-      })
+              id: true,
+            },
+          },
+        },
+      });
       const projectLabels = await this.prisma.projectLabels.findMany({
         where: {
           type: CategoryType.Task,
@@ -1132,8 +1141,8 @@ export class TasksService {
         include: {
           departments: {
             select: {
-              id: true
-            }
+              id: true,
+            },
           },
           tasks: {
             include: this.getTaskInclude(),
@@ -1152,12 +1161,12 @@ export class TasksService {
         where: { id },
         include: {
           departments: {
-            select: { id: true, name: true }
+            select: { id: true, name: true },
           },
           createdBy: {
-            select: { id: true, firstName: true, lastName: true }
-          }
-        }
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
       });
 
       if (!projectLabel) {
@@ -1239,9 +1248,6 @@ export class TasksService {
     }
   }
 
-
-
-
   async getOneTask(id: string) {
     const task = await this.prisma.task.findUnique({
       where: { id },
@@ -1273,7 +1279,15 @@ export class TasksService {
 
   async updateTask(id: string, taskData: UpdateTaskDto, userId: string) {
     try {
-      const { assignees, category, uploads, status, issue, projectLabels, ...rest } = taskData;
+      const {
+        assignees,
+        category,
+        uploads,
+        status,
+        issue,
+        projectLabels,
+        ...rest
+      } = taskData;
       const findTask = await this.getOneTask(id);
       if (!findTask) mustHave(findTask, 'Task not found', 404);
 
@@ -1295,166 +1309,173 @@ export class TasksService {
       if (!canAct && ownerId !== userId)
         bad('You are not authorized to perform this action');
 
-      const task = await this.prisma.$transaction(async (tx) => {
-        // --- handle Uploads ---
-        if (uploads !== undefined && uploads.length > 0) {
-          await tx.task.update({
-            where: { id },
-            data: {
-              uploads: {
-                // set: [], // optional: clears old uploads if needed
-                connect: uploads.map((u: string) => ({ id: u })),
+      const task = await this.prisma.$transaction(
+        async (tx) => {
+          // --- handle Uploads ---
+          if (uploads !== undefined && uploads.length > 0) {
+            await tx.task.update({
+              where: { id },
+              data: {
+                uploads: {
+                  // set: [], // optional: clears old uploads if needed
+                  connect: uploads.map((u: string) => ({ id: u })),
+                },
               },
-            },
-          });
-        }
+            });
+          }
 
-        // --- Sync Assignees ---
-        if (assignees !== undefined) {
-          const existingAssignees = await tx.userTask.findMany({
-            where: { taskId: id },
-            select: { userId: true },
-          });
-          const existingIds = existingAssignees.map((a) => a.userId);
+          // --- Sync Assignees ---
+          if (assignees !== undefined) {
+            const existingAssignees = await tx.userTask.findMany({
+              where: { taskId: id },
+              select: { userId: true },
+            });
+            const existingIds = existingAssignees.map((a) => a.userId);
 
-          const newIds = assignees.filter(
-            (id: string) => !existingIds.includes(id),
-          );
-          const removedIds = existingIds.filter(
-            (id) => !assignees.includes(id),
-          );
+            const newIds = assignees.filter(
+              (id: string) => !existingIds.includes(id),
+            );
+            const removedIds = existingIds.filter(
+              (id) => !assignees.includes(id),
+            );
 
-          // Add new ones
-          if (newIds.length > 0) {
-            await tx.userTask.createMany({
-              data: newIds.map((userId: string) => ({
+            // Add new ones
+            if (newIds.length > 0) {
+              await tx.userTask.createMany({
+                data: newIds.map((userId: string) => ({
+                  taskId: id,
+                  userId,
+                })),
+              });
+
+              const newAssignees = await tx.user.findMany({
+                where: { id: { in: newIds } },
+                select: { firstName: true, lastName: true },
+              });
+              const newAssigneeNames = newAssignees.map(
+                (a) => a.firstName + ' ' + a.lastName,
+              );
+
+              await this.logTaskAction({
+                action: 'Assignees updated',
+                userId: userId,
                 taskId: id,
-                userId,
-              })),
-            });
+                comment: `New assignees: ${newAssigneeNames.join(', ')}`,
+              });
+            }
 
-            const newAssignees = await tx.user.findMany({
-              where: { id: { in: newIds } },
-              select: { firstName: true, lastName: true },
-            });
-            const newAssigneeNames = newAssignees.map((a) => a.firstName + ' ' + a.lastName);
+            // Remove unselected ones
+            if (removedIds.length > 0) {
+              await tx.userTask.deleteMany({
+                where: { taskId: id, userId: { in: removedIds } },
+              });
 
-            await this.logTaskAction({
-              action: 'Assignees updated',
-              userId: userId,
-              taskId: id,
-              comment: `New assignees: ${newAssigneeNames.join(', ')}`,
+              const removedAssignees = await tx.user.findMany({
+                where: { id: { in: removedIds } },
+                select: { firstName: true, lastName: true },
+              });
+              const removedAssigneeNames = removedAssignees.map(
+                (a) => a.firstName + ' ' + a.lastName,
+              );
+
+              await this.logTaskAction({
+                action: 'Assignees updated',
+                userId: userId,
+                taskId: id,
+                comment: `Removed assignees: ${removedAssigneeNames.join(', ')}`,
+              });
+            }
+          }
+
+          // --- Handle Categories ---
+          if (category) {
+            await tx.task.update({
+              where: { id },
+              data: {
+                category: {
+                  connect: category.map((id) => ({ id })),
+                },
+              },
             });
           }
 
-          // Remove unselected ones
-          if (removedIds.length > 0) {
-            await tx.userTask.deleteMany({
-              where: { taskId: id, userId: { in: removedIds } },
-            });
-
-            const removedAssignees = await tx.user.findMany({
-              where: { id: { in: removedIds } },
-              select: { firstName: true, lastName: true },
-            });
-            const removedAssigneeNames = removedAssignees.map((a) => a.firstName + ' ' + a.lastName);
-
-            await this.logTaskAction({
-              action: 'Assignees updated',
-              userId: userId,
-              taskId: id,
-              comment: `Removed assignees: ${removedAssigneeNames.join(', ')}`,
+          // --- Handle project labels ---
+          if (projectLabels) {
+            await tx.task.update({
+              where: { id },
+              data: {
+                projectLabels: {
+                  connect: projectLabels.map((id) => ({ id })),
+                },
+              },
             });
           }
-        }
 
-        // --- Handle Categories ---
-        if (category) {
+          // --- Handle Task Status
+          const completedStatus = () => {
+            if (status === 'COMPLETED') {
+              if (!canAct) {
+                return TaskStatus.PENDING_REVIEW;
+              } else return TaskStatus.COMPLETED;
+            } else return status;
+          };
+
           await tx.task.update({
-            where: { id },
-            data: {
-              category: {
-                connect: category.map((id) => ({ id })),
-              },
+            where: {
+              id,
             },
-          });
-        }
-
-        // --- Handle project labels ---
-        if (projectLabels) {
-          await tx.task.update({
-            where: { id },
-            data: {
-              projectLabels: {
-                connect: projectLabels.map((id) => ({ id })),
-              },
-            },
-          });
-        }
-
-        // --- Handle Task Status
-        const completedStatus = () => {
-          if (status === 'COMPLETED') {
-            if (!canAct) {
-              return TaskStatus.PENDING_REVIEW;
-            } else return TaskStatus.COMPLETED;
-          } else return status;
-        };
-
-        await tx.task.update({
-          where: {
-            id,
-          },
-          data:
-            status === 'ISSUES'
-              ? {
-                hasIssues: true,
-                status,
-                taskIssues: {
-                  create: {
-                    issue: issue,
-                    reportedBy: {
-                      connect: { id: userId },
+            data:
+              status === 'ISSUES'
+                ? {
+                  hasIssues: true,
+                  status,
+                  taskIssues: {
+                    create: {
+                      issue: issue,
+                      reportedBy: {
+                        connect: { id: userId },
+                      },
                     },
                   },
+                }
+                : {
+                  status: completedStatus(),
+                  hasIssues: false,
                 },
-              }
-              : {
-                status: completedStatus(),
-                hasIssues: false,
-              },
-        });
-
-        // --- Update Task Base Data ---
-        const updatedTask = await tx.task.update({
-          where: { id },
-          data: rest,
-          include: this.getTaskInclude(),
-        });
-
-        // Log significant changes in updateTask
-        // if (status && status !== findTask.status) {
-        //   await this.logTaskAction({
-        //     action: `Status changed to ${status}`,
-        //     userId: userId,
-        //     taskId: id,
-        //     comment: issue,
-        //   });
-        // }
-
-        if (rest.priority && rest.priority !== findTask.priority) {
-          await this.logTaskAction({
-            action: `Priority changed to ${rest.priority}`,
-            userId: userId,
-            taskId: id,
           });
-        }
 
-        return updatedTask;
-      }, {
-        maxWait: 20000,
-        timeout: 20000,
-      });
+          // --- Update Task Base Data ---
+          const updatedTask = await tx.task.update({
+            where: { id },
+            data: rest,
+            include: this.getTaskInclude(),
+          });
+
+          // Log significant changes in updateTask
+          // if (status && status !== findTask.status) {
+          //   await this.logTaskAction({
+          //     action: `Status changed to ${status}`,
+          //     userId: userId,
+          //     taskId: id,
+          //     comment: issue,
+          //   });
+          // }
+
+          if (rest.priority && rest.priority !== findTask.priority) {
+            await this.logTaskAction({
+              action: `Priority changed to ${rest.priority}`,
+              userId: userId,
+              taskId: id,
+            });
+          }
+
+          return updatedTask;
+        },
+        {
+          maxWait: 20000,
+          timeout: 20000,
+        },
+      );
 
       // //Emit notification events based on what changed
       // await this.emitUpdateEvents({
@@ -1498,8 +1519,6 @@ export class TasksService {
       bad(error);
     }
   }
-
-
 
   async transfer(
     id: string,
@@ -1637,12 +1656,12 @@ export class TasksService {
       data: {
         action: 'Task deleted',
         actionById: userId,
-        taskId: id, // Even though task is deleted, it might be good to have the ID in log. 
-        // Note: logs has a relation to task with onDelete: Cascade. 
-        // If the task is deleted, the logs will be deleted too! 
+        taskId: id, // Even though task is deleted, it might be good to have the ID in log.
+        // Note: logs has a relation to task with onDelete: Cascade.
+        // If the task is deleted, the logs will be deleted too!
         // I should probably make taskId optional and not cascading if I want to keep deletion logs.
         // Let me check schema.prisma again.
-      }
+      },
     });
 
     return { message: 'Task deleted successfully' };
@@ -1677,9 +1696,9 @@ export class TasksService {
               type: true,
               createdAt: true,
               updatedAt: true,
-            }
-          }
-        }
+            },
+          },
+        },
       },
       createdBy: {
         select: {

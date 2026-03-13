@@ -36,7 +36,7 @@ export class TasksController {
     return this.tasksService.getTaskCategory(id);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Post('category')
   async createTaskCategory(
     @Body() dto: CreateCategoryDto,
@@ -45,7 +45,7 @@ export class TasksController {
     return this.tasksService.createTaskCategory(req.user.id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Post('project-label')
   async createProjectLabel(
     @Body() dto: CreateCategoryDto,
@@ -54,7 +54,7 @@ export class TasksController {
     return this.tasksService.createProjectLabel(req.user.id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Patch(':id/category')
   async updateTaskCategory(
     @Body() dto: CreateCategoryDto,
@@ -63,7 +63,7 @@ export class TasksController {
     return this.tasksService.updateTaskCategory(id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Delete(':id/category')
   async deleteTaskCategory(@Param('id') id: string) {
     return this.tasksService.deleteTaskCategory(id);
@@ -83,7 +83,7 @@ export class TasksController {
     return this.tasksService.getOneProjectLabel(id);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Patch(':id/project-label')
   async updateProjectLabel(
     @Param('id') id: string,
@@ -92,7 +92,7 @@ export class TasksController {
     return this.tasksService.updateProjectLabel(id, dto);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Delete(':id/project-label')
   async deleteProjectLabel(@Param('id') id: string) {
     return this.tasksService.deleteProjectLabel(id);
@@ -153,7 +153,7 @@ export class TasksController {
     );
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Patch(':id/approve')
   async approveTask(
     @Param('id') id: string,
@@ -164,7 +164,7 @@ export class TasksController {
     return this.tasksService.approveTask(id, approvedById, body.assignees);
   }
 
-  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', "SUPERADMIN"])
+  @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
   @Patch(':id/reject')
   async rejectTask(
     @Param('id') id: string,
@@ -191,7 +191,7 @@ export class TasksController {
     );
   }
 
-  @Auth(['DEPT_MANAGER', 'ADMIN', 'TEAM_LEAD'])
+  @Auth()
   @Post(':id/extend')
   async extendDueDate(
     @Param('id') id: string,
@@ -242,7 +242,11 @@ export class TasksController {
     @Param('id') id: string,
     @Req() req: ReqPayload,
   ) {
-    return this.tasksService.rejectExtensionRequest(id, req.user.id, req.user.userRole);
+    return this.tasksService.rejectExtensionRequest(
+      id,
+      req.user.id,
+      req.user.userRole,
+    );
   }
 
   @Auth()
