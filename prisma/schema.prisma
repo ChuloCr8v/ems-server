@@ -1,4 +1,4 @@
-generator client {
+ generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
@@ -46,6 +46,7 @@ model User {
   state                 String?
   address               String?
   startDate             DateTime?
+  isOffboarding         Boolean            @default(false)
   status                Status             @default(PENDING)
   userRole              Role[]
   maritalStatus         MaritalStatus?
@@ -68,7 +69,7 @@ model User {
   notificationActor     Notification[]     @relation("NotificationActor")
   notificationRecipient Notification[]     @relation("NotificationRecipient")
   offboarding           Offboarding?       @relation("InitiatedFor")
-  initiatedOffboarding  Offboarding?       @relation("InitiatedBy")
+  initiatedOffboarding  Offboarding[]       @relation("InitiatedBy")
   // offboardingSignatures OffboardingSignatures[]
   payroll               Payroll?
   payComponent          PayrollComponent[]
@@ -451,7 +452,7 @@ model Offboarding {
   comment         Comment[]
   userId          String       @unique @db.Uuid
   user            User         @relation("InitiatedFor", fields: [userId], references: [id])
-  initiatedById   String       @unique @db.Uuid
+  initiatedById   String       @db.Uuid
   initiatedBy     User         @relation("InitiatedBy", fields: [initiatedById], references: [id])
   clearance       Clearance[]
   // signatures      OffboardingSignatures[]

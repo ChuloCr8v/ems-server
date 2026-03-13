@@ -76,16 +76,15 @@ export class OffboardingController {
   }
 
   @Auth([Role.USER])
-  @Post(':userId/department-clearance/handover-signature')
+  @Post('handover-signature')
   async uploadHandoverSignature(
-    // @Param('userId') userId: string,
     @Body() data: UploadHandoverSignatureDto,
     @AuthUser() user: IAuthUser,
     @Res() res: Response,
   ) {
     // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
     const userId = user.sub
-    const result = await this.offboarding.uploadHandoverESignature(data.handoverUserId, userId, data.signatureId);
+    const result = await this.offboarding.uploadHandoverESignature(userId, data);
     return res.status(200).json(result);
   }
 

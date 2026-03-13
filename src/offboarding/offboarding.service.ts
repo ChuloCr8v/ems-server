@@ -7,7 +7,7 @@ import { UserService } from 'src/user/user.service';
 import { Role, Status } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit } from './dto/offboarding.dto';
+import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit, UploadHandoverSignatureDto } from './dto/offboarding.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskHandoverSignatureRequestedEvent } from 'src/events/offboarding';
 
@@ -56,6 +56,11 @@ export class OffboardingService {
         include: {
           user: true,
         },
+      });
+
+      await this.prisma.user.update({
+        where: { id: employeeId },
+        data: { isOffboarding: true },
       });
 
       return { exit };
@@ -212,8 +217,9 @@ export class OffboardingService {
     }
   }
 
-  async uploadHandoverESignature(userId: string, fromUserId: string, signatureId: string) {
+  async uploadHandoverESignature(userId: string, data: UploadHandoverSignatureDto) {
     try {
+      const { fromUserId, signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
       const handovers = await this.tasksHandoverReceiver(fromUserId, userId);
       if (!handovers || handovers.length === 0) {
