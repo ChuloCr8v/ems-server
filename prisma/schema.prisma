@@ -1,4 +1,4 @@
- generator client {
+generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
@@ -69,7 +69,7 @@ model User {
   notificationActor     Notification[]     @relation("NotificationActor")
   notificationRecipient Notification[]     @relation("NotificationRecipient")
   offboarding           Offboarding?       @relation("InitiatedFor")
-  initiatedOffboarding  Offboarding[]       @relation("InitiatedBy")
+  initiatedOffboarding  Offboarding[]      @relation("InitiatedBy")
   // offboardingSignatures OffboardingSignatures[]
   payroll               Payroll?
   payComponent          PayrollComponent[]
@@ -888,6 +888,8 @@ model Task {
   taskDueDates      taskDueDate[]
   extensionRequests ExtensionRequests[]
   logs              Logs[]
+
+  links String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
