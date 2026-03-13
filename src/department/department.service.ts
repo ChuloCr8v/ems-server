@@ -16,7 +16,7 @@ type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class DepartmentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async createDepartment(input: DepartmentDto) {
     if (!input.createdBy) bad('Created By field is required', 400);
@@ -444,6 +444,17 @@ export class DepartmentService {
             },
           },
         });
+
+        await this.prisma.user.update({
+          where: {
+            id: data.teamLead
+          },
+          data: {
+            userRole: {
+              push: Role.TEAM_LEAD
+            }
+          }
+        })
       }
 
       await this.prisma.team.update({
@@ -724,10 +735,10 @@ export class DepartmentService {
         ...(alreadyInDept
           ? {}
           : {
-              departments: {
-                connect: [{ id: departmentId }],
-              },
-            }),
+            departments: {
+              connect: [{ id: departmentId }],
+            },
+          }),
       },
     });
   }
