@@ -157,11 +157,10 @@ export class TasksController {
   @Patch(':id/approve')
   async approveTask(
     @Param('id') id: string,
-    @Body() body: { assignees?: string[] },
     @Req() req: ReqPayload,
   ) {
     const approvedById = req.user.id;
-    return this.tasksService.approveTask(id, approvedById, body.assignees);
+    return this.tasksService.approveTask(id, approvedById);
   }
 
   @Auth(['ADMIN', 'DEPT_MANAGER', 'TEAM_LEAD', 'SUPERADMIN'])
