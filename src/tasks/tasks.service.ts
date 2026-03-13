@@ -96,7 +96,6 @@ export class TasksService {
       description: task.description,
       startDate: task.startDate,
       dueDate: task.dueDate,
-      // category: task.category,
       priority: task.priority as TaskPriority,
       status: task.status as TaskStatus,
       approvalStatus: task.approvalStatus as ApprovalStatus,
@@ -175,11 +174,6 @@ export class TasksService {
         }
 
         return "IN_PROGRESS"
-        // if (isManager) {
-        //   return 'IN_PROGRESS';
-        // } else {
-        //   return 'PENDING_APPROVAL';
-        // }
       };
 
       const createData: any = {
@@ -187,7 +181,6 @@ export class TasksService {
         description: taskData.description,
         priority: taskData.priority,
         status: taskStatus(),
-        // approvalStatus: isManager ? 'APPROVED' : 'PENDING',
         approvalStatus: 'APPROVED',
       };
 
@@ -204,15 +197,6 @@ export class TasksService {
       ) {
         createData.dueDate = new Date(taskData.dueDate);
       }
-
-      //Approval Status
-      // if (isManager) {
-      //   createData.approvedBy = { connect: { id: createdById } };
-      //   createData.approvedAt = new Date();
-      //   createData.approvalRequestedAt = new Date();
-      // } else if (!isManager) {
-      //   createData.approvalRequestedAt = new Date();
-      // }
 
       //Assignees
       if (assignees && assignees.length > 0) {
@@ -257,6 +241,7 @@ export class TasksService {
           ...createData,
           createdBy: { connect: { id: createdById } },
           department: { connect: { id: taskDepts } },
+          links: createTaskDto?.links ?? undefined,
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
