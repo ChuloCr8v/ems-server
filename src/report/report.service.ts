@@ -49,14 +49,14 @@ type ReportWithRelations = Prisma.ReportGetPayload<{
   include: typeof reportWithRelationsInclude.include;
 }>;
 
-export interface ProjectGroup {
+export interface ProjectReportGroup {
   project: ProjectLabels | { id: string; title: string };
-  tasks: Task[];
+  report: Task[];
 }
 
 export interface DepartmentWeeklyEntry {
   department: Department | null;
-  projects: ProjectGroup[];
+  reports: ProjectReportGroup[];
   week: number;
 }
 
@@ -65,7 +65,7 @@ export class ReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   private readonly reportWithRelations = reportWithRelationsInclude;
 
@@ -120,18 +120,18 @@ export class ReportService {
                 description: r.description,
                 task: r.taskId
                   ? {
-                      connect: {
-                        id: r.taskId,
-                      },
-                    }
+                    connect: {
+                      id: r.taskId,
+                    },
+                  }
                   : undefined,
                 project:
                   r.projectId && r.projectId.toLowerCase() !== 'unassigned'
                     ? {
-                        connect: {
-                          id: r.projectId,
-                        },
-                      }
+                      connect: {
+                        id: r.projectId,
+                      },
+                    }
                     : undefined,
               })),
             },
@@ -200,18 +200,18 @@ export class ReportService {
               description: r.description,
               task: r.taskId
                 ? {
-                    connect: {
-                      id: r.taskId,
-                    },
-                  }
+                  connect: {
+                    id: r.taskId,
+                  },
+                }
                 : undefined,
               project:
                 r.projectId && r.projectId.toLowerCase() !== 'unassigned'
                   ? {
-                      connect: {
-                        id: r.projectId,
-                      },
-                    }
+                    connect: {
+                      id: r.projectId,
+                    },
+                  }
                   : undefined,
             })),
           },
@@ -269,8 +269,9 @@ export class ReportService {
         ]
           .filter((item: Task) => {
             return (
-              item.status !== TaskStatus.COMPLETED ||
-              (item.status === TaskStatus.COMPLETED && !item.isReported)
+              item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED ||
+              (item.status === TaskStatus.COMPLETED && !item.isReported) ||
+              (item.status === TaskStatus.CANCELLED && !item.isReported)
             );
           })
           .map((item: Task) => item.id)
@@ -355,24 +356,45 @@ export class ReportService {
     }
   }
 
-  async listWeeklyReportsByProjects(userId: string) {
+  async listWeeklyReportsByProjects(
+    userId: string,
+    week: number,
+    department?: string,
+  ): Promise<DepartmentWeeklyEntry | null> {
+    console.log('Listing weekly reports for user:', userId, 'week:', week, 'department:', department);
     try {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) bad('User not found');
 
       const reports = await this.prisma.report.findMany({
+        where: { week: Number(week), user: { departments: { some: { id: department } } } },
         include: this.reportWithRelations.include,
         orderBy: { createdAt: 'desc' },
       });
 
       const accessibleReports = await this.filterReportsByRole(user, reports);
 
-      const weeklyData = this.groupByWeekAndDepartment(accessibleReports);
+      // Fetch the department with its project labels
+      const deptData = department
+        ? await this.prisma.department.findUnique({
+          where: { id: department },
+          include: { projectLabels: true },
+        })
+        : null;
+
+      const weeklyData = this.groupByWeekAndDepartmentForWeekAndDept(
+        accessibleReports,
+        Number(week),
+        department,
+        deptData,
+      );
 
       return weeklyData;
     } catch (error) {
       bad(error);
     }
+
+    return null;
   }
 
   async listWeeklyReports(userId: string) {
@@ -531,7 +553,7 @@ export class ReportService {
       number,
       Map<
         string,
-        { department: Department | null; projectMap: Map<string, ProjectGroup> }
+        { department: Department | null; reportMap: Map<string, ProjectReportGroup> }
       >
     >();
 
@@ -550,30 +572,30 @@ export class ReportService {
         if (!weekDepts.has(deptId)) {
           weekDepts.set(deptId, {
             department: dept,
-            projectMap: new Map(),
+            reportMap: new Map(),
           });
         }
         const deptEntry = weekDepts.get(deptId)!;
-        const projectMap = deptEntry.projectMap;
+        const reportMap = deptEntry.reportMap;
 
         for (const task of report.tasks) {
           if (!task.projectLabels || task.projectLabels.length === 0) {
-            if (!projectMap.has('UNASSIGNED')) {
-              projectMap.set('UNASSIGNED', {
+            if (!reportMap.has('UNASSIGNED')) {
+              reportMap.set('UNASSIGNED', {
                 project: { id: 'UNASSIGNED', title: 'Unassigned' },
-                tasks: [],
+                report: [],
               });
             }
-            projectMap.get('UNASSIGNED')!.tasks.push(task as any); // Task includes relations not in Task base
+            reportMap.get('UNASSIGNED')!.report.push(task as any);
           } else {
             for (const label of task.projectLabels) {
-              if (!projectMap.has(label.id)) {
-                projectMap.set(label.id, {
+              if (!reportMap.has(label.id)) {
+                reportMap.set(label.id, {
                   project: label,
-                  tasks: [],
+                  report: [],
                 });
               }
-              projectMap.get(label.id)!.tasks.push(task as any);
+              reportMap.get(label.id)!.report.push(task as any);
             }
           }
         }
@@ -584,13 +606,76 @@ export class ReportService {
       for (const [deptId, deptEntry] of weekDepts) {
         flatEntries.push({
           department: deptEntry.department,
-          projects: Array.from(deptEntry.projectMap.values()),
+          reports: Array.from(deptEntry.reportMap.values()),
           week: week,
         });
       }
     }
 
     return flatEntries;
+  }
+
+  private groupByWeekAndDepartmentForWeekAndDept(
+    reports: ReportWithRelations[],
+    week: number,
+    departmentId?: string,
+    deptWithProjects?: Prisma.DepartmentGetPayload<{
+      include: { projectLabels: true };
+    }>,
+  ): DepartmentWeeklyEntry | null {
+    if (!departmentId || !deptWithProjects) return null;
+
+    const reportMap = new Map<string, ProjectReportGroup>();
+
+    // Initialize project groups for each department's project label
+    for (const projectLabel of deptWithProjects.projectLabels) {
+      reportMap.set(projectLabel.id, {
+        project: projectLabel,
+        report: [],
+      });
+    }
+
+    // Add unassigned group
+    reportMap.set('UNASSIGNED', {
+      project: { id: 'UNASSIGNED', title: 'Unassigned' },
+      report: [],
+    });
+
+    // Iterate through reports and assign tasks to department project labels
+    for (const report of reports) {
+      if (report.week !== week) continue;
+
+      for (const task of report.tasks) {
+        let assigned = false;
+
+        // Check which department project labels this task belongs to
+        if (task.projectLabels && task.projectLabels.length > 0) {
+          for (const label of task.projectLabels) {
+            // Only include if this label exists in the department's project labels
+            if (reportMap.has(label.id)) {
+              reportMap.get(label.id)!.report.push(task as any);
+              assigned = true;
+            }
+          }
+        }
+
+        // If not assigned to any department project label, put in UNASSIGNED
+        if (!assigned) {
+          reportMap.get('UNASSIGNED')!.report.push(task as any);
+        }
+      }
+    }
+
+    // Filter out empty project groups
+    const finalReports = Array.from(reportMap.values()).filter(
+      (group) => group.report.length > 0,
+    );
+
+    return {
+      department: deptWithProjects,
+      reports: finalReports,
+      week,
+    };
   }
 
   async listDepartmentWeeklyReports(userId: string) {

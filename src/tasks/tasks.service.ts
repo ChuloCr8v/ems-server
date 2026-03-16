@@ -1078,9 +1078,8 @@ export class TasksService {
         },
         orderBy: { title: 'asc' },
         include: {
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
+          departments: true
         },
       });
 
@@ -1125,11 +1124,10 @@ export class TasksService {
           departments: {
             select: {
               id: true,
+              name: true
             },
           },
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
         },
       });
       return projectLabels;
