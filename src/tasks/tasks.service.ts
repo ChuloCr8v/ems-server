@@ -1,21 +1,35 @@
 // tasks.service.ts
 import {
+  BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  ForbiddenException,
-  BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ApprovalStatus,
   CategoryType,
   Prisma,
   Role,
-  Task,
-  TaskStatus,
-  User,
+  TaskStatus
 } from '@prisma/client';
+import { CreateCategoryDto } from 'src/category/category.dto';
+import {
+  TaskApprovedEvent,
+  TaskAssignedEvent,
+  TaskAssigneeChangeEvent,
+  TaskCreatedEvent,
+  TaskDueDateChangeEvent,
+  TaskPriorityChangeEvent,
+  TaskReassignedEvent,
+  TaskRejectedEvent,
+  TaskStatusChangeEvent,
+  TaskUpdatedEvent,
+} from 'src/events/tasks.event';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { IdGenerator } from 'src/utils/IdGenerator.util';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   ApprovalRequestDto,
   CreateTaskDto,
@@ -24,22 +38,6 @@ import {
   TaskResponseDto,
   UpdateTaskDto,
 } from './dto/tasks.dto';
-import { bad, mustHave } from 'src/utils/error.utils';
-import { CreateCategoryDto } from 'src/category/category.dto';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  TaskAssignedEvent,
-  TaskCreatedEvent,
-  TaskRejectedEvent,
-  TaskUpdatedEvent,
-  TaskReassignedEvent,
-  TaskStatusChangeEvent,
-  TaskApprovedEvent,
-  TaskAssigneeChangeEvent,
-  TaskPriorityChangeEvent,
-  TaskDueDateChangeEvent,
-} from 'src/events/tasks.event';
-import { IdGenerator } from 'src/utils/IdGenerator.util';
 
 @Injectable()
 export class TasksService {
@@ -1078,9 +1076,8 @@ export class TasksService {
         },
         orderBy: { title: 'asc' },
         include: {
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
+          departments: true
         },
       });
 
@@ -1125,11 +1122,10 @@ export class TasksService {
           departments: {
             select: {
               id: true,
+              name: true
             },
           },
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
         },
       });
       return projectLabels;
