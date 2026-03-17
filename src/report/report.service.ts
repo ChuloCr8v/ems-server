@@ -361,7 +361,7 @@ export class ReportService {
     week: number,
     department?: string,
   ): Promise<DepartmentWeeklyEntry | null> {
-    console.log('Listing weekly reports for user:', userId, 'week:', week, 'department:', department);
+    // console.log('Listing weekly reports for user:', userId, 'week:', week, 'department:', department);
     try {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) bad('User not found');
@@ -545,76 +545,6 @@ export class ReportService {
     return reports.filter((r) => r.userId === user.id);
   }
 
-  private groupByWeekAndDepartment(
-    reports: ReportWithRelations[],
-  ): DepartmentWeeklyEntry[] {
-    const flatEntries: DepartmentWeeklyEntry[] = [];
-    const groupingMap = new Map<
-      number,
-      Map<
-        string,
-        { department: Department | null; reportMap: Map<string, ProjectReportGroup> }
-      >
-    >();
-
-    for (const report of reports) {
-      const week = report.week;
-      if (!groupingMap.has(week)) {
-        groupingMap.set(week, new Map());
-      }
-      const weekDepts = groupingMap.get(week)!;
-
-      const userDepts: (Department | null)[] =
-        report.user.departments.length > 0 ? report.user.departments : [null];
-
-      for (const dept of userDepts) {
-        const deptId = dept ? dept.id : 'NO_DEPARTMENT';
-        if (!weekDepts.has(deptId)) {
-          weekDepts.set(deptId, {
-            department: dept,
-            reportMap: new Map(),
-          });
-        }
-        const deptEntry = weekDepts.get(deptId)!;
-        const reportMap = deptEntry.reportMap;
-
-        for (const task of report.tasks) {
-          if (!task.projectLabels || task.projectLabels.length === 0) {
-            if (!reportMap.has('UNASSIGNED')) {
-              reportMap.set('UNASSIGNED', {
-                project: { id: 'UNASSIGNED', title: 'Unassigned' },
-                report: [],
-              });
-            }
-            reportMap.get('UNASSIGNED')!.report.push(task as any);
-          } else {
-            for (const label of task.projectLabels) {
-              if (!reportMap.has(label.id)) {
-                reportMap.set(label.id, {
-                  project: label,
-                  report: [],
-                });
-              }
-              reportMap.get(label.id)!.report.push(task as any);
-            }
-          }
-        }
-      }
-    }
-
-    for (const [week, weekDepts] of groupingMap) {
-      for (const [deptId, deptEntry] of weekDepts) {
-        flatEntries.push({
-          department: deptEntry.department,
-          reports: Array.from(deptEntry.reportMap.values()),
-          week: week,
-        });
-      }
-    }
-
-    return flatEntries;
-  }
-
   private groupByWeekAndDepartmentForWeekAndDept(
     reports: ReportWithRelations[],
     week: number,
@@ -653,7 +583,7 @@ export class ReportService {
           for (const label of task.projectLabels) {
             // Only include if this label exists in the department's project labels
             if (reportMap.has(label.id)) {
-              reportMap.get(label.id)!.report.push(task as any);
+              reportMap.get(label.id)!.report.push(task);
               assigned = true;
             }
           }
@@ -661,7 +591,7 @@ export class ReportService {
 
         // If not assigned to any department project label, put in UNASSIGNED
         if (!assigned) {
-          reportMap.get('UNASSIGNED')!.report.push(task as any);
+          reportMap.get('UNASSIGNED')!.report.push(task);
         }
       }
     }
@@ -684,7 +614,7 @@ export class ReportService {
         where: {
           id: userId,
           userRole: {
-            hasSome: ['DEPT_MANAGER', 'SUPERADMIN', 'ADMIN'],
+            hasSome: ['DEPT_MANAGER', 'SUPERADMIN', 'ADMIN', "ASST_DEPT_MANAGER"],
           },
         },
       });
