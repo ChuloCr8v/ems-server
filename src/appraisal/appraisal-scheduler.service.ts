@@ -8,17 +8,19 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DEFAULT_FEEDBACK_QUESTIONS } from 'src/constants/kpi-components';
-import { KpiCategoryStatus } from '@prisma/client';
+import { KpiCategoryStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class AppraisalSchedulerService {
   private readonly logger = new Logger(AppraisalSchedulerService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
-  @Cron(CronExpression.EVERY_QUARTER)
+  // @Cron(CronExpression.EVERY_QUARTER)
   async generateQuaterlyAppraisals() {
     this.logger.log('Starting quarterly appraisal generation...');
+
+    const exemptedUsers = [Role.DEPT_MANAGER, Role.ADMIN, Role.SUPERADMIN];
 
     const currentDate = new Date();
     const quarter = this.getCurrentQuarter(currentDate);
@@ -26,85 +28,70 @@ export class AppraisalSchedulerService {
     const period = `Quarter ${quarter} ${year}`;
     // Initialize summary counters
     const summary = {
-      departmentsChecked: 0,
+      employeesChecked: 0,
       skippedNoManager: 0,
-      skippedNoKPI: 0,
+      skippedNoCompetency: 0,
       alreadyExisting: 0,
       newTemplates: 0,
     };
 
     try {
       // Fetch all active departments with their active managers
-      const departments = await this.prisma.department.findMany({
-        where: { status: 'ACTIVE' },
-        include: {
-          approver: {
-            where: {
-              role: 'DEPT_MANAGER',
-              user: { status: 'ACTIVE' },
-            },
-            include: { user: true },
-          },
-        },
+      const employees = await this.prisma.user.findMany({
+        where: { status: 'ACTIVE', NOT: { userRole: { hasSome: exemptedUsers } } },
+        include: { departments: true },
       });
 
       const appraisalsToCreate = [];
 
-      for (const department of departments) {
-        summary.departmentsChecked++;
+      for (const employee of employees) {
+        summary.employeesChecked++;
+        if (!employee.departments || employee.departments.length === 0) {
+          summary.skippedNoManager++;
+          continue;
+        }
 
-        // Ensure department has an active manager
-        if (!department.approver || department.approver.length === 0) {
-          this.logger.warn(
-            `No active department manager found for department ${department.name}. Skipping.`,
+        const manager = await this.prisma.user.findFirst({
+          where: {
+            departments: { some: { id: employee.departments[0].id } }, userRole: { hasSome: [Role.DEPT_MANAGER] }, status: 'ACTIVE'
+          },
+        })
+
+        if (!manager) {
+          this.logger.log(
+            `No department manager found for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
           );
           summary.skippedNoManager++;
           continue;
         }
 
-        const manager = department.approver[0];
-
-        // Check if appraisal template already exists for this quarter/year
+        // Check if appraisal already exists for this quarter/year
         const existing = await this.prisma.appraisal.findFirst({
           where: {
             quarter: `${quarter}`,
             year,
-            departmentId: department.id,
-            appraisedId: null,
-            isTemplate: true,
+            appraisedId: employee.id,
           },
         });
 
         if (existing) {
           this.logger.log(
-            `Appraisal template already exists for department ${department.name} (${period}). Skipping.`,
+            `Appraisal template already exists for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
           );
           summary.alreadyExisting++;
           continue;
         }
 
-        // Get approved KPI categories (global + department)
-        const globalCategories = await this.prisma.kpiCategory.findMany({
-          where: { isGlobal: true, status: KpiCategoryStatus.APPROVED },
+        // Get approved competency categories (org-wide only)
+        const competencyCategories = await this.prisma.competencyCategory.findMany({
           include: { objectives: true },
         });
 
-        const departmentCategories = await this.prisma.kpiCategory.findMany({
-          where: {
-            departmentId: department.id,
-            isGlobal: false,
-            status: KpiCategoryStatus.APPROVED,
-          },
-          include: { objectives: true },
-        });
-
-        const allCategories = [...globalCategories, ...departmentCategories];
-
-        if (allCategories.length === 0) {
+        if (competencyCategories.length === 0) {
           this.logger.warn(
-            `No KPI categories found for department ${department.name}. Skipping.`,
+            `No Competency categories. Skipping.`,
           );
-          summary.skippedNoKPI++;
+          summary.skippedNoCompetency++;
           continue;
         }
 
@@ -113,11 +100,11 @@ export class AppraisalSchedulerService {
           quarter: `${quarter}`,
           year,
           period,
-          appraiserId: manager.userId,
-          appraisedId: null,
+          appraiserId: manager.id,
+          appraisedId: employee.id,
           status: 'GENERATED',
           autoGenerated: true,
-          departmentId: department.id,
+          departmentId: employee.departments[0].id,
           isTemplate: true,
         });
       }
@@ -176,8 +163,8 @@ export class AppraisalSchedulerService {
   private async initializeAppraisalData(appraisals: any[]) {
     for (const appraisal of appraisals) {
       try {
-        // Get global KPIs for this appraisal
-        const globalCategories = await this.prisma.kpiCategory.findMany({
+        // Get global competency categories for this appraisal
+        const globalCategories = await this.prisma.competencyCategory.findMany({
           where: {
             isGlobal: true,
             status: KpiCategoryStatus.APPROVED,
@@ -185,61 +172,34 @@ export class AppraisalSchedulerService {
           include: { objectives: true },
         });
 
-        // Get department-specific KPIs for this appraisal's department
-        const departmentCategories = await this.prisma.kpiCategory.findMany({
-          where: {
-            departmentId: appraisal.departmentId,
-            isGlobal: false,
-            status: KpiCategoryStatus.APPROVED,
-          },
-          include: { objectives: true },
-        });
-
-        // Combine all categories
-        const allCategories = [...globalCategories, ...departmentCategories];
+        const allCategories = [...globalCategories];
 
         if (allCategories.length === 0) {
           this.logger.warn(
-            `No KPI categories found for appraisal template ${appraisal.id}. Skipping KPI initialization.`,
+            `No competency categories found for appraisal template ${appraisal.id}. Skipping competency initialization.`,
           );
           continue;
         }
 
-        // Create KPI structure with existing categories
-        await this.prisma.kpi.create({
+        // Create placeholder competency object (appraisal has at most one competency)
+        await this.prisma.competency.create({
           data: {
             appraisalId: appraisal.id,
-            categories: {
-              connect: allCategories.map((category) => ({ id: category.id })),
-            },
+            objective: 'TBD',
+            actualResult: 'TBD',
+            rating: 0,
           },
         });
-        // Create empty goals and achievements structure
-        await this.prisma.goalsAndAchievement.create({
+        // Create a placeholder goals entry (Goals model in schema)
+        await this.prisma.goals.create({
           data: {
             appraisalId: appraisal.id,
-            achievements: [],
-            goals: [],
-          },
-        });
-
-        // Create empty feedback structure
-        await this.prisma.feedback.create({
-          data: {
-            appraisalId: appraisal.id,
-            questions: {
-              create: DEFAULT_FEEDBACK_QUESTIONS.map((question) => ({
-                question:
-                  typeof question === 'string' ? question : question.question,
-                response: null,
-                order: question.order,
-              })),
-            },
+            title: 'Auto-generated goals placeholder',
           },
         });
 
         this.logger.log(
-          `Initialized KPI, Goals & Achievement, and Feedback data for appraisal template ID: ${appraisal.id}`,
+          `Initialized Competency and Goals data for appraisal template ID: ${appraisal.id}`,
         );
       } catch (error) {
         this.logger.error(

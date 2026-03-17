@@ -12,7 +12,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-export class CreateKpiObjectiveDto {
+export class CreateCompetencyObjectiveDto {
   @IsString()
   name: string;
 
@@ -31,7 +31,7 @@ export class CreateKpiObjectiveDto {
   categoryId?: string;
 }
 
-export class CreateKpiCategoryDto {
+export class CreateCompetencyCategoryDto {
   @IsString()
   name: string;
 
@@ -49,13 +49,13 @@ export class CreateKpiCategoryDto {
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateKpiObjectiveDto)
-  objectives: CreateKpiObjectiveDto[];
+  @Type(() => CreateCompetencyObjectiveDto)
+  objectives: CreateCompetencyObjectiveDto[];
 }
 
-export class CreateKpiDto {
+export class CreateCompetencyDto {
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => CreateKpiCategoryDto)
-  categories: CreateKpiCategoryDto[];
+  @Type(() => CreateCompetencyCategoryDto)
+  categories: CreateCompetencyCategoryDto[];
 }

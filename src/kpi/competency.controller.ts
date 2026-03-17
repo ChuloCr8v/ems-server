@@ -9,8 +9,8 @@ import {
   Req,
   Delete,
 } from '@nestjs/common';
-import { KpiService } from './kpi.service';
-import { CreateKpiDto } from './dto/kpi.dto';
+import { CompetencyService } from './competency.service';
+import { CreateCompetencyDto } from './dto/competency.dto';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { Role } from '@prisma/client';
@@ -18,19 +18,19 @@ import { Role } from '@prisma/client';
 import type { Request } from 'express';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
-@Controller('kpi')
-export class KpiController {
-  constructor(private readonly kpi: KpiService) {}
+@Controller(['kpi', 'competency'])
+export class CompetencyController {
+  constructor(private readonly competency: CompetencyService) { }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
   @Post('categories')
   async createCategory(
     @AuthUser() user: IAuthUser,
-    @Body() data: CreateKpiDto,
+    @Body() data: CreateCompetencyDto,
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const category = await this.kpi.createCategory(userId, data);
+    const category = await this.competency.createCategory(userId, data);
     return res
       .status(200)
       .json({ message: `A New Category Has Been Created`, category });
@@ -38,30 +38,30 @@ export class KpiController {
 
   @Get('categories')
   async getCategories() {
-    return await this.kpi.getCategories();
+    return await this.competency.getCategories();
   }
 
   @Get('categories/global')
   async getGlobalCategories() {
-    return await this.kpi.getGlobalCategories();
+    return await this.competency.getGlobalCategories();
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
   @Patch('categories/:categoryId')
   async updateCategory(
     @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Body() data: CreateKpiDto,
+    @Body() data: CreateCompetencyDto,
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const category = await this.kpi.updateCategory(userId, categoryId, data);
+    const category = await this.competency.updateCategory(userId, categoryId, data);
     return res
       .status(200)
       .json({ message: 'Category Updated Successfully', category });
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
   @Delete('categories/:categoryId')
   async removeCategory(
     @AuthUser() user: IAuthUser,
@@ -69,7 +69,7 @@ export class KpiController {
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    await this.kpi.removeCategory(userId, categoryId);
+    await this.competency.removeCategory(userId, categoryId);
     return res.status(200).json({ message: 'Category Deleted Successfully' });
   }
 
@@ -81,7 +81,7 @@ export class KpiController {
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const category = await this.kpi.approveCategory(userId, categoryId);
+    const category = await this.competency.approveCategory(userId, categoryId);
     return res
       .status(200)
       .json({ message: 'Category Has Been Approved', category });
@@ -95,7 +95,7 @@ export class KpiController {
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const category = await this.kpi.denyCategory(userId, categoryId);
+    const category = await this.competency.denyCategory(userId, categoryId);
     return res
       .status(200)
       .json({ message: 'Category Has Been Denied', category });

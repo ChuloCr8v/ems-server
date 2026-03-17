@@ -16,20 +16,18 @@ export const UserSelect = {
 
 export type AuthUsers = Prisma.UserGetPayload<typeof UserSelect>;
 
-export const KpiSelect = {
+export const CompetencySelect = {
   select: {
     id: true,
     appraisal: true,
     appraisalId: true,
-    categories: {
-      select: {
-        name: true,
-        objectives: true,
-      },
-    },
+    objective: true,
+    actualResult: true,
+    rating: true,
+    managerComment: true,
     createdAt: true,
     updatedAt: true,
   },
-} satisfies Prisma.KpiDefaultArgs;
+} satisfies Prisma.CompetencyDefaultArgs;
 
-export type KpiSelectPayload = Prisma.KpiGetPayload<typeof KpiSelect>;
+export type CompetencySelectPayload = Prisma.CompetencyGetPayload<typeof CompetencySelect>;
