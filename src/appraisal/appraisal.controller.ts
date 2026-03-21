@@ -12,7 +12,6 @@ import { AppraisalStatus, Role } from '@prisma/client';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { AppraisalSchedulerService } from './appraisal-scheduler.service';
 import { AppraisalService } from './appraisal.service';
 import { FillAppraisalDto, GetAppraisalsDto } from './dto/apppraisal.dto';
 
@@ -21,26 +20,48 @@ import { FillAppraisalDto, GetAppraisalsDto } from './dto/apppraisal.dto';
 export class AppraisalController {
   constructor(
     private readonly appraisal: AppraisalService,
-    private readonly appraisalScheduler: AppraisalSchedulerService,
   ) { }
-  @Auth([Role.DEPT_MANAGER, Role.USER])
-  @Patch(':appraisalId/submit')
-  async fillAppraisal(
-    @AuthUser() user: IAuthUser,
-    @Param('appraisalId') appraisalId: string,
-    @Body() data: FillAppraisalDto,
-    @Res() res: Response,
-  ) {
-    const userId = user.sub;
-    const appraisal = await this.appraisal.submitAppraisal(
-      userId,
-      appraisalId,
-      data,
-    );
-    return res
-      .status(200)
-      .json({ message: `Aprraisal Has Been Submitted`, appraisal });
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
+  @Post('generate')
+  async generateAppraisals() {
+    await this.appraisal.generateQuaterlyAppraisals();
+    return { message: 'Quarterly appraisals generation initiated.' };
   }
+
+
+  @Auth()
+  @Get()
+  async listAppraisals(@AuthUser() user: IAuthUser) {
+    return this.appraisal.listAppraisals(user.sub);
+  }
+
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
+  @Patch(':appraisalId/complete')
+  async completeAppraisal(
+    @Param('appraisalId') appraisalId: string,
+    @AuthUser() user: IAuthUser,
+  ) {
+    return this.appraisal.closeAppraisal(appraisalId, user.sub);
+  }
+
+  // @Auth([Role.DEPT_MANAGER, Role.USER])
+  // @Patch(':appraisalId/submit')
+  // async fillAppraisal(
+  //   @AuthUser() user: IAuthUser,
+  //   @Param('appraisalId') appraisalId: string,
+  //   @Body() data: FillAppraisalDto,
+  //   @Res() res: Response,
+  // ) {
+  //   const userId = user.sub;
+  //   const appraisal = await this.appraisal.submitAppraisal(
+  //     userId,
+  //     appraisalId,
+  //     data,
+  //   );
+  //   return res
+  //     .status(200)
+  //     .json({ message: `Aprraisal Has Been Submitted`, appraisal });
+  // }
 
   @Auth([Role.DEPT_MANAGER, Role.USER])
   @Patch(':appraisalId/draft')
@@ -51,63 +72,57 @@ export class AppraisalController {
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const appraisal = await this.appraisal.submitAppraisal(
+    const appraisal = await this.appraisal.saveAppraisalDraft(
       userId,
       appraisalId,
       data,
-      true,
     );
     return res
       .status(200)
       .json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
   }
 
-  @Auth([Role.DEPT_MANAGER, Role.USER])
-  @Patch(':appraisalId/edit')
-  async editAppraisal(
-    @AuthUser() user: IAuthUser,
-    @Param('appraisalId') appraisalId: string,
-    @Body() data: FillAppraisalDto,
-    @Res() res: Response,
-  ) {
-    const userId = user.sub;
-    const appraisal = await this.appraisal.editAppraisal(
-      userId,
-      appraisalId,
-      data,
-    );
-    return res
-      .status(200)
-      .json({ message: `Aprraisal Has Been Updated`, appraisal });
-  }
+  // @Auth([Role.DEPT_MANAGER, Role.USER])
+  // @Patch(':appraisalId/edit')
+  // async editAppraisal(
+  //   @AuthUser() user: IAuthUser,
+  //   @Param('appraisalId') appraisalId: string,
+  //   @Body() data: FillAppraisalDto,
+  //   @Res() res: Response,
+  // ) {
+  //   const userId = user.sub;
+  //   const appraisal = await this.appraisal.editAppraisal(
+  //     userId,
+  //     appraisalId,
+  //     data,
+  //   );
+  //   return res
+  //     .status(200)
+  //     .json({ message: `Aprraisal Has Been Updated`, appraisal });
+  // }
 
-  @Auth([Role.DEPT_MANAGER])
-  @Post(':appraisalId/send')
-  async sendAppraisalToTeam(
-    @AuthUser() user: IAuthUser,
-    @Param('appraisalId') appraisalId: string,
-    @Body() data: GetAppraisalsDto,
-  ) {
-    return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
-  }
+  // @Auth([Role.DEPT_MANAGER])
+  // @Post(':appraisalId/send')
+  // async sendAppraisalToTeam(
+  //   @AuthUser() user: IAuthUser,
+  //   @Param('appraisalId') appraisalId: string,
+  //   @Body() data: GetAppraisalsDto,
+  // ) {
+  //   return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
+  // }
 
-  @Auth()
-  @Get()
-  async listAppraisals(@AuthUser() user: IAuthUser) {
-    return this.appraisal.listAppraisals(user.sub);
-  }
 
-  @Auth()
-  @Get('templates')
-  async listAppraisalTemplates(@AuthUser() user: IAuthUser) {
-    return this.appraisal.listAppraisalTemplates(user.sub);
-  }
+  // @Auth()
+  // @Get('templates')
+  // async listAppraisalTemplates(@AuthUser() user: IAuthUser) {
+  //   return this.appraisal.listAppraisalTemplates(user.sub);
+  // }
 
-  // @Auth
-  @Get(':id')
-  async getOneAppraisal(@Param('id') id: string) {
-    return this.appraisal.getOneAppraisal(id);
-  }
+  // // @Auth
+  // @Get(':id')
+  // async getOneAppraisal(@Param('id') id: string) {
+  //   return this.appraisal.getOneAppraisal(id);
+  // }
 
   // @Auth()
   // @Get()
@@ -126,15 +141,15 @@ export class AppraisalController {
   //   });
   // }
 
-  @Get(':appraisalId/feedback-questions')
-  async getAppraisalFeedbackQuestions(
-    @Param('appraisalId') appraisalId: string,
-  ) {
-    return this.appraisal.findAppraisalFeedbackQuestion(appraisalId);
-  }
+  // @Get(':appraisalId/feedback-questions')
+  // async getAppraisalFeedbackQuestions(
+  //   @Param('appraisalId') appraisalId: string,
+  // ) {
+  //   return this.appraisal.findAppraisalFeedbackQuestion(appraisalId);
+  // }
 
-  @Get(':appraisalId/rating-summary')
-  async getAppraisalRatingSummary(@Param('appraisalId') appraisalId: string) {
-    return this.appraisal.getAppraisalRatingSummary(appraisalId);
-  }
+  // @Get(':appraisalId/rating-summary')
+  // async getAppraisalRatingSummary(@Param('appraisalId') appraisalId: string) {
+  //   return this.appraisal.getAppraisalRatingSummary(appraisalId);
+  // }
 }
