@@ -73,31 +73,31 @@ export class CompetencyController {
     return res.status(200).json({ message: 'Category Deleted Successfully' });
   }
 
-  @Auth([Role.ADMIN])
-  @Patch('categories/:categoryId/approve')
-  async approveCategory(
-    @AuthUser() user: IAuthUser,
-    @Param('categoryId') categoryId: string,
-    @Res() res: Response,
-  ) {
-    const userId = user.sub;
-    const category = await this.competency.approveCategory(userId, categoryId);
-    return res
-      .status(200)
-      .json({ message: 'Category Has Been Approved', category });
-  }
+  // @Auth([Role.ADMIN])
+  // @Patch('categories/:categoryId/approve')
+  // async approveCategory(
+  //   @AuthUser() user: IAuthUser,
+  //   @Param('categoryId') categoryId: string,
+  //   @Res() res: Response,
+  // ) {
+  //   const userId = user.sub;
+  //   const category = await this.competency.approveCategory(userId, categoryId);
+  //   return res
+  //     .status(200)
+  //     .json({ message: 'Category Has Been Approved', category });
+  // }
 
-  @Auth([Role.ADMIN])
-  @Patch('categories/:categoryId/reject')
-  async denyCategory(
-    @AuthUser() user: IAuthUser,
-    @Param('categoryId') categoryId: string,
-    @Res() res: Response,
-  ) {
-    const userId = user.sub;
-    const category = await this.competency.denyCategory(userId, categoryId);
-    return res
-      .status(200)
-      .json({ message: 'Category Has Been Denied', category });
-  }
+  // @Auth([Role.ADMIN])
+  // @Patch('categories/:categoryId/reject')
+  // async denyCategory(
+  //   @AuthUser() user: IAuthUser,
+  //   @Param('categoryId') categoryId: string,
+  //   @Res() res: Response,
+  // ) {
+  //   const userId = user.sub;
+  //   const category = await this.competency.denyCategory(userId, categoryId);
+  //   return res
+  //     .status(200)
+  //     .json({ message: 'Category Has Been Denied', category });
+  // }
 }

@@ -1,213 +1,213 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { DEFAULT_FEEDBACK_QUESTIONS } from 'src/constants/kpi-components';
-import { KpiCategoryStatus, Role } from '@prisma/client';
+// import {
+//   BadRequestException,
+//   ConflictException,
+//   Injectable,
+//   Logger,
+//   NotFoundException,
+// } from '@nestjs/common';
+// import { Cron, CronExpression } from '@nestjs/schedule';
+// import { PrismaService } from 'src/prisma/prisma.service';
+// import { DEFAULT_FEEDBACK_QUESTIONS } from 'src/constants/kpi-components';
+// import { KpiCategoryStatus, Role } from '@prisma/client';
 
-@Injectable()
-export class AppraisalSchedulerService {
-  private readonly logger = new Logger(AppraisalSchedulerService.name);
+// @Injectable()
+// export class AppraisalSchedulerService {
+//   private readonly logger = new Logger(AppraisalSchedulerService.name);
 
-  constructor(private readonly prisma: PrismaService) { }
+//   constructor(private readonly prisma: PrismaService) { }
 
-  // @Cron(CronExpression.EVERY_QUARTER)
-  async generateQuaterlyAppraisals() {
-    this.logger.log('Starting quarterly appraisal generation...');
+//   // @Cron(CronExpression.EVERY_QUARTER)
+//   async generateQuaterlyAppraisals() {
+//     this.logger.log('Starting quarterly appraisal generation...');
 
-    const exemptedUsers = [Role.DEPT_MANAGER, Role.ADMIN, Role.SUPERADMIN];
+//     const exemptedUsers = [Role.DEPT_MANAGER, Role.ADMIN, Role.SUPERADMIN];
 
-    const currentDate = new Date();
-    const quarter = this.getCurrentQuarter(currentDate);
-    const year = currentDate.getFullYear();
-    const period = `Quarter ${quarter} ${year}`;
-    // Initialize summary counters
-    const summary = {
-      employeesChecked: 0,
-      skippedNoManager: 0,
-      skippedNoCompetency: 0,
-      alreadyExisting: 0,
-      newTemplates: 0,
-    };
+//     const currentDate = new Date();
+//     const quarter = this.getCurrentQuarter(currentDate);
+//     const year = currentDate.getFullYear();
+//     const period = `Quarter ${quarter} ${year}`;
+//     // Initialize summary counters
+//     const summary = {
+//       employeesChecked: 0,
+//       skippedNoManager: 0,
+//       skippedNoCompetency: 0,
+//       alreadyExisting: 0,
+//       newTemplates: 0,
+//     };
 
-    try {
-      // Fetch all active departments with their active managers
-      const employees = await this.prisma.user.findMany({
-        where: { status: 'ACTIVE', NOT: { userRole: { hasSome: exemptedUsers } } },
-        include: { departments: true },
-      });
+//     try {
+//       // Fetch all active departments with their active managers
+//       const employees = await this.prisma.user.findMany({
+//         where: { status: 'ACTIVE', NOT: { userRole: { hasSome: exemptedUsers } } },
+//         include: { departments: true },
+//       });
 
-      const appraisalsToCreate = [];
+//       const appraisalsToCreate = [];
 
-      for (const employee of employees) {
-        summary.employeesChecked++;
-        if (!employee.departments || employee.departments.length === 0) {
-          summary.skippedNoManager++;
-          continue;
-        }
+//       for (const employee of employees) {
+//         summary.employeesChecked++;
+//         if (!employee.departments || employee.departments.length === 0) {
+//           summary.skippedNoManager++;
+//           continue;
+//         }
 
-        const manager = await this.prisma.user.findFirst({
-          where: {
-            departments: { some: { id: employee.departments[0].id } }, userRole: { hasSome: [Role.DEPT_MANAGER] }, status: 'ACTIVE'
-          },
-        })
+//         const manager = await this.prisma.user.findFirst({
+//           where: {
+//             departments: { some: { id: employee.departments[0].id } }, userRole: { hasSome: [Role.DEPT_MANAGER] }, status: 'ACTIVE'
+//           },
+//         })
 
-        if (!manager) {
-          this.logger.log(
-            `No department manager found for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
-          );
-          summary.skippedNoManager++;
-          continue;
-        }
+//         if (!manager) {
+//           this.logger.log(
+//             `No department manager found for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
+//           );
+//           summary.skippedNoManager++;
+//           continue;
+//         }
 
-        // Check if appraisal already exists for this quarter/year
-        const existing = await this.prisma.appraisal.findFirst({
-          where: {
-            quarter: `${quarter}`,
-            year,
-            appraisedId: employee.id,
-          },
-        });
+//         // Check if appraisal already exists for this quarter/year
+//         const existing = await this.prisma.appraisal.findFirst({
+//           where: {
+//             quarter: `${quarter}`,
+//             year,
+//             appraisedId: employee.id,
+//           },
+//         });
 
-        if (existing) {
-          this.logger.log(
-            `Appraisal template already exists for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
-          );
-          summary.alreadyExisting++;
-          continue;
-        }
+//         if (existing) {
+//           this.logger.log(
+//             `Appraisal template already exists for ${employee.firstName} ${employee.lastName} (${period}). Skipping.`,
+//           );
+//           summary.alreadyExisting++;
+//           continue;
+//         }
 
-        // Get approved competency categories (org-wide only)
-        const competencyCategories = await this.prisma.competencyCategory.findMany({
-          include: { objectives: true },
-        });
+//         // Get approved competency categories (org-wide only)
+//         const competencyCategories = await this.prisma.competencyCategory.findMany({
+//           include: { objectives: true },
+//         });
 
-        if (competencyCategories.length === 0) {
-          this.logger.warn(
-            `No Competency categories. Skipping.`,
-          );
-          summary.skippedNoCompetency++;
-          continue;
-        }
+//         if (competencyCategories.length === 0) {
+//           this.logger.warn(
+//             `No Competency categories. Skipping.`,
+//           );
+//           summary.skippedNoCompetency++;
+//           continue;
+//         }
 
-        // Add to create list
-        appraisalsToCreate.push({
-          quarter: `${quarter}`,
-          year,
-          period,
-          appraiserId: manager.id,
-          appraisedId: employee.id,
-          status: 'GENERATED',
-          autoGenerated: true,
-          departmentId: employee.departments[0].id,
-          isTemplate: true,
-        });
-      }
+//         // Add to create list
+//         appraisalsToCreate.push({
+//           quarter: `${quarter}`,
+//           year,
+//           period,
+//           appraiserId: manager.id,
+//           appraisedId: employee.id,
+//           status: 'GENERATED',
+//           autoGenerated: true,
+//           departmentId: employee.departments[0].id,
+//           isTemplate: true,
+//         });
+//       }
 
-      // Create appraisal templates in a transaction
-      if (appraisalsToCreate.length > 0) {
-        const created = await this.prisma.$transaction(
-          appraisalsToCreate.map((data) =>
-            this.prisma.appraisal.create({ data }),
-          ),
-        );
+//       // Create appraisal templates in a transaction
+//       if (appraisalsToCreate.length > 0) {
+//         const created = await this.prisma.$transaction(
+//           appraisalsToCreate.map((data) =>
+//             this.prisma.appraisal.create({ data }),
+//           ),
+//         );
 
-        summary.newTemplates = created.length;
+//         summary.newTemplates = created.length;
 
-        this.logger.log(
-          `✅ Successfully created ${created.length} appraisal templates for ${period}.`,
-        );
+//         this.logger.log(
+//           `✅ Successfully created ${created.length} appraisal templates for ${period}.`,
+//         );
 
-        // Initialize KPI, goals, and feedback for each template
-        await this.initializeAppraisalData(created);
-      } else {
-        this.logger.log(
-          `ℹ️ No new appraisal templates to create for ${period}.`,
-        );
-      }
+//         // Initialize KPI, goals, and feedback for each template
+//         await this.initializeAppraisalData(created);
+//       } else {
+//         this.logger.log(
+//           `ℹ️ No new appraisal templates to create for ${period}.`,
+//         );
+//       }
 
-      // Final return
-      return {
-        success: true,
-        message:
-          summary.newTemplates > 0
-            ? `Created ${summary.newTemplates} appraisal templates for ${period}`
-            : `No new appraisal templates created for ${period}`,
-        period,
-        summary,
-      };
-    } catch (error) {
-      this.logger.error(
-        '❌ Failed to generate quarterly appraisal templates:',
-        error,
-      );
-      throw new BadRequestException(
-        'Failed to generate quarterly appraisal templates: ' + error.message,
-      );
-    }
-  }
+//       // Final return
+//       return {
+//         success: true,
+//         message:
+//           summary.newTemplates > 0
+//             ? `Created ${summary.newTemplates} appraisal templates for ${period}`
+//             : `No new appraisal templates created for ${period}`,
+//         period,
+//         summary,
+//       };
+//     } catch (error) {
+//       this.logger.error(
+//         '❌ Failed to generate quarterly appraisal templates:',
+//         error,
+//       );
+//       throw new BadRequestException(
+//         'Failed to generate quarterly appraisal templates: ' + error.message,
+//       );
+//     }
+//   }
 
-  /////////////////////////////////// HELPER METHODS ///////////////////////////////////
+//   /////////////////////////////////// HELPER METHODS ///////////////////////////////////
 
-  private getCurrentQuarter(date: Date): number {
-    // getMonth returns 0-11 so add 1
-    const month = date.getMonth() + 1;
-    return Math.ceil(month / 3);
-  }
+//   private getCurrentQuarter(date: Date): number {
+//     // getMonth returns 0-11 so add 1
+//     const month = date.getMonth() + 1;
+//     return Math.ceil(month / 3);
+//   }
 
-  private async initializeAppraisalData(appraisals: any[]) {
-    for (const appraisal of appraisals) {
-      try {
-        // Get global competency categories for this appraisal
-        const globalCategories = await this.prisma.competencyCategory.findMany({
-          where: {
-            isGlobal: true,
-            status: KpiCategoryStatus.APPROVED,
-          },
-          include: { objectives: true },
-        });
+//   private async initializeAppraisalData(appraisals: any[]) {
+//     for (const appraisal of appraisals) {
+//       try {
+//         // Get global competency categories for this appraisal
+//         const globalCategories = await this.prisma.competencyCategory.findMany({
+//           where: {
+//             isGlobal: true,
+//             status: KpiCategoryStatus.APPROVED,
+//           },
+//           include: { objectives: true },
+//         });
 
-        const allCategories = [...globalCategories];
+//         const allCategories = [...globalCategories];
 
-        if (allCategories.length === 0) {
-          this.logger.warn(
-            `No competency categories found for appraisal template ${appraisal.id}. Skipping competency initialization.`,
-          );
-          continue;
-        }
+//         if (allCategories.length === 0) {
+//           this.logger.warn(
+//             `No competency categories found for appraisal template ${appraisal.id}. Skipping competency initialization.`,
+//           );
+//           continue;
+//         }
 
-        // Create placeholder competency object (appraisal has at most one competency)
-        await this.prisma.competency.create({
-          data: {
-            appraisalId: appraisal.id,
-            objective: 'TBD',
-            actualResult: 'TBD',
-            rating: 0,
-          },
-        });
-        // Create a placeholder goals entry (Goals model in schema)
-        await this.prisma.goals.create({
-          data: {
-            appraisalId: appraisal.id,
-            title: 'Auto-generated goals placeholder',
-          },
-        });
+//         // Create placeholder competency object (appraisal has at most one competency)
+//         await this.prisma.competency.create({
+//           data: {
+//             appraisalId: appraisal.id,
+//             objective: 'TBD',
+//             actualResult: 'TBD',
+//             rating: 0,
+//           },
+//         });
+//         // Create a placeholder goals entry (Goals model in schema)
+//         await this.prisma.goals.create({
+//           data: {
+//             appraisalId: appraisal.id,
+//             title: 'Auto-generated goals placeholder',
+//           },
+//         });
 
-        this.logger.log(
-          `Initialized Competency and Goals data for appraisal template ID: ${appraisal.id}`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to initialize data for appraisal template ${appraisal.id}:`,
-          error,
-        );
-        continue;
-      }
-    }
-  }
-}
+//         this.logger.log(
+//           `Initialized Competency and Goals data for appraisal template ID: ${appraisal.id}`,
+//         );
+//       } catch (error) {
+//         this.logger.error(
+//           `Failed to initialize data for appraisal template ${appraisal.id}:`,
+//           error,
+//         );
+//         continue;
+//       }
+//     }
+//   }
+// }

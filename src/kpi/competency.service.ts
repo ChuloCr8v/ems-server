@@ -1,18 +1,16 @@
 import {
-  Injectable,
   BadRequestException,
-  NotFoundException,
   ConflictException,
+  Injectable,
+  NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import { KpiCategoryStatus, KpiCategoryType, Role } from '@prisma/client';
-import {
-  CreateCompetencyCategoryDto,
-  CreateCompetencyDto,
-  CreateCompetencyObjectiveDto,
-} from './dto/competency.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { bad } from 'src/utils/error.utils';
+import {
+  CreateCompetencyDto
+} from './dto/competency.dto';
 
 @Injectable()
 export class CompetencyService {
@@ -25,112 +23,66 @@ export class CompetencyService {
   async createCategory(userId: string, data: CreateCompetencyDto) {
     const user = await this.findUserById(userId);
     const { categories } = data;
-    // Only ADMIN/SUPERADMIN/HR can create global competency categories
-    if (this.userHasRole(user, Role.ADMIN) || this.userHasRole(user, Role.SUPERADMIN) || this.userHasRole(user, Role.HR)) {
-      try {
-        const createdOrExisting = await Promise.all(
-          categories.map(async (cat) => {
-            // Check if competency category already exists by name and type
-            const existing = await this.prisma.competencyCategory.findFirst({
-              where: {
-                name: cat.name,
-                type: cat.type,
-                isGlobal: true,
-              },
-              include: { objectives: true },
-            });
 
-            // If ORGANIZATIONAL and exists, reuse it
-            if (existing && cat.type === KpiCategoryType.ORGANIZATIONAL) {
-              return existing;
-            }
+    const isAuthorized =
+      this.userHasRole(user, Role.ADMIN) ||
+      this.userHasRole(user, Role.SUPERADMIN) ||
+      this.userHasRole(user, Role.HR);
 
-            // Otherwise, create new organizational competency category
-            return await this.prisma.competencyCategory.create({
-              data: {
-                name: cat.name,
-                type: cat.type ?? KpiCategoryType.ORGANIZATIONAL,
-                isGlobal: true,
-                status: KpiCategoryStatus.APPROVED,
-                objectives: cat.objectives?.length
-                  ? {
-                    create: cat.objectives.map((obj) => ({
-                      name: obj.name,
-                      rating: null,
-                      comment: null,
-                    })),
-                  }
-                  : undefined,
-              },
-            });
-          }),
-        );
-
-        return createdOrExisting;
-      } catch (error) {
-        console.error(error);
-        throw new BadRequestException('Failed to create competency category');
-      }
+    if (!isAuthorized) {
+      bad("You are not allowed to perform this action");
     }
-    // // If user is DEPT_MANAGER -> create department-specific categories/objectives for manager's department only
-    // if (this.userHasRole(user, Role.DEPT_MANAGER)) {
-    //   console.log('User has DEPT_MANAGER role:', user.id);
-    //   // find manager's department
-    //   const manager = await this.prisma.approver.findFirst({
-    //     where: { userId: user.id, role: 'DEPT_MANAGER', isActive: true },
-    //     include: { department: true },
-    //   });
 
-    //   if (!manager?.department) {
-    //     throw new BadRequestException(
-    //       'Not authorized or no department assigned',
-    //     );
-    //   }
+    try {
+      const results = await Promise.all(
+        categories.map(async (cat) => {
+          // ✅ include type in lookup
+          const existing = await this.prisma.competencyCategory.findFirst({
+            where: {
+              name: cat.name,
+            },
+            include: { objectives: true },
+          });
 
-    //   try {
-    //     const created = await Promise.all(
-    //       categories.map((cat) =>
-    //         this.prisma.kpiCategory.create({
-    //           data: {
-    //             name: cat.name,
-    //             type: KpiCategoryType.DEPARTMENTAL,
-    //             isGlobal: false,
-    //             department: { connect: { id: manager.department.id } },
-    //             objectives:
-    //               cat.objectives && cat.objectives.length > 0
-    //                 ? {
-    //                     create: cat.objectives.map((obj) => ({
-    //                       name: obj.name,
-    //                       rating: null,
-    //                       comment: null,
-    //                     })),
-    //                   }
-    //                 : undefined,
-    //           },
-    //         }),
-    //       ),
-    //     );
-    //     return created;
-    //   } catch (error) {
-    //     if (
-    //       error instanceof BadRequestException ||
-    //       error instanceof NotFoundException ||
-    //       error instanceof ConflictException
-    //     ) {
-    //       throw error;
-    //     }
-    //     throw new BadRequestException(
-    //       'Failed to create KPI categories:' + error.message,
-    //     );
-    //   }
-    // }
+          // ✅ reuse if organizational
+          if (existing && cat.type === KpiCategoryType.ORGANIZATIONAL) {
+            return existing;
+          }
 
-    throw new BadRequestException('Unauthorized to create KPI categories');
+          // ✅ create category
+          const competencyCat = await this.prisma.competencyCategory.create({
+            data: {
+              name: cat.name,
+              objectives: cat.objectives?.length
+                ? {
+                  create: cat.objectives.map((obj) => ({
+                    name: obj.name,
+                    rating: null,
+                    comment: null,
+                  })),
+                }
+                : undefined,
+            },
+            include: { objectives: true },
+          });
+
+
+          return {
+            category: competencyCat,
+          };
+        })
+      );
+
+      return results;
+    } catch (error) {
+      console.error(error);
+      throw new BadRequestException("Failed to create competency category");
+    }
   }
 
   async getCategories() {
     return this.prisma.competencyCategory.findMany({
-      where: { isGlobal: true },
+
       include: {
         objectives: true,
       },
@@ -139,7 +91,7 @@ export class CompetencyService {
 
   async getGlobalCategories() {
     return this.prisma.competencyCategory.findMany({
-      where: { isGlobal: true },
+
       include: { objectives: true },
     });
   }
@@ -152,7 +104,7 @@ export class CompetencyService {
     const category = await this.prisma.competencyCategory.findUnique({
       where: { id: categoryId },
       include: {
-        department: true,
+
         objectives: true,
       },
     });
@@ -163,11 +115,7 @@ export class CompetencyService {
 
     // Only ADMIN/SUPERADMIN/HR can update competency categories
     if (this.userHasRole(user, Role.ADMIN) || this.userHasRole(user, Role.SUPERADMIN) || this.userHasRole(user, Role.HR)) {
-      if (!category.isGlobal) {
-        throw new BadRequestException(
-          'Only global competency categories can be updated',
-        );
-      }
+
 
       try {
         const { categories } = data;
@@ -180,8 +128,7 @@ export class CompetencyService {
           where: { id: categoryId },
           data: {
             name: cat.name,
-            type: cat.type ?? KpiCategoryType.ORGANIZATIONAL,
-            isGlobal: true,
+
             objectives: {
               deleteMany: {},
               create: cat.objectives?.map((obj) => ({
@@ -209,7 +156,6 @@ export class CompetencyService {
     }
     const category = await this.prisma.competencyCategory.findUnique({
       where: { id: categoryId },
-      include: { department: true },
     });
 
     if (!category) {
@@ -218,11 +164,7 @@ export class CompetencyService {
 
     // Only ADMIN/SUPERADMIN/HR can delete competency categories
     if (this.userHasRole(user, Role.ADMIN) || this.userHasRole(user, Role.SUPERADMIN) || this.userHasRole(user, Role.HR)) {
-      if (!category.isGlobal) {
-        throw new BadRequestException(
-          'Only global competency categories can be deleted',
-        );
-      }
+
 
       try {
         await this.prisma.competencyCategory.delete({
@@ -248,69 +190,57 @@ export class CompetencyService {
     throw new BadRequestException('Unauthorized to delete categories');
   }
 
-  async approveCategory(userId: string, categoryId: string) {
-    const user = await this.findUserById(userId);
-    if (!user) {
-      throw bad('User Not Found');
-    } else if (this.userHasRole(user, Role.ADMIN)) {
-      try {
-        return await this.prisma.competencyCategory.update({
-          where: { id: categoryId },
-          data: {
-            status: KpiCategoryStatus.APPROVED,
-            reviewedAt: new Date(),
-            reviewedBy: user.id,
-          },
-          include: {
-            department: {
-              include: {
-                approver: true,
-                appraisals: true,
-              },
-            },
-          },
-        });
-      } catch (error) {
-        console.error('APPROVAL ERROR:', error);
-        throw new BadRequestException(
-          'Failed to approve category: ' + error.message,
-        );
-      }
-    } else {
-      throw bad('You are not authorized to perform this operation');
-    }
-  }
+  // async approveCategory(userId: string, categoryId: string) {
+  //   const user = await this.findUserById(userId);
+  //   if (!user) {
+  //     throw bad('User Not Found');
+  //   } else if (this.userHasRole(user, Role.ADMIN)) {
+  //     try {
+  //       return await this.prisma.competencyCategory.update({
+  //         where: { id: categoryId },
 
-  async denyCategory(userId: string, categoryId: string) {
-    const user = await this.findUserById(userId);
-    if (!user) {
-      throw bad('User Not Found');
-    } else if (this.userHasRole(user, Role.ADMIN)) {
-      try {
-        return await this.prisma.competencyCategory.update({
-          where: { id: categoryId },
-          data: {
-            status: KpiCategoryStatus.REJECTED,
-            reviewedAt: new Date(),
-            reviewedBy: user.id,
-          },
-          include: {
-            department: {
-              include: {
-                approver: true,
-                appraisals: true,
-              },
-            },
-          },
-        });
-      } catch (error) {
-        console.error('DENIAL ERROR:', error);
-        throw new BadRequestException(
-          'Failed to deny category: ' + error.message,
-        );
-      }
-    }
-  }
+  //       });
+  //     } catch (error) {
+  //       console.error('APPROVAL ERROR:', error);
+  //       throw new BadRequestException(
+  //         'Failed to approve category: ' + error.message,
+  //       );
+  //     }
+  //   } else {
+  //     throw bad('You are not authorized to perform this operation');
+  //   }
+  // }
+
+  // async denyCategory(userId: string, categoryId: string) {
+  //   const user = await this.findUserById(userId);
+  //   if (!user) {
+  //     throw bad('User Not Found');
+  //   } else if (this.userHasRole(user, Role.ADMIN)) {
+  //     try {
+  //       return await this.prisma.competencyCategory.update({
+  //         where: { id: categoryId },
+  //         data: {
+  //           status: KpiCategoryStatus.REJECTED,
+  //           reviewedAt: new Date(),
+  //           reviewedBy: user.id,
+  //         },
+  //         include: {
+  //           department: {
+  //             include: {
+  //               approver: true,
+  //               appraisals: true,
+  //             },
+  //           },
+  //         },
+  //       });
+  //     } catch (error) {
+  //       console.error('DENIAL ERROR:', error);
+  //       throw new BadRequestException(
+  //         'Failed to deny category: ' + error.message,
+  //       );
+  //     }
+  //   }
+  // }
 
   //////////////////////////////// Helper Methods //////////////////////////
   private userHasRole(userObj: any, role: Role) {

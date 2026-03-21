@@ -5,12 +5,11 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { CompetencyService } from '../kpi/competency.service';
 import { MailModule } from 'src/mail/mail.module';
 import { UserModule } from 'src/user/user.module';
-import { AppraisalSchedulerService } from './appraisal-scheduler.service';
 import { AppraisalSchedulerController } from './appraisal-scheduler.controller';
 
 @Module({
   imports: [PrismaModule, MailModule, UserModule],
   controllers: [AppraisalController, AppraisalSchedulerController],
-  providers: [AppraisalService, CompetencyService, AppraisalSchedulerService],
+  providers: [AppraisalService, CompetencyService],
 })
 export class AppraisalModule { }

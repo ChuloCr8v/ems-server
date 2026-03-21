@@ -12,7 +12,6 @@ import { AppraisalStatus, Role } from '@prisma/client';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { AppraisalSchedulerService } from './appraisal-scheduler.service';
 import { AppraisalService } from './appraisal.service';
 import { FillAppraisalDto, GetAppraisalsDto } from './dto/apppraisal.dto';
 
@@ -21,19 +20,29 @@ import { FillAppraisalDto, GetAppraisalsDto } from './dto/apppraisal.dto';
 export class AppraisalController {
   constructor(
     private readonly appraisal: AppraisalService,
-    private readonly appraisalScheduler: AppraisalSchedulerService,
   ) { }
   @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
   @Post('generate')
   async generateAppraisals() {
-    await this.appraisalScheduler.generateQuaterlyAppraisals();
+    await this.appraisal.generateQuaterlyAppraisals();
     return { message: 'Quarterly appraisals generation initiated.' };
   }
 
 
+  @Auth()
+  @Get()
+  async listAppraisals(@AuthUser() user: IAuthUser) {
+    return this.appraisal.listAppraisals(user.sub);
+  }
 
-
-
+  @Auth([Role.ADMIN, Role.HR, Role.SUPERADMIN])
+  @Patch(':appraisalId/complete')
+  async completeAppraisal(
+    @Param('appraisalId') appraisalId: string,
+    @AuthUser() user: IAuthUser,
+  ) {
+    return this.appraisal.closeAppraisal(appraisalId, user.sub);
+  }
 
   // @Auth([Role.DEPT_MANAGER, Role.USER])
   // @Patch(':appraisalId/submit')
@@ -54,25 +63,24 @@ export class AppraisalController {
   //     .json({ message: `Aprraisal Has Been Submitted`, appraisal });
   // }
 
-  // @Auth([Role.DEPT_MANAGER, Role.USER])
-  // @Patch(':appraisalId/draft')
-  // async fillDraftAppraisal(
-  //   @AuthUser() user: IAuthUser,
-  //   @Param('appraisalId') appraisalId: string,
-  //   @Body() data: FillAppraisalDto,
-  //   @Res() res: Response,
-  // ) {
-  //   const userId = user.sub;
-  //   const appraisal = await this.appraisal.submitAppraisal(
-  //     userId,
-  //     appraisalId,
-  //     data,
-  //     true,
-  //   );
-  //   return res
-  //     .status(200)
-  //     .json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
-  // }
+  @Auth([Role.DEPT_MANAGER, Role.USER])
+  @Patch(':appraisalId/draft')
+  async fillDraftAppraisal(
+    @AuthUser() user: IAuthUser,
+    @Param('appraisalId') appraisalId: string,
+    @Body() data: FillAppraisalDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const appraisal = await this.appraisal.saveAppraisalDraft(
+      userId,
+      appraisalId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
+  }
 
   // @Auth([Role.DEPT_MANAGER, Role.USER])
   // @Patch(':appraisalId/edit')
@@ -103,11 +111,6 @@ export class AppraisalController {
   //   return this.appraisal.sendAppraisalToTeam(user.sub, appraisalId, data);
   // }
 
-  // @Auth()
-  // @Get()
-  // async listAppraisals(@AuthUser() user: IAuthUser) {
-  //   return this.appraisal.listAppraisals(user.sub);
-  // }
 
   // @Auth()
   // @Get('templates')
