@@ -249,11 +249,31 @@ export class ReportService {
     }
   }
 
-  async generateWeeklyReports() {
+  async generateWeeklyReports(isTechSolutions: boolean = false) {
     try {
       const week = getCurrentWeek();
 
+      let departmentFilter: any = undefined;
+      if (isTechSolutions) {
+        const techSolutionsDept = await this.prisma.department.findFirst({
+          where: { name: 'technology solutions' },
+        });
+
+        if (!techSolutionsDept) {
+          console.warn('Technology Solutions department not found');
+          return {
+            message: 'Technology Solutions department not found',
+            data: [],
+          };
+        }
+
+        departmentFilter = techSolutionsDept.id;
+      }
+
       const users = await this.prisma.user.findMany({
+        where: departmentFilter
+          ? { departments: { some: { id: departmentFilter } } }
+          : undefined,
         include: {
           userTask: { include: { task: true } },
           createdTasks: true,
@@ -351,7 +371,10 @@ export class ReportService {
 
       return reports;
     } catch (error) {
-      console.error('Error generating weekly reports:', error);
+      console.error(
+        `Error generating ${isTechSolutions ? 'Technology Solutions' : 'general'} weekly reports:`,
+        error,
+      );
       bad(error);
     }
   }
