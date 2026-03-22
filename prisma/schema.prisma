@@ -1086,10 +1086,10 @@ model Appraisal {
 model AppraisalKpi {
   id String @id @default(uuid()) @db.Uuid
 
-  objective      String
-  actualResult   String
-  rating         Float
-  managerComment String
+  objective    String
+  actualResult String
+  rating       Float
+  comment      String?
 
   appraisal   Appraisal? @relation(fields: [appraisalId], references: [id])
   appraisalId String?    @db.Uuid
@@ -1119,9 +1119,9 @@ model AppraisalSignatures {
 model AppraisalLeadership {
   id String @id @default(uuid()) @db.Uuid
 
-  title          String
-  rating         Float?
-  managerComment String?
+  title   String
+  rating  Float?
+  comment String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1191,14 +1191,14 @@ model CompetencyCategorySnapshot {
 }
 
 model AppraisalLeadershipSnapshot {
-  id             String    @id @default(uuid()) @db.Uuid
-  appraisalId    String    @db.Uuid
-  appraisal      Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
-  title          String
-  rating         Float?
-  managerComment String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id          String    @id @default(uuid()) @db.Uuid
+  appraisalId String    @db.Uuid
+  appraisal   Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  title       String
+  rating      Float?
+  comment     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([appraisalId])
 }
@@ -1213,25 +1213,25 @@ model Achievement {
 }
 
 model DevelopmentNeed {
-  id              String    @id @default(uuid()) @db.Uuid
+  id              String     @id @default(uuid()) @db.Uuid
   title           String
   supportRequired String
   timeline        Int
-  appraisalId     String    @unique @db.Uuid
-  appraisal       Appraisal @relation(fields: [appraisalId], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  appraisalId     String?    @db.Uuid
+  appraisal       Appraisal? @relation(fields: [appraisalId], references: [id])
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
 
 model Goals {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String     @id @default(uuid()) @db.Uuid
   goal        String
   outcome     String?
   timeline    Int?
-  appraisalId String    @unique @db.Uuid
-  appraisal   Appraisal @relation(fields: [appraisalId], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  appraisalId String?    @db.Uuid
+  appraisal   Appraisal? @relation(fields: [appraisalId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model RatingSummary {
