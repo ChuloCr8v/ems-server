@@ -1295,7 +1295,7 @@ export class AppraisalService {
         objective: a.objective,
         actualResult: a.actualResult,
         rating: a.rating,
-        managerComment: a.comment ?? '',
+        comment: a.comment ?? '',
         appraisalId,
       })),
     });
@@ -1306,33 +1306,18 @@ export class AppraisalService {
     appraisalId: string,
     developmentNeeds: DevelopmentNeedsDto[],
   ) {
+    await tx.developmentNeed.deleteMany({ where: { appraisalId } });
+
     if (!developmentNeeds || developmentNeeds.length === 0) return;
 
-    const payload = developmentNeeds[0];
-
-    const existing = await tx.developmentNeed.findUnique({
-      where: { appraisalId },
+    await tx.developmentNeed.createMany({
+      data: developmentNeeds.map((a) => ({
+        title: a.title,
+        supportRequired: a.supportRequired,
+        timeline: a.timeline,
+        appraisalId
+      })),
     });
-
-    if (existing) {
-      await tx.developmentNeed.update({
-        where: { id: existing.id },
-        data: {
-          title: payload.title ?? existing.title,
-          supportRequired: payload.supportRequired ?? existing.supportRequired,
-          timeline: payload.timeline ?? existing.timeline,
-        },
-      });
-    } else {
-      await tx.developmentNeed.create({
-        data: {
-          title: payload.title ?? '',
-          supportRequired: payload.supportRequired ?? '',
-          timeline: payload.timeline ?? 0,
-          appraisal: { connect: { id: appraisalId } },
-        },
-      });
-    }
   }
 
   private async updateCompetencyAssessment(
@@ -1384,7 +1369,7 @@ export class AppraisalService {
           where: { id: lr.leadershipItemId },
           data: {
             rating: lr.rating ?? null,
-            managerComment: lr.comment ?? null,
+            comment: lr.comment ?? null,
           },
         });
       });
@@ -1416,33 +1401,19 @@ export class AppraisalService {
     appraisalId: string,
     goals: GoalsDto[],
   ) {
+
+    await tx.goals.deleteMany({ where: { appraisalId } });
+
     if (!goals || goals.length === 0) return;
 
-    const payload = goals[0];
-
-    const existing = await tx.goals.findUnique({
-      where: { appraisalId },
+    await tx.goals.createMany({
+      data: goals.map((a) => ({
+        goal: a.goal,
+        outcome: a.outcome,
+        timeline: a.timeline,
+        appraisalId
+      })),
     });
-
-    if (existing) {
-      await tx.goals.update({
-        where: { id: existing.id },
-        data: {
-          goal: payload.goal ?? existing.goal,
-          outcome: payload.outcome ?? existing.outcome,
-          timeline: payload.timeline ?? existing.timeline,
-        },
-      });
-    } else {
-      await tx.goals.create({
-        data: {
-          goal: payload.goal ?? '',
-          outcome: payload.outcome ?? '',
-          timeline: payload.timeline ?? 0,
-          appraisal: { connect: { id: appraisalId } },
-        },
-      });
-    }
   }
 
   // private async updateFeedbackResponses(
@@ -1729,7 +1700,7 @@ export class AppraisalService {
       appraisalId,
       title: item.title,
       rating: item.rating,
-      managerComment: item.managerComment,
+      managerComment: item.comment,
     }));
 
     await this.prisma.appraisalLeadershipSnapshot.createMany({
