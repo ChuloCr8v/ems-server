@@ -702,7 +702,7 @@ export class AppraisalService {
     //Find appraisal and validate manager authorization
     const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
 
-    const { kpi, competencyAssessment, leadershipAssessment, achievements, developmentNeeds, goals, managerComment, } = data;
+    const { kpi, competencyAssessment, leadershipAssessment, achievements, developmentNeeds, goals, managerComment, signatures } = data;
 
     //Update appraisal in transaction
     await this.prisma.$transaction(async (tx) => {
@@ -719,7 +719,6 @@ export class AppraisalService {
 
       //Update competency assessment
       if (competencyAssessment?.length > 0) {
-        console.log({ competencyAssessment })
         await this.updateCompetencyAssessment(tx, appraisal, competencyAssessment);
       }
 
@@ -754,6 +753,18 @@ export class AppraisalService {
         },
       });
     });
+
+    //update signatures
+    if (signatures) {
+      await this.prisma.$transaction(async (tx) => {
+        await this.updateSignatures(
+          tx,
+          appraisalId,
+          signatures,
+          'manager',
+        );
+      });
+    }
 
     const updatedAppraisal = await this.prisma.appraisal.findUnique({ where: { id: appraisalId } });
 
@@ -1440,6 +1451,7 @@ export class AppraisalService {
       type === 'employee'
         ? signatures.employeeSignature
         : signatures.managerSignature;
+
     const date =
       type === 'employee' ? signatures.employeeDate : signatures.managerDate;
 
@@ -1616,8 +1628,6 @@ export class AppraisalService {
     },
     department: true,
     competencyAssessment: { include: { objectives: true } },
-    appraisalCompetencySnapshots: true,
-    appraisalLeadershipSnapshots: true,
     leadershipAssessment: true,
     kpi: true,
     developmentNeeds: true,
