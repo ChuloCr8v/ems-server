@@ -233,3 +233,14 @@ export class UpdateFaultStatusDto {
   @IsString()
   status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
 }
+
+export class ArchiveAssetDto {
+  @ApiPropertyOptional({
+    description: 'Optional reason for archiving or unarchiving an asset',
+    example: 'Device retired after end-of-life hardware audit',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
