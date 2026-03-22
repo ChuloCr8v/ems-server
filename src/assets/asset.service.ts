@@ -709,4 +709,71 @@ export class AssetService {
       );
     }
   }
+
+  async archiveAsset(id: string, _dto?: { reason?: string }) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          where: { status: 'ASSIGNED' },
+          take: 1,
+        },
+      },
+    });
+
+    mustHave(asset, `Asset with ID ${id} not found`, 404);
+
+    if (asset.status === AssetStatus.RETIRED) {
+      bad('Asset is already archived', 409);
+    }
+
+    if (asset.status === AssetStatus.ASSIGNED || asset.assignments.length > 0) {
+      bad('Assigned assets must be retrieved before they can be archived', 409);
+    }
+
+    return this.prisma.asset.update({
+      where: { id },
+      data: { status: AssetStatus.RETIRED },
+    });
+  }
+
+  async unarchiveAsset(id: string, _dto?: { reason?: string }) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          where: { status: 'ASSIGNED' },
+          take: 1,
+        },
+        faults: {
+          where: {
+            NOT: { status: 'RESOLVED' },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    mustHave(asset, `Asset with ID ${id} not found`, 404);
+
+    if (asset.status !== AssetStatus.RETIRED) {
+      bad('Only archived assets can be unarchived', 409);
+    }
+
+    if (asset.assignments.length > 0) {
+      bad('Assigned assets cannot be unarchived until assignment is closed', 409);
+    }
+
+    if (asset.faults.length > 0) {
+      bad(
+        'Asset has unresolved faults. Resolve faults before unarchiving.',
+        409,
+      );
+    }
+
+    return this.prisma.asset.update({
+      where: { id },
+      data: { status: AssetStatus.AVAILABLE },
+    });
+  }
 }

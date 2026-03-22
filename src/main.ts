@@ -6,7 +6,9 @@ import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  app.enableCors({
+    origin: '*',
+  });
 
   // Global validation pipe
   app.useGlobalPipes(new ValidationPipe());
