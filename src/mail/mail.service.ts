@@ -185,7 +185,10 @@ export class MailService {
     });
   }
 
-  async sendLeaveRequestMail(data: LeaveRequest) {
+  async sendLeaveRequestMail(
+    data: LeaveRequest,
+    subject: string = MAIL_SUBJECT.LEAVE_REQUEST,
+  ) {
     const {
       email,
       leaveType,
@@ -201,7 +204,7 @@ export class MailService {
 
     await this.mailerService.sendMail({
       to: email,
-      subject: MAIL_SUBJECT.LEAVE_REQUEST,
+      subject,
       template: 'leaveRequest',
       context: {
         name,
