@@ -34,6 +34,7 @@ export class MailListener {
       recipients: event.recipients,
       subject: event.subject,
       message: event.message,
+      attachments: event.attachments,
     });
   }
 

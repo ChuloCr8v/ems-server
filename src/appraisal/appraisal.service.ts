@@ -692,8 +692,8 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean = false,
     isManager: boolean,
-    isDraft: boolean = false
   ) {
     //Find appraisal and validate manager authorization
     const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
@@ -1752,22 +1752,19 @@ export class AppraisalService {
     }
 
     if (appraisal.status === AppraisalStatus.COMPLETED) {
-      return appraisal;
+      bad("Appraisal has been completed");
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const closed = await tx.appraisal.update({
-        where: { id: appraisalId },
-        data: { status: AppraisalStatus.COMPLETED, updatedAt: new Date() },
-      });
+    if (appraisal.status !== AppraisalStatus.APPRAISED) {
+      bad("Employee yet to be apprqaised");
+    }
 
-      await this.snapshotAppraisalCompetencies(appraisalId);
-      await this.snapshotAppraisalLeadership(appraisalId);
-
-      return closed;
+    const closed = await this.prisma.appraisal.update({
+      where: { id: appraisalId },
+      data: { status: AppraisalStatus.COMPLETED, updatedAt: new Date() },
     });
 
-    return updated;
+    return closed;
   }
 
   private getCurrentQuarter(date: Date): number {

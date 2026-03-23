@@ -3,5 +3,6 @@ export class SendEmailEvent {
     public readonly recipients: string[],
     public readonly subject: string,
     public readonly message: string,
+    public readonly attachments?: string[],
   ) {}
 }
