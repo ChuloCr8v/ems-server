@@ -95,7 +95,12 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  async 
+  @Auth([Role.RECEIVER, Role.USER])
+  @Get('toUserId')
+  async tasksHandoverReceiver(@AuthUser() user: IAuthUser, @Param('toUserId') toUserId: string) {
+    const userId = user.sub
+    return await this.offboarding.tasksHandoverReceiver(toUserId, userId);
+  }
 
   // @Get()
   // async getAllOffboarding(){
