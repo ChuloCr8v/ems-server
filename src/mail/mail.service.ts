@@ -34,6 +34,7 @@ import { ConfigService } from '@nestjs/config';
 import * as Handlebars from 'handlebars';
 import { SendEmailEvent } from 'src/events/emailEvent';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { UploadsService } from 'src/uploads/uploads.service';
 
 @Injectable()
 export class MailService {
@@ -41,6 +42,7 @@ export class MailService {
     private mailerService: MailerService,
     private prisma: PrismaService,
     private config: ConfigService,
+    private uploadsService: UploadsService,
   ) {
     this.registerHandlebarsHelpers();
   }
@@ -715,7 +717,7 @@ export class MailService {
   }
 
   async sendEmail(input: SendEmailEvent) {
-    const { recipients, subject, message } = input;
+    const { recipients, subject, message, attachments } = input;
 
     const users = await this.prisma.user.findMany({
       where: {
@@ -725,11 +727,20 @@ export class MailService {
       },
     });
 
+    const resolvedAttachments = attachments?.length
+      ? await this.uploadsService.getUploads(attachments)
+      : [];
+
     await this.mailerService.sendMail({
       to: users.map((u) => u.email),
       subject: subject,
       template: 'emailTemplate',
       context: { message, subject, date: new Date().getFullYear() },
+      attachments: resolvedAttachments.map((file) => ({
+        filename: file.name,
+        content: file.fileContent,
+        contentType: file.type,
+      })),
     });
   }
 }

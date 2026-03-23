@@ -214,6 +214,21 @@ export class OffboardingService {
     }
   }
 
+  async getHandoverDocuments(employeeId: string, managerId: string) {
+    try {
+      const employee = await this.findUserById(employeeId)
+      const manager = this.isManagerOfUser(managerId, employee.id);
+      if(!manager) throw bad("You are not authorised to view this documents")
+      return await this.prisma.taskHandover.findMany({
+        where: { fromUserId: employeeId },
+        select: { upload: true },
+      })
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to fetch handed-over documents: ${error.message}`);
+    }
+  }
+
 
   async tasksHandoverReceiver(fromUserId: string, toUserId: string) {
     try {
@@ -262,7 +277,7 @@ export class OffboardingService {
     }
   }
 
-  async uploadHandoverESignature(userId: string, data: UploadHandoverSignatureDto) {
+  async receiverSignature(userId: string, data: UploadHandoverSignatureDto) {
     try {
       const { fromUserId, signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
@@ -282,7 +297,7 @@ export class OffboardingService {
         where: {
           clearanceId_role: {
             clearanceId: handoverWithClearance.clearanceId,
-            role: "USER",
+            role: "RECEIVER",
           },
           userId: userId
         },
@@ -294,7 +309,7 @@ export class OffboardingService {
       // Step 4: Record the receiver's e-signature as acceptance of the handover
       await this.signClearance(userId, {
         clearanceId: handoverWithClearance.clearanceId,
-        role: "USER",
+        role: "RECEIVER",
         uploadId: signatureId,
       });
 
@@ -329,7 +344,7 @@ export class OffboardingService {
       });
       
       const hasUserSig = signatures.some(s => s.role === "USER");
-      const hasReceiverSig = signatures.some(s => s.role === "USER");
+      const hasReceiverSig = signatures.some(s => s.role === "RECEIVER");
       // Depending on whether task handovers exist, receiverSig may or may not be required. 
       // But preserving previous logic that checks both:
       if (!hasUserSig) throw bad("Employee signature has not been uploaded");
@@ -362,44 +377,44 @@ export class OffboardingService {
   }
 
   //////////////////////////////////////// FINANCE CLEARANCE //////////////////////////////////////////
-  
-  async initiateFinanceClearance(employeeId: string, data: FinanceClearanceDto) {
-    try {
-      const { isLoan, isReimbursement, isTravel, travelAmount, loanAmount, reimburseAmount } = data;
-      const employee = await this.findUserById(employeeId);
-      if(!employee) throw bad("Employee not found");
 
-      //Check if user has completed department clearance
-      const clearance = await this.prisma.clearance.findFirst({
-        where: {
-          type: 'DEPARTMENT',
-          offboarding: { userId: employeeId },
-          status: 'COMPLETED',
-        },
-      });
-      if(!clearance) throw bad("Department clearance must be completed before intiating finance clearance");
+  // async initiateFinanceClearance(employeeId: string, data: FinanceClearanceDto) {
+  //   try {
+  //     const { isLoan, isReimbursement, isTravel, travelAmount, loanAmount, reimburseAmount } = data;
+  //     const employee = await this.findUserById(employeeId);
+  //     if(!employee) throw bad("Employee not found");
 
-      //Initiate finance clearance
-      const finance = await this.prisma.clearance.create({
-        data: {
-          type: 'FINANCE',
-          offboarding: { connect: { userId: employeeId } },
-          finance: {
-            create: {
-              employee: { connect: { id: employeeId } },
-              travelAmount,
-              isTravel,
-              isLoan,
-              loanAmount,
-            },
-          },
-        },
-      });
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to initiate finance clearance: ${error.message}`);
-    }
-  }
+  //     //Check if user has completed department clearance
+  //     const clearance = await this.prisma.clearance.findFirst({
+  //       where: {
+  //         type: 'DEPARTMENT',
+  //         offboarding: { userId: employeeId },
+  //         status: 'COMPLETED',
+  //       },
+  //     });
+  //     if(!clearance) throw bad("Department clearance must be completed before intiating finance clearance");
+
+  //     //Initiate finance clearance
+  //     const finance = await this.prisma.clearance.create({
+  //       data: {
+  //         type: 'FINANCE',
+  //         offboarding: { connect: { userId: employeeId } },
+  //         finance: {
+  //           create: {
+  //             employee: { connect: { id: employeeId } },
+  //             travelAmount,
+  //             isTravel,
+  //             isLoan,
+  //             loanAmount,
+  //           },
+  //         },
+  //       },
+  //     });
+  //   } catch (error) {
+  //     console.log(error);
+  //     bad(`Failed to initiate finance clearance: ${error.message}`);
+  //   }
+  // }
 
   ////////////////////////////// FACILITY CLEARANCE ////////////////////////////////////////
   async bulkReturnAssets(userId: string, data: BulkReturnDto){
@@ -452,10 +467,20 @@ export class OffboardingService {
       if(!clearance) throw bad("Department clearance must be completed before intiating facility clearance");
 
       //Update bulk assignments to mark as returned
-      const bulkResult = await this.bulkReturnAssets(employeeId, { assignmentIds: []})
+      const bulkResult = await this.bulkReturnAssets(employeeId, { assignmentIds: []});
+      return bulkResult;
     } catch (error) {
       console.log(error);
       bad(`Failed to initiate facility clearance: ${error.message}`);
+    }
+  }
+
+  async facilityClearanceReview(employeeId: string, managerId: string) {
+    try {
+      
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to review  facility clearance: ${error.message}`);
     }
   }
 
@@ -567,6 +592,26 @@ export class OffboardingService {
       bad(`Failed to find user clearance: ${error.message}`);
     }
   }
+
+   private async isManagerOfUser(userId: string, employeeId: string) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        include: { departments: { include: { approver: true } } },
+      });
+      if (this.userHasRole(user, Role.DEPT_MANAGER)) {
+        //Check if employee is in any of the manager's departments
+        const managedDeptIds = user.departments.map((dept) => dept.id);
+        const employee = await this.prisma.user.findUnique({
+          where: { id: employeeId },
+          include: { departments: true },
+        });
+        const employeeDeptIds = employee.departments.map((dept) => dept.id);
+        const commonDepts = managedDeptIds.filter((id) =>
+          employeeDeptIds.includes(id),
+        );
+        return commonDepts.length > 0;
+      }
+    }
 
   private async findUserAssets(userId: string) {
     try {

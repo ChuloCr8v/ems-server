@@ -63,6 +63,13 @@ export class OffboardingController {
   }
 
   @Auth([Role.DEPT_MANAGER])
+  @Get(':empoyeeId/handover-doc')
+  async getHandoverDocuments(@AuthUser() user: IAuthUser, @Param('employeeId') employeeId: string) {
+    const userId = user.sub;
+    return await this.offboarding.getHandoverDocuments(userId, employeeId);
+  }
+
+  @Auth([Role.DEPT_MANAGER])
   @Post(':userId/department-clearance')
   async departmentClearance(
     @Param('userId') userId: string,
@@ -75,8 +82,8 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  @Auth([Role.USER])
-  @Post('handover-signature')
+  @Auth([Role.USER, Role.RECEIVER])
+  @Post('receive-handover')
   async uploadHandoverSignature(
     @Body() data: UploadHandoverSignatureDto,
     @AuthUser() user: IAuthUser,
@@ -84,9 +91,11 @@ export class OffboardingController {
   ) {
     // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
     const userId = user.sub
-    const result = await this.offboarding.uploadHandoverESignature(userId, data);
+    const result = await this.offboarding.receiverSignature(userId, data);
     return res.status(200).json(result);
   }
+
+  async 
 
   // @Get()
   // async getAllOffboarding(){

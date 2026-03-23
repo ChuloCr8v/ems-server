@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
 } from 'class-validator';
 import { EmailTo } from '@prisma/client';
 
@@ -23,4 +24,9 @@ export class SendEmailDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  @IsArray()
+  @IsOptional()
+  @IsUUID('4', { each: true })
+  attachments?: string[];
 }
