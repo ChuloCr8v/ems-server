@@ -362,43 +362,44 @@ export class OffboardingService {
   }
 
   //////////////////////////////////////// FINANCE CLEARANCE //////////////////////////////////////////
-  // async initiateFinanceClearance(employeeId: string, data: FinanceClearanceDto) {
-  //   try {
-  //     const { isLoan, isReimbursement, isTravel, travelAmount, loanAmount, reimburseAmount } = data;
-  //     const employee = await this.findUserById(employeeId);
-  //     if(!employee) throw bad("Employee not found");
+  
+  async initiateFinanceClearance(employeeId: string, data: FinanceClearanceDto) {
+    try {
+      const { isLoan, isReimbursement, isTravel, travelAmount, loanAmount, reimburseAmount } = data;
+      const employee = await this.findUserById(employeeId);
+      if(!employee) throw bad("Employee not found");
 
-  //     //Check if user has completed department clearance
-  //     const clearance = await this.prisma.clearance.findFirst({
-  //       where: {
-  //         type: 'DEPARTMENT',
-  //         offboarding: { userId: employeeId },
-  //         status: 'COMPLETED',
-  //       },
-  //     });
-  //     if(!clearance) throw bad("Department clearance must be completed before intiating finance clearance");
+      //Check if user has completed department clearance
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          type: 'DEPARTMENT',
+          offboarding: { userId: employeeId },
+          status: 'COMPLETED',
+        },
+      });
+      if(!clearance) throw bad("Department clearance must be completed before intiating finance clearance");
 
-  //     //Initiate finance clearance
-  //     const finance = await this.prisma.clearance.create({
-  //       data: {
-  //         type: 'FINANCE',
-  //         offboarding: { connect: { userId: employeeId } },
-  //         finance: {
-  //           create: {
-  //             employee: { connect: { id: employeeId } },
-  //             travelAmount,
-  //             isTravel,
-  //             isLoan,
-  //             loanAmount,
-  //           },
-  //         },
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.log(error);
-  //     bad(`Failed to initiate finance clearance: ${error.message}`);
-  //   }
-  // }
+      //Initiate finance clearance
+      const finance = await this.prisma.clearance.create({
+        data: {
+          type: 'FINANCE',
+          offboarding: { connect: { userId: employeeId } },
+          finance: {
+            create: {
+              employee: { connect: { id: employeeId } },
+              travelAmount,
+              isTravel,
+              isLoan,
+              loanAmount,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to initiate finance clearance: ${error.message}`);
+    }
+  }
 
   ////////////////////////////// FACILITY CLEARANCE ////////////////////////////////////////
   async bulkReturnAssets(userId: string, data: BulkReturnDto){
