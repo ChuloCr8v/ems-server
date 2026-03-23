@@ -19,7 +19,7 @@ export class ReportController {
   constructor(
     private readonly report: ReportService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   @Auth()
   @Post('create')
@@ -38,10 +38,10 @@ export class ReportController {
   }
 
   @Auth()
-  @Get('weekly-reports')
-  listWeeklyReportsByProjects(@Req() req: ReqPayload) {
+  @Get('weekly-reports/:week/:department?')
+  listWeeklyReportsByProjects(@Req() req: ReqPayload, @Param('week') week: number, @Param('department') department?: string) {
     const userId = req.user.id;
-    return this.report.listWeeklyReportsByProjects(userId);
+    return this.report.listWeeklyReportsByProjects(userId, week, department);
   }
 
   @Auth()

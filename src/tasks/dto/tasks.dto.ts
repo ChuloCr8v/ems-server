@@ -82,6 +82,10 @@ export class CreateTaskDto {
   @IsEnum(TaskStatus)
   @IsOptional()
   status?: TaskStatus;
+
+  @IsArray()
+  @IsOptional()
+  links?: string[]
 }
 
 export class UpdateTaskDto {

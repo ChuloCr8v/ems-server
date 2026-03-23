@@ -1,21 +1,35 @@
 // tasks.service.ts
 import {
+  BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  ForbiddenException,
-  BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   ApprovalStatus,
   CategoryType,
   Prisma,
   Role,
-  Task,
-  TaskStatus,
-  User,
+  TaskStatus
 } from '@prisma/client';
+import { CreateCategoryDto } from 'src/category/category.dto';
+import {
+  TaskApprovedEvent,
+  TaskAssignedEvent,
+  TaskAssigneeChangeEvent,
+  TaskCreatedEvent,
+  TaskDueDateChangeEvent,
+  TaskPriorityChangeEvent,
+  TaskReassignedEvent,
+  TaskRejectedEvent,
+  TaskStatusChangeEvent,
+  TaskUpdatedEvent,
+} from 'src/events/tasks.event';
+import { bad, mustHave } from 'src/utils/error.utils';
+import { IdGenerator } from 'src/utils/IdGenerator.util';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   ApprovalRequestDto,
   CreateTaskDto,
@@ -24,22 +38,6 @@ import {
   TaskResponseDto,
   UpdateTaskDto,
 } from './dto/tasks.dto';
-import { bad, mustHave } from 'src/utils/error.utils';
-import { CreateCategoryDto } from 'src/category/category.dto';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import {
-  TaskAssignedEvent,
-  TaskCreatedEvent,
-  TaskRejectedEvent,
-  TaskUpdatedEvent,
-  TaskReassignedEvent,
-  TaskStatusChangeEvent,
-  TaskApprovedEvent,
-  TaskAssigneeChangeEvent,
-  TaskPriorityChangeEvent,
-  TaskDueDateChangeEvent,
-} from 'src/events/tasks.event';
-import { IdGenerator } from 'src/utils/IdGenerator.util';
 
 @Injectable()
 export class TasksService {
@@ -96,7 +94,6 @@ export class TasksService {
       description: task.description,
       startDate: task.startDate,
       dueDate: task.dueDate,
-      // category: task.category,
       priority: task.priority as TaskPriority,
       status: task.status as TaskStatus,
       approvalStatus: task.approvalStatus as ApprovalStatus,
@@ -175,11 +172,6 @@ export class TasksService {
         }
 
         return "IN_PROGRESS"
-        // if (isManager) {
-        //   return 'IN_PROGRESS';
-        // } else {
-        //   return 'PENDING_APPROVAL';
-        // }
       };
 
       const createData: any = {
@@ -187,7 +179,6 @@ export class TasksService {
         description: taskData.description,
         priority: taskData.priority,
         status: taskStatus(),
-        // approvalStatus: isManager ? 'APPROVED' : 'PENDING',
         approvalStatus: 'APPROVED',
       };
 
@@ -204,15 +195,6 @@ export class TasksService {
       ) {
         createData.dueDate = new Date(taskData.dueDate);
       }
-
-      //Approval Status
-      // if (isManager) {
-      //   createData.approvedBy = { connect: { id: createdById } };
-      //   createData.approvedAt = new Date();
-      //   createData.approvalRequestedAt = new Date();
-      // } else if (!isManager) {
-      //   createData.approvalRequestedAt = new Date();
-      // }
 
       //Assignees
       if (assignees && assignees.length > 0) {
@@ -257,6 +239,7 @@ export class TasksService {
           ...createData,
           createdBy: { connect: { id: createdById } },
           department: { connect: { id: taskDepts } },
+          links: createTaskDto?.links ?? undefined,
           taskId: IdGenerator('TASK'),
           ...(uploads && uploads.length > 0
             ? {
@@ -417,11 +400,9 @@ export class TasksService {
   async approveTask(
     taskId: string,
     approvedById: string,
-    assignees?: string[],
   ) {
     return this.processTaskApproval(taskId, approvedById, {
       status: ApprovalStatus.APPROVED,
-      assignees,
     });
   }
 
@@ -501,7 +482,7 @@ export class TasksService {
   async processTaskApproval(
     taskId: string,
     processorId: string,
-    dto: ProcessTaskApprovalDto,
+    dto?: ProcessTaskApprovalDto,
   ) {
     const userRole = await this.getUserRole(processorId);
 
@@ -1095,9 +1076,8 @@ export class TasksService {
         },
         orderBy: { title: 'asc' },
         include: {
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
+          departments: true
         },
       });
 
@@ -1142,11 +1122,10 @@ export class TasksService {
           departments: {
             select: {
               id: true,
+              name: true
             },
           },
-          tasks: {
-            include: this.getTaskInclude(),
-          },
+          tasks: true,
         },
       });
       return projectLabels;

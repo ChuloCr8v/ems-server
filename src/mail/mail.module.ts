@@ -36,4 +36,4 @@ import { MailListener } from 'src/listeners/mail.listener';
   providers: [MailService, MailListener],
   exports: [MailService],
 })
-export class MailModule {}
+export class MailModule { }

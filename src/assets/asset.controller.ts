@@ -28,6 +28,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
 import {
+  ArchiveAssetDto,
   AssignAssetDto,
   CreateAssetDto,
   ReportFaultDto,
@@ -260,5 +261,23 @@ export class AssetsController {
     return res
       .status(200)
       .json({ message: `Asset has been deleted successfully` });
+  }
+
+  @Put(':id/archive')
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
+  @ApiOperation({ summary: 'Archive asset by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
+  @ApiResponse({ status: 200, description: 'Asset archived successfully' })
+  archiveAsset(@Param('id') id: string, @Body() dto: ArchiveAssetDto) {
+    return this.assetsService.archiveAsset(id, dto);
+  }
+
+  @Put(':id/unarchive')
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
+  @ApiOperation({ summary: 'Unarchive asset by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
+  @ApiResponse({ status: 200, description: 'Asset unarchived successfully' })
+  unarchiveAsset(@Param('id') id: string, @Body() dto: ArchiveAssetDto) {
+    return this.assetsService.unarchiveAsset(id, dto);
   }
 }
