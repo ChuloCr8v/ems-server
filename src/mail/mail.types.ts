@@ -16,6 +16,7 @@ export const MAIL_SUBJECT = {
   INVITE_DOCUMENT_UPLOAD: 'Document Upload',
   WELCOME_EMAIL: '',
   LEAVE_REQUEST: 'New Leave Request',
+  LEAVE_REMINDER: 'Pending Leave Request Reminder',
   NEW_CLAIM: 'New Claim Added',
   LEAVE_APPROVAL: 'Leave Request Approved',
   LEAVE_DECLINE: 'Leave Request Denied',

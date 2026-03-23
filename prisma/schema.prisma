@@ -111,12 +111,15 @@ model User {
   rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
   hrDepartmentApprovals HrDepartmentApproval[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  logActor      Logs[]          @relation("LogActor")
-  logTo         Logs[]          @relation("LogTo")
-  projectLabels ProjectLabels[]
-  emails        Email[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  logActor          Logs[]              @relation("LogActor")
+  logTo             Logs[]              @relation("LogTo")
+  projectLabels     ProjectLabels[]
+  emails            Email[]
+  financeClearances FinanceClearance[]
+  facilityClearance FacilityClearance[]
+  signature         Signatures[]
 
   @@index([email])
   @@index([id])
@@ -236,6 +239,7 @@ model Upload {
   paymentId         String?           @db.Uuid
   assetId           String?           @db.Uuid
   handoverId        String?           @db.Uuid
+  financeId         String?           @db.Uuid
   requestId         String?           @db.Uuid
   publicId          String?           @unique
   secureUrl         String?           @unique
@@ -251,8 +255,8 @@ model Upload {
   comment           Comment?          @relation(fields: [commentId], references: [id])
   guarantor         GuarantorContact? @relation(fields: [guarantorId], references: [id])
   handover          TaskHandover?     @relation(fields: [handoverId], references: [id])
+  // finance           FinanceClearance? @relation(fields: [financeId], references: [id])
   offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
-  payment           Payment?          @relation(fields: [paymentId], references: [id])
   prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
   request           LeaveRequest?     @relation(fields: [requestId], references: [id], onDelete: Cascade)
   Task              Task?             @relation(fields: [taskId], references: [id])
@@ -267,8 +271,11 @@ model Upload {
   reportItemId String?
   reportItems  ReportItem? @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
 
-  appraisalSignatures     AppraisalSignatures?
-  clearanceDeptSignatures ClearanceDeptSignatures?
+  appraisalSignatures AppraisalSignatures?
+  signatures          Signatures[]
+  // DCSignatures DCSignatures?
+  // financeSignatures       FinanceSignatures?
+  // faclitySignatures       FacilitySignature?
   // offboardingSignatures OffboardingSignatures?
 }
 
@@ -351,7 +358,6 @@ model Comment {
   // handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
   invite        Invite?      @relation(fields: [inviteId], references: [id])
   offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  payment       Payment?     @relation(fields: [paymentId], references: [id])
   user          User?        @relation(fields: [userId], references: [id])
   uploads       Upload[]
 
@@ -370,11 +376,14 @@ model Comment {
   rPipId String?         @db.Uuid
   rPip   RecommendedPip? @relation(fields: [rPipId], references: [id], onDelete: SetNull)
 
+  financeId String?           @db.Uuid
+  finance   FinanceClearance? @relation(fields: [financeId], references: [id])
+
   hrDeptApprovalId String?               @db.Uuid
   hrDeptApproval   HrDepartmentApproval? @relation(fields: [hrDeptApprovalId], references: [id])
 }
 
-/// ///////////////////////////// ASSETS ///////////////////////
+////////////////////////////////// ASSETS //////////////////////////////
 model Asset {
   id           String         @id @default(uuid()) @db.Uuid
   assetId      String         @unique
@@ -395,22 +404,25 @@ model Asset {
 }
 
 model Assignment {
-  id            String            @id @default(uuid())
-  assetId       String            @db.Uuid
-  userId        String            @db.Uuid
-  assignedAt    DateTime
-  retrievedAt   DateTime?
-  notes         String?
-  condition     String?
-  status        AssignmentStatus?
-  isVerified    Boolean           @default(false)
-  isPaid        Boolean           @default(false)
-  verifiedAt    DateTime?
-  returnedAt    DateTime?
-  offboardingId String?           @db.Uuid
-  asset         Asset             @relation(fields: [assetId], references: [id])
-  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String             @id @default(uuid())
+  assetId         String             @db.Uuid
+  userId          String             @db.Uuid
+  assignedAt      DateTime
+  retrievedAt     DateTime?
+  notes           String?
+  condition       String?
+  status          AssignmentStatus?
+  isVerified      Boolean            @default(false)
+  isPaid          Boolean            @default(false)
+  isReturned      Boolean?           @default(false)
+  verifiedAt      DateTime?
+  returnedAt      DateTime?
+  replacementCost Float?
+  isCharged       Boolean            @default(false)
+  facilityId      String?            @db.Uuid
+  asset           Asset              @relation(fields: [assetId], references: [id])
+  facility        FacilityClearance? @relation(fields: [facilityId], references: [id])
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -438,24 +450,23 @@ model Fault {
 //////////////////////////////////////// OFFBOARDING ////////////////////////////////////////
 
 model Offboarding {
-  id              String       @id @default(uuid()) @db.Uuid
+  id              String      @id @default(uuid()) @db.Uuid
   type            ExitType
   relievingDate   DateTime?
   resignationDate DateTime?
   reason          String
-  noticePeriod    Boolean?     @default(false)
-  status          Status       @default(PENDING)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  assignments     Assignment[]
+  noticePeriod    Boolean?    @default(false)
+  status          Status      @default(PENDING)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  // assignments     Assignment[]
   comment         Comment[]
-  userId          String       @unique @db.Uuid
-  user            User         @relation("InitiatedFor", fields: [userId], references: [id])
-  initiatedById   String       @db.Uuid
-  initiatedBy     User         @relation("InitiatedBy", fields: [initiatedById], references: [id])
+  userId          String      @unique @db.Uuid
+  user            User        @relation("InitiatedFor", fields: [userId], references: [id])
+  initiatedById   String      @db.Uuid
+  initiatedBy     User        @relation("InitiatedBy", fields: [initiatedById], references: [id])
   clearance       Clearance[]
   // signatures      OffboardingSignatures[]
-  payments        Payment[]
   uploads         Upload[]
 }
 
@@ -467,12 +478,15 @@ model Clearance {
   approvedBy String?
   approvedAt DateTime?
 
-  offboardingId String      @db.Uuid
-  offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
+  offboardingId String       @db.Uuid
+  offboarding   Offboarding  @relation(fields: [offboardingId], references: [id])
+  signatures    Signatures[]
 
-  departmentClearance DepartmentClearance?
-  // financeClearance    FinanceClearance?
-  // facilitiesClearance FacilitiesClearance?
+  department DepartmentClearance?
+  finance    FinanceClearance?
+  facility   FacilityClearance?
+
+  @@unique([offboardingId, type])
 }
 
 model TaskHandover {
@@ -499,46 +513,78 @@ model TaskHandover {
 }
 
 model DepartmentClearance {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  tasksHandedOver    Boolean                  @default(false)
-  handover           TaskHandover[]
-  clearedAt          DateTime?
-  notes              String?
-  clearanceId        String?                  @unique @db.Uuid
-  clearance          Clearance?               @relation(fields: [clearanceId], references: [id])
-  employeeSignature  ClearanceDeptSignatures? @relation("EmployeeSignature")
-  managerSignature   ClearanceDeptSignatures? @relation("ManagerSignature")
-  handoverESignature ClearanceDeptSignatures? @relation("HandoverEmployeeSignature")
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  id              String         @id @default(uuid()) @db.Uuid
+  tasksHandedOver Boolean        @default(false)
+  handover        TaskHandover[]
+  clearedAt       DateTime?
+  notes           String?
+  clearanceId     String?        @unique @db.Uuid
+  clearance       Clearance?     @relation(fields: [clearanceId], references: [id])
+  // employeeSignature  DCSignatures?  @relation("EmployeeSignature")
+  // managerSignature   DCSignatures?  @relation("ManagerSignature")
+  // handoverESignature DCSignatures?  @relation("HandoverEmployeeSignature")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 }
 
-model Payment {
-  id            String       @id @default(uuid()) @db.Uuid
-  offboardingId String?      @db.Uuid
-  approved      Boolean      @default(false)
-  approvedBy    String?      @db.Uuid
-  approvedAt    DateTime?
-  notes         String?
-  createdAt     DateTime     @default(now())
-  comment       Comment[]
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  uploads       Upload[]
+// model DCSignatures {
+//   id                   String               @id @default(uuid()) @db.Uuid
+//   signatureId          String?              @unique @db.Uuid
+//   signature            Upload?              @relation(fields: [signatureId], references: [id])
+//   signedAt             DateTime?
+//   employeeSignatureId  String?              @unique @db.Uuid
+//   employeeSignature    DepartmentClearance? @relation("EmployeeSignature", fields: [employeeSignatureId], references: [id])
+//   managerSignatureId   String?              @unique @db.Uuid
+//   managerSignature     DepartmentClearance? @relation("ManagerSignature", fields: [managerSignatureId], references: [id])
+//   handoverESignatureId String?              @unique @db.Uuid
+//   handoverESignature   DepartmentClearance? @relation("HandoverEmployeeSignature", fields: [handoverESignatureId], references: [id])
+//   createdAt            DateTime             @default(now())
+//   updatedAt            DateTime             @updatedAt
+// }
+
+model FinanceClearance {
+  id              String     @id @default(uuid()) @db.Uuid
+  isLoan          Boolean    @default(false)
+  loanAmount      Float?
+  isTravel        Boolean    @default(false)
+  travelAmount    Float?
+  isReimbursement Boolean    @default(false)
+  reimburseAmount Float?
+  employeeId      String     @db.Uuid
+  employee        User       @relation(fields: [employeeId], references: [id])
+  clearanceId     String?    @unique @db.Uuid
+  clearance       Clearance? @relation(fields: [clearanceId], references: [id])
+  // employeeSignature FinanceSignatures? @relation("EmployeeSignature")
+  // hrSignature       FinanceSignatures? @relation("HrSignature")
+  // uploads           Upload[]
+  comment         Comment[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
 
-model ClearanceDeptSignatures {
-  id                   String               @id @default(uuid()) @db.Uuid
-  signatureId          String?              @unique @db.Uuid
-  signature            Upload?              @relation(fields: [signatureId], references: [id])
-  signedAt             DateTime?
-  employeeSignatureId  String?              @unique @db.Uuid
-  employeeSignature    DepartmentClearance? @relation("EmployeeSignature", fields: [employeeSignatureId], references: [id])
-  managerSignatureId   String?              @unique @db.Uuid
-  managerSignature     DepartmentClearance? @relation("ManagerSignature", fields: [managerSignatureId], references: [id])
-  handoverESignatureId String?              @unique @db.Uuid
-  handoverESignature   DepartmentClearance? @relation("HandoverEmployeeSignature", fields: [handoverESignatureId], references: [id])
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+model FacilityClearance {
+  id          String       @id @default(uuid()) @db.Uuid
+  employeeId  String       @db.Uuid
+  employee    User         @relation(fields: [employeeId], references: [id])
+  clearanceId String?      @unique @db.Uuid
+  clearance   Clearance?   @relation(fields: [clearanceId], references: [id])
+  assignment  Assignment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Signatures {
+  id          String        @id @default(uuid()) @db.Uuid
+  clearanceId String        @db.Uuid
+  clearance   Clearance     @relation(fields: [clearanceId], references: [id])
+  role        SignatureRole
+  userId      String        @db.Uuid
+  user        User          @relation(fields: [userId], references: [id])
+  uploadId    String?       @db.Uuid
+  upload      Upload?       @relation(fields: [uploadId], references: [id])
+  signedAt    DateTime      @default(now())
+
+  @@unique([clearanceId, role]) // prevents duplicate signatures
 }
 
 model Entitlement {
@@ -1445,6 +1491,15 @@ enum TaxStatus {
   PAID
 }
 
+enum SignatureRole {
+  USER
+  DEPT_MANAGER
+  HR
+  ASSET_MANAGER
+  SUPER_ADMIN
+  RECEIVER
+}
+
 enum SalaryType {
   EARNING
   DEDUCTION
@@ -1455,7 +1510,10 @@ enum AppraisalStatus {
   PENDING // Sent template to the department
   HR_REVIEW // In review with the HR team
   DRAFT // Employee is working on their appraisal
+  EMPLOYEE_DRAFT
   MANAGER_DRAFT // Manager is working on the appraisal
+  AWAITING_EMPLOYEE
+  AWAITING_MANAGER
   SUBMITTED // Employee has submitted for manager review
   APPRAISED // Manager has reviewed and approved
   COMPLETED // Final state after HR review
@@ -1516,6 +1574,7 @@ enum Role {
   ASSET_MANAGER
   LEAVE_MANAGER
   TEAM_LEAD
+  RECEIVER
 }
 
 enum AssetCategory {
@@ -1545,6 +1604,7 @@ enum AssetStatus {
 enum AssignmentStatus {
   ASSIGNED
   RETURNED
+  VERIFIED
 }
 
 enum FaultStatus {

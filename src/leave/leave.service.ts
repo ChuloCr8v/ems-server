@@ -16,10 +16,12 @@ import {
 } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { MailService } from 'src/mail/mail.service';
+import { MAIL_SUBJECT } from 'src/mail/mail.types';
 import { ApproverService } from 'src/approver/approver.service';
 import {
   LeaveApprovedEvent,
   LeaveDeclinedEvent,
+  LeaveReminderEvent,
   LeaveRequestedEvent,
 } from 'src/events/leave.event';
 
@@ -82,6 +84,8 @@ export class LeaveService {
 
       // 5. Calculate duration
       const duration = this.calculateLeaveDuration(startDate, endDate);
+
+      console.log('duration:', duration);
 
       if (duration > availableEntitlement.value) {
         throw new BadRequestException(
@@ -852,6 +856,73 @@ export class LeaveService {
     }
   }
 
+  async sendReminder(leaveRequestId: string, userId: string) {
+    try {
+      const leaveRequest = await this.prisma.leaveRequest.findUnique({
+        where: { id: leaveRequestId },
+        include: {
+          user: true,
+          type: true,
+          approvals: {
+            include: {
+              approver: true,
+            },
+            orderBy: {
+              phase: 'asc',
+            },
+          },
+        },
+      });
+
+      if (!leaveRequest) mustHave(leaveRequest, 'Request not found', 404);
+
+      if (leaveRequest.userId !== userId) {
+        bad('You are not authorized to send a reminder for this request');
+      }
+
+      if (leaveRequest.status !== LeaveStatus.PENDING) {
+        bad('Only pending leave requests can be reminded');
+      }
+
+      const currentApproval = leaveRequest.approvals.find(
+        (approval) =>
+          approval.id === leaveRequest.currentApprovalId &&
+          approval.status === 'PENDING',
+      );
+
+      if (!currentApproval?.approver) {
+        bad('No active approver found for this leave request');
+      }
+
+      await this.mail.sendLeaveRequestMail(
+        {
+          email: currentApproval.approver.email,
+          name: `${leaveRequest.user.firstName} ${leaveRequest.user.lastName}`,
+          approverName: currentApproval.approver.firstName,
+          leaveType: leaveRequest.type.name,
+          startDate: leaveRequest.startDate,
+          endDate: leaveRequest.endDate,
+          leaveValue: leaveRequest.duration,
+          reason: leaveRequest.reason || 'No reason provided',
+        },
+        MAIL_SUBJECT.LEAVE_REMINDER,
+      );
+
+      this.event.emit(
+        'leave.reminder.sent',
+        new LeaveReminderEvent(
+          leaveRequest.userId,
+          [currentApproval.approver.id],
+          leaveRequest.id,
+        ),
+      );
+
+      return { message: 'Reminder sent successfully' };
+    } catch (error) {
+      bad('Failed to send reminder: ' + error.message);
+    }
+  }
+
   //     /////////////////////////////////////// HELPERS ////////////////////////////////////////
   private calculateLeaveDuration(startDate: Date, endDate: Date): number {
     try {
@@ -1078,6 +1149,7 @@ export class LeaveService {
       approval.startDate,
       approval.endDate,
     );
+
     await this.mail.sendLeaveApprovalMail({
       email: approval.user.email,
       name: `${approval.user.firstName} ${approval.user.lastName}`,
