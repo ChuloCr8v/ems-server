@@ -11,6 +11,12 @@ export interface LeaveApprovedPayload {
   approverId: string;
 }
 
+export interface LeaveReminderPayload {
+  employeeId: string;
+  recipientIds: string[];
+  leaveRequestId: string;
+}
+
 export class LeaveRequestedEvent implements LeaveRequestedPayload {
   constructor(
     public readonly employeeId: string,
@@ -34,5 +40,13 @@ export class LeaveDeclinedEvent {
     public readonly recipientIds: string[],
     public readonly leaveRequestId: string,
     public readonly approverId: string,
+  ) {}
+}
+
+export class LeaveReminderEvent implements LeaveReminderPayload {
+  constructor(
+    public readonly employeeId: string,
+    public readonly recipientIds: string[],
+    public readonly leaveRequestId: string,
   ) {}
 }

@@ -56,6 +56,15 @@ export class LeaveController {
   }
 
   @Auth()
+  @Post(':leaveRequestId/remind')
+  async remindApprover(
+    @Param('leaveRequestId', ParseUUIDPipe) leaveRequestId: string,
+    @AuthUser() req: IAuthUser,
+  ) {
+    return this.leave.sendReminder(leaveRequestId, req.sub);
+  }
+
+  @Auth()
   @Get('balance/:typeId')
   async getLeaveBalance(
     @AuthUser() req: IAuthUser,

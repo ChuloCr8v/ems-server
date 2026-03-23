@@ -1455,7 +1455,10 @@ enum AppraisalStatus {
   PENDING // Sent template to the department
   HR_REVIEW // In review with the HR team
   DRAFT // Employee is working on their appraisal
+  EMPLOYEE_DRAFT
   MANAGER_DRAFT // Manager is working on the appraisal
+  AWAITING_EMPLOYEE
+  AWAITING_MANAGER
   SUBMITTED // Employee has submitted for manager review
   APPRAISED // Manager has reviewed and approved
   COMPLETED // Final state after HR review

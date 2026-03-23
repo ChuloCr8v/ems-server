@@ -44,25 +44,6 @@ export class AppraisalController {
     return this.appraisal.closeAppraisal(appraisalId, user.sub);
   }
 
-  // @Auth([Role.DEPT_MANAGER, Role.USER])
-  // @Patch(':appraisalId/submit')
-  // async fillAppraisal(
-  //   @AuthUser() user: IAuthUser,
-  //   @Param('appraisalId') appraisalId: string,
-  //   @Body() data: FillAppraisalDto,
-  //   @Res() res: Response,
-  // ) {
-  //   const userId = user.sub;
-  //   const appraisal = await this.appraisal.submitAppraisal(
-  //     userId,
-  //     appraisalId,
-  //     data,
-  //   );
-  //   return res
-  //     .status(200)
-  //     .json({ message: `Aprraisal Has Been Submitted`, appraisal });
-  // }
-
   @Auth([Role.DEPT_MANAGER, Role.USER])
   @Patch(':appraisalId/draft')
   async fillDraftAppraisal(
@@ -76,6 +57,26 @@ export class AppraisalController {
       userId,
       appraisalId,
       data,
+      true
+    );
+    return res
+      .status(200)
+      .json({ message: `Aprraisal Has Been Saved as Draft`, appraisal });
+  }
+
+  @Auth([Role.DEPT_MANAGER, Role.USER])
+  @Patch(':appraisalId/submit')
+  async fillAppraisal(
+    @AuthUser() user: IAuthUser,
+    @Param('appraisalId') appraisalId: string,
+    @Body() data: FillAppraisalDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const appraisal = await this.appraisal.saveAppraisalDraft(
+      userId,
+      appraisalId,
+      data
     );
     return res
       .status(200)
