@@ -1,8 +1,9 @@
-import { ExitType } from '@prisma/client';
+import { ExitType, SignatureRole } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
   IsEnum,
+  isNotEmpty,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -79,4 +80,58 @@ export class UploadHandoverSignatureDto {
     @IsString()
     @IsNotEmpty()
     fromUserId: string; // The user they are receiving the task from
+}
+
+export class FinanceClearanceDto {
+  @IsBoolean()
+  @IsNotEmpty()
+  isLoan: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  loanAmount: number;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  isTravel: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  travelAmount: number;
+
+  @IsBoolean()
+  @IsNotEmpty()
+  isReimbursement: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  reimburseAmount: number;
+  
+  @IsString()
+  @IsOptional()
+  comment?: string;
+} 
+
+export class BulkReturnDto {
+  @IsArray()
+  @IsNotEmpty({ each: true })
+  assignmentIds: string[];
+
+  // @IsString()
+  // @IsOptional()
+  // notes?: string;
+}
+
+export class SignDto {
+  @IsString()
+  @IsNotEmpty()
+  clearanceId: string;
+
+  @IsEnum(SignatureRole)
+  @IsNotEmpty()
+  role: SignatureRole;
+
+  @IsString()
+  @IsNotEmpty()
+  uploadId: string;
 }
