@@ -96,7 +96,7 @@ export class OffboardingController {
   }
 
   @Auth([Role.RECEIVER, Role.USER])
-  @Get('toUserId')
+  @Get(':toUserId')
   async tasksHandoverReceiver(@AuthUser() user: IAuthUser, @Param('toUserId') toUserId: string) {
     const userId = user.sub
     return await this.offboarding.tasksHandoverReceiver(toUserId, userId);
