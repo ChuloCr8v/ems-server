@@ -20,7 +20,7 @@ import { ReqPayload } from 'src/auth/dto/auth.dto';
 
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Auth()
   @Get('me')
@@ -40,7 +40,7 @@ export class UserController {
     return this.userService.updateUser(id, data, 'employee');
   }
 
-  @Auth(['ADMIN', 'FACILITY'])
+  @Auth(['ADMIN', 'FACILITY', "SUPERADMIN"])
   @Put('assign-assets/:id')
   async assignAssets(
     @Param('id') id: string,
@@ -64,13 +64,13 @@ export class UserController {
     return this.userService.getUser(id, requesterId);
   }
 
-  @Auth(['ADMIN', 'HR'])
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
   @Put('approve/:id')
   async approveUser(@Param('id') id: string, @Body() data: ApproveUserDto) {
     return this.userService.approveUser(id, data);
   }
 
-  @Auth(['ADMIN', 'HR', 'FACILITY'])
+  @Auth(['ADMIN', 'HR', 'FACILITY', 'SUPERADMIN'])
   @Patch(':id')
   @UseInterceptors(FileFieldsInterceptor([{ name: 'uploads', maxCount: 10 }]))
   async updateUser(
@@ -84,7 +84,7 @@ export class UserController {
       .json({ message: `User Details Has Been Updated`, user });
   }
 
-  @Auth(['ADMIN', 'HR'])
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
   @Post('create')
   async addEmployee(@Body() dto: AddEmployeeDto[]) {
     return this.userService.addEmployee(dto);
@@ -96,7 +96,7 @@ export class UserController {
     return this.userService.updateUserStatus(id);
   }
 
-  @Auth(['ADMIN'])
+  @Auth(['ADMIN', 'SUPERADMIN'])
   @Delete('')
   async deleteUSer(@Body() ids: string[]) {
     return this.userService.deleteUser(ids);
