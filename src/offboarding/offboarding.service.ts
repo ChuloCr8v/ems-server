@@ -241,6 +241,7 @@ export class OffboardingService {
         include: {
           task: true,
           clearance: true,
+          upload: true,
         },
       });
 
