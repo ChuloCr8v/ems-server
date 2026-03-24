@@ -446,7 +446,6 @@ export class LeaveService {
       where: { id: userId },
       include: { departments: true },
     });
-
     if (!employee) throw new NotFoundException('Employee Not Found');
 
     const approvers = await this.approver.getApproversForUser(userId);
@@ -498,7 +497,7 @@ export class LeaveService {
       });
 
       // Send notification outside transaction
-      this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
+      await this.sendLeaveRequestMail(leaveRequestId).catch(console.error);
     }
 
     return firstApproval;
@@ -1077,13 +1076,14 @@ export class LeaveService {
             include: {
               approver: true,
             },
-            orderBy: {
-              phase: 'asc',
-            },
+            // orderBy: {
+            //   phase: 'asc',
+            // },
           },
         },
       });
 
+      console.log('leaveRequest for email:', leaveRequest);
       if (!leaveRequest || !leaveRequest.user) {
         bad('Leave request or user not found');
       }
