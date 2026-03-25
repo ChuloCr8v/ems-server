@@ -14,9 +14,11 @@ import { IAuthUser } from 'src/auth/dto/auth.dto';
 import {
   ApprovePipDto,
   CreatePipDto,
+  DepartmentPipDto,
   MarkPipAsCompletedDto,
   RecommendPipDto,
   RejectPipDto,
+  RejectDepartmentPipDto,
 } from './dto/pip.dto';
 import { Response } from 'express';
 import { Role } from '@prisma/client';
@@ -102,14 +104,14 @@ export class PipController {
   async approveDepartmentsPip(
     @AuthUser() user: IAuthUser,
     @Param('departmentId') departmentId: string,
-    @Body() data: { reason?: string },
+    @Body() data: DepartmentPipDto,
     @Res() res: Response,
   ) {
     const userId = user.sub;
-    const pips = await this.pipService.approveDepartmentsPip(
+    const pips = await this.pipService.approveDepartmentPip(
       userId,
       departmentId,
-      data.reason,
+      data,
     );
     return res
       .status(200)
@@ -121,14 +123,14 @@ export class PipController {
   async rejectDepartmentsPip(
     @AuthUser() user: IAuthUser,
     @Param('departmentId') departmentId: string,
-    @Body() data: { reason: string },
+    @Body() data: RejectDepartmentPipDto,
     @Res() res: Response,
   ) {
     const userId = user.sub;
     const pips = await this.pipService.rejectDepartmentPip(
       userId,
       departmentId,
-      data.reason,
+      data,
     );
     return res
       .status(200)

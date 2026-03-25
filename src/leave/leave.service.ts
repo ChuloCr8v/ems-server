@@ -84,9 +84,6 @@ export class LeaveService {
 
       // 5. Calculate duration
       const duration = this.calculateLeaveDuration(startDate, endDate);
-
-      console.log('duration:', duration);
-
       if (duration > availableEntitlement.value) {
         throw new BadRequestException(
           `Insufficient leave balance. You have ${availableEntitlement.value} days remaining.`,

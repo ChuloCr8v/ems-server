@@ -14,18 +14,35 @@ import {
 } from 'class-validator';
 
 export class KpiRatingDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categoryName: string;
+
   @IsString()
   @IsNotEmpty()
   objective: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  actualResult: string;
+  templateCategoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  templateObjectiveId?: string;
+
+  @IsString()
+  @IsOptional()
+  actualResult?: string;
 
   @IsNumber()
+  @IsOptional()
   @Min(1)
   @Max(5)
-  rating: number;
+  rating?: number;
 
   @IsString()
   @IsOptional()

@@ -1,24 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
-  Res,
-  Req,
-  Delete,
+  Res
 } from '@nestjs/common';
-import { CompetencyService } from './competency.service';
-import { CreateCompetencyDto } from './dto/competency.dto';
+import { Role } from '@prisma/client';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
-import { Role } from '@prisma/client';
+import { CompetencyService } from './competency.service';
+import { CreateCompetencyDto } from './dto/competency.dto';
 
-import type { Request } from 'express';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 
-@Controller(['kpi', 'competency'])
+@Controller('competency')
 export class CompetencyController {
   constructor(private readonly competency: CompetencyService) { }
 

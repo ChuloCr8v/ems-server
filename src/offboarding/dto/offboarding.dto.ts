@@ -1,4 +1,4 @@
-import { ExitType, SignatureRole } from '@prisma/client';
+import { AAStatus, ExitType, SignatureRole } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -116,10 +116,20 @@ export class BulkReturnDto {
   @IsArray()
   @IsNotEmpty({ each: true })
   assignmentIds: string[];
+}
 
-  // @IsString()
-  // @IsOptional()
-  // notes?: string;
+export class ReportAssetDto {
+  @IsEnum(AAStatus)
+  @IsNotEmpty()
+  status: AAStatus;
+
+  @IsNumber()
+  @IsNotEmpty()
+  liabilityCost: number;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
 }
 
 export class SignDto {

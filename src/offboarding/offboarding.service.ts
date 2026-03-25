@@ -7,7 +7,7 @@ import { UserService } from 'src/user/user.service';
 import { ClearanceType, Role, SignatureRole, Status } from '@prisma/client';
 import { bad } from 'src/utils/error.utils';
 import { MailService } from 'src/mail/mail.service';
-import { BulkReturnDto, DepartmentClearanceDto, FinanceClearanceDto, HandoverTaskDto, InitiateExit, SignDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
+import { BulkReturnDto, DepartmentClearanceDto, FinanceClearanceDto, HandoverTaskDto, InitiateExit, ReportAssetDto, SignDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskHandoverSignatureRequestedEvent } from 'src/events/offboarding';
 import { trace } from 'console';
@@ -230,13 +230,15 @@ export class OffboardingService {
   }
 
 
-  async tasksHandoverReceiver(fromUserId: string, toUserId: string) {
+  async tasksHandoverReceiver(userId: string) {
     try {
+      const user = await this.findUserById(userId);
+      if(!user) throw bad("User Not Found");
       // Fetch all handover records where the current user is the recipient
       const handovers = await this.prisma.taskHandover.findMany({
         where: {
-          fromUserId,
-          toUserId,
+          // fromUserId,
+          toUserId: user.id,
         },
         include: {
           task: true,
@@ -282,7 +284,7 @@ export class OffboardingService {
     try {
       const { fromUserId, signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
-      const handovers = await this.tasksHandoverReceiver(fromUserId, userId);
+      const handovers = await this.tasksHandoverReceiver(userId);
       if (!handovers || handovers.length === 0) {
         throw bad("No tasks were handed over to you from this user");
       }
@@ -327,9 +329,7 @@ export class OffboardingService {
   async departmentClearance(userId: string, managerId: string, data: DepartmentClearanceDto) {
     try {
       const { notes, signatureId } = data;
-
-      const manager = await this.user.__findUserById(managerId);
-      const isManager = this.userHasRole(manager, Role.DEPT_MANAGER);
+      const isManager = this.isManagerOfUser(userId, managerId);
       if (!isManager) throw bad("User is not a department manager");
 
       await this.validateDepartmentClearance(userId);
@@ -345,9 +345,6 @@ export class OffboardingService {
       });
       
       const hasUserSig = signatures.some(s => s.role === "USER");
-      const hasReceiverSig = signatures.some(s => s.role === "RECEIVER");
-      // Depending on whether task handovers exist, receiverSig may or may not be required. 
-      // But preserving previous logic that checks both:
       if (!hasUserSig) throw bad("Employee signature has not been uploaded");
 
       await this.prisma.signatures.create({
@@ -420,15 +417,32 @@ export class OffboardingService {
   ////////////////////////////// FACILITY CLEARANCE ////////////////////////////////////////
   async bulkReturnAssets(userId: string, data: BulkReturnDto){
     try {
+       //Check if user has completed department clearance
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          type: 'DEPARTMENT',
+          offboarding: { userId },
+          status: 'COMPLETED',
+        },
+      });
+      if(!clearance) throw bad("Department clearance must be completed before intiating facility clearance");
+
       const { assignmentIds } = data;
       if(!assignmentIds || assignmentIds.length === 0) {
         throw bad("No assets selected for return");
       }
 
       //Fetch assignments to validate ownership
-      const assignments = await this.findUserAssets(userId);
+      const assignments = await this.prisma.assignment.findMany({
+        where: {
+          id: { in: assignmentIds },
+          userId,
+          status: "ASSIGNED",
+          returnedAt: null,
+        },
+      });
       if(assignments.length === 0) {
-        throw bad("no valid assigned asset found");
+        throw bad("No valid assigned asset found");
       }
 
       await this.prisma.$transaction(async(tx) => {
@@ -438,6 +452,7 @@ export class OffboardingService {
             data: {
               returnedAt: new Date(),
               status: "RETURNED",
+              isReturned: true
             },
           });
         }
@@ -452,38 +467,60 @@ export class OffboardingService {
     }
   }
 
-  async facilityClearance(employeeId: string) {
+  async reportAsset(managerId: string, assignmentId: string, data: ReportAssetDto) {
     try {
-      const employee = await this.findUserById(employeeId);
-      if(!employee) throw bad("Employee not found");
-
-      //Check if user has completed department clearance
-      const clearance = await this.prisma.clearance.findFirst({
-        where: {
-          type: 'DEPARTMENT',
-          offboarding: { userId: employeeId },
-          status: 'COMPLETED',
+      const { status, liabilityCost, description } = data;
+      const assignment = await this.prisma.assignment.findUnique({
+        where: { id: assignmentId },
+        include: {
+          asset: true, 
+          facility: true, 
+          user: true,
         },
       });
-      if(!clearance) throw bad("Department clearance must be completed before intiating facility clearance");
 
-      //Update bulk assignments to mark as returned
-      const bulkResult = await this.bulkReturnAssets(employeeId, { assignmentIds: []});
-      return bulkResult;
+      if(!assignment) throw bad("Assignment Not Found");
+      if(assignment.status !== 'RETURNED') {
+        throw bad("Asset has to be returned before assessment");
+      }
+      const reviewAssignment = await this.prisma.assetAssesment.create({
+        data: {
+          assignmentId: assignmentId,
+          status,
+          description,
+          liabilityCost,
+          assessedById: managerId,
+          assessedAt: new Date()
+        }
+      })
+
+      await this,this.prisma.assignment.update({
+        where: { id: assignmentId },
+        data: {
+          condition: status,
+          notes: description
+        }
+      })
+      return reviewAssignment;
     } catch (error) {
       console.log(error);
-      bad(`Failed to initiate facility clearance: ${error.message}`);
+      bad(`Failed to review facility clearance: ${error.message}`);
     }
   }
 
-  async facilityClearanceReview(employeeId: string, managerId: string) {
+  async sendLiabiltyCosts(aaId: string, userId: string) {
     try {
-      
+      const assetAssessment = await this.prisma.assetAssesment.findUnique({
+        where: { id: aaId },
+      });
+      if(!assetAssessment) throw bad("Asset Assessment Not Found");
     } catch (error) {
       console.log(error);
-      bad(`Failed to review  facility clearance: ${error.message}`);
+      bad(`Failed to send liability costs: ${error.message}`);
     }
   }
+
+  async facilityClearance(managerId: string, userId: string) {}
 
   // async getAllOffboarding() {
   //   return await this.prisma.offboarding.findMany({
@@ -556,9 +593,9 @@ export class OffboardingService {
   };
 
   if (!rules[clearanceType].includes(role)) {
-    throw bad(`Role ${role} not allowed for ${clearanceType}`);
+      throw bad(`Role ${role} not allowed for ${clearanceType}`);
+    }
   }
-}
 
   private async findUserClearance(userId: string, notes?: string) {
     try {
@@ -614,22 +651,22 @@ export class OffboardingService {
       }
     }
 
-  private async findUserAssets(userId: string) {
-    try {
-      const user = await this.findUserById(userId);
-      if (!user) throw bad("User Not Found");
+  // private async findUserAssets(userId: string) {
+  //   try {
+  //     const user = await this.findUserById(userId);
+  //     if (!user) throw bad("User Not Found");
 
-      const assets = await this.prisma.asset.findMany({
-        where: {
-          assignments: {
-            some: { userId: user.id, returnedAt: null },
-          },
-        },
-      });
-      return assets;
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to get user: ${error.message}`);
-    }
-  }
+  //     const assets = await this.prisma.asset.findMany({
+  //       where: {
+  //         assignments: {
+  //           some: { userId: user.id, returnedAt: null },
+  //         },
+  //       },
+  //     });
+  //     return assets;
+  //   } catch (error) {
+  //     console.log(error);
+  //     bad(`Failed to get user: ${error.message}`);
+  //   }
+  // }
 }
