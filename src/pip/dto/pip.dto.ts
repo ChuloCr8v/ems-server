@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDate,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -45,10 +46,16 @@ export class CreatePipDto {
 
 export class RecommendPipDto {
   @IsString()
+  @IsNotEmpty()
   teamMemberId: string;
 
   @IsString()
+  @IsNotEmpty()
   aoi: string;
+
+  @IsString()
+  @IsOptional()
+  link?: string;
 
   @IsString()
   comment: string;
@@ -78,6 +85,21 @@ export class RejectPipDto {
 
   @IsString()
   aoi: string;
+}
+
+export class DepartmentPipDto {
+  @IsArray()
+  @IsString({ each: true })
+  pipIds: string[]
+}
+
+export class RejectDepartmentPipDto {
+  @IsArray()
+  @IsString({ each: true })
+  pipIds: string[]
+
+  @IsString()
+  reason: string;
 }
 
 export class MarkPipAsCompletedDto {

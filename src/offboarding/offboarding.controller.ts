@@ -21,7 +21,7 @@ import { Role } from '@prisma/client';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
 import { join } from 'path';
 import { createReadStream } from 'fs';
-import { DepartmentClearanceDto, HandoverTaskDto, InitiateExit, UploadHandoverSignatureDto } from './dto/offboarding.dto';
+import { BulkReturnDto, DepartmentClearanceDto, HandoverTaskDto, InitiateExit, ReportAssetDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
 
 @Controller('offboarding')
 export class OffboardingController {
@@ -96,11 +96,31 @@ export class OffboardingController {
   }
 
   @Auth([Role.RECEIVER, Role.USER])
-  @Get('toUserId')
+  @Get(':toUserId/receive-handover')
   async tasksHandoverReceiver(@AuthUser() user: IAuthUser, @Param('toUserId') toUserId: string) {
     const userId = user.sub
     return await this.offboarding.tasksHandoverReceiver(toUserId, userId);
   }
+
+  @Auth()
+  @Post('return-assets')
+  async bulkReturnAssets(@AuthUser() user: IAuthUser, @Body() data: BulkReturnDto, @Res() res: Response) {
+    const userId = user.sub
+    const assets = await this.offboarding.bulkReturnAssets(userId, data);
+    return res.status(200).json({ message: `User has submitted his assets`, assets });
+  }
+
+  @Auth([Role.ASSET_MANAGER])
+  @Patch(':assignmentId/report-asset')
+  async reportAsset(
+    @AuthUser() manager: IAuthUser, 
+    @Param('assignmentId') assignmentId: string, 
+    @Body() data: ReportAssetDto, 
+    @Res() res: Response) {
+      const managerId = manager.sub
+      const asset = await this.offboarding.reportAsset(managerId, assignmentId, data);
+      return res.status(200).json({ message: `A Report Has Been Made On This Asset`, asset})
+    }
 
   // @Get()
   // async getAllOffboarding(){
