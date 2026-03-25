@@ -230,13 +230,15 @@ export class OffboardingService {
   }
 
 
-  async tasksHandoverReceiver(fromUserId: string, toUserId: string) {
+  async tasksHandoverReceiver(userId: string) {
     try {
+      const user = await this.findUserById(userId);
+      if(!user) throw bad("User Not Found");
       // Fetch all handover records where the current user is the recipient
       const handovers = await this.prisma.taskHandover.findMany({
         where: {
-          fromUserId,
-          toUserId,
+          // fromUserId,
+          toUserId: user.id,
         },
         include: {
           task: true,
@@ -282,7 +284,7 @@ export class OffboardingService {
     try {
       const { fromUserId, signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
-      const handovers = await this.tasksHandoverReceiver(fromUserId, userId);
+      const handovers = await this.tasksHandoverReceiver(userId);
       if (!handovers || handovers.length === 0) {
         throw bad("No tasks were handed over to you from this user");
       }
