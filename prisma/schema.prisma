@@ -121,6 +121,7 @@ model User {
   facilityClearance            FacilityClearance[]
   signature                    Signatures[]
   createdKpiTemplateCategories KpiTemplateCategory[] @relation("KpiTemplateCategoryCreator")
+  assessment                   AssetAssesment[]
 
   @@index([email])
   @@index([id])
@@ -406,25 +407,24 @@ model Asset {
 }
 
 model Assignment {
-  id              String             @id @default(uuid())
-  assetId         String             @db.Uuid
-  userId          String             @db.Uuid
-  assignedAt      DateTime
-  retrievedAt     DateTime?
-  notes           String?
-  condition       String?
-  status          AssignmentStatus?
-  isVerified      Boolean            @default(false)
-  isPaid          Boolean            @default(false)
-  isReturned      Boolean?           @default(false)
-  verifiedAt      DateTime?
-  returnedAt      DateTime?
-  replacementCost Float?
-  isCharged       Boolean            @default(false)
-  facilityId      String?            @db.Uuid
-  asset           Asset              @relation(fields: [assetId], references: [id])
-  facility        FacilityClearance? @relation(fields: [facilityId], references: [id])
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  assetId           String             @db.Uuid
+  userId            String             @db.Uuid
+  assignedAt        DateTime
+  retrievedAt       DateTime?
+  notes             String?
+  condition         String?
+  status            AssignmentStatus?
+  isVerified        Boolean            @default(false)
+  isPaid            Boolean            @default(false)
+  isReturned        Boolean?           @default(false)
+  verifiedAt        DateTime?
+  returnedAt        DateTime?
+  facilityId        String?            @db.Uuid
+  assetAssessmentId AssetAssesment[]
+  asset             Asset              @relation(fields: [assetId], references: [id])
+  facility          FacilityClearance? @relation(fields: [facilityId], references: [id])
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -556,9 +556,6 @@ model FinanceClearance {
   employee        User       @relation(fields: [employeeId], references: [id])
   clearanceId     String?    @unique @db.Uuid
   clearance       Clearance? @relation(fields: [clearanceId], references: [id])
-  // employeeSignature FinanceSignatures? @relation("EmployeeSignature")
-  // hrSignature       FinanceSignatures? @relation("HrSignature")
-  // uploads           Upload[]
   comment         Comment[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -573,6 +570,21 @@ model FacilityClearance {
   assignment  Assignment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+}
+
+model AssetAssesment {
+  id            String     @id @default(uuid()) @db.Uuid
+  assignmentId  String
+  assignment    Assignment @relation(fields: [assignmentId], references: [id])
+  status        AAStatus
+  description   String?
+  liabilityCost Float
+  isCleared     Boolean?   @default(false)
+  assessedById  String     @db.Uuid
+  assessedBy    User       @relation(fields: [assessedById], references: [id])
+  assessedAt    DateTime   @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
 model Signatures {
@@ -1357,6 +1369,7 @@ model RecommendedPip {
   id               String    @id @default(uuid()) @db.Uuid
   rPipId           String    @unique
   aoi              String
+  link             String?
   recommendedById  String    @db.Uuid
   recommendedBy    User      @relation("PipRecommendedBy", fields: [recommendedById], references: [id])
   recommendedForId String    @db.Uuid
@@ -1512,6 +1525,7 @@ enum PipStatus {
   HR_APPROVED
   SENT
   SUBMITTED
+  HR_REVIEWED
   REJECTED
   COMPLETED
   CLAIM_REQUESTED
@@ -1623,10 +1637,16 @@ enum AssetCategory {
   GENERAL
 }
 
+enum AAStatus {
+  LOST
+  DAMAGED
+}
+
 enum AssetStatus {
   AVAILABLE
   ASSIGNED
   REPORTED
+  LOST
   FAULTY
   RETIRED
   ACCEPTED
@@ -1636,7 +1656,6 @@ enum AssetStatus {
 enum AssignmentStatus {
   ASSIGNED
   RETURNED
-  VERIFIED
 }
 
 enum FaultStatus {
