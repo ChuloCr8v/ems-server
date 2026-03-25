@@ -96,10 +96,11 @@ export class OffboardingController {
   }
 
   @Auth([Role.RECEIVER, Role.USER])
-  @Get(':toUserId/receive-handover')
-  async tasksHandoverReceiver(@AuthUser() user: IAuthUser, @Param('toUserId') toUserId: string) {
+  @Get(':fromUserId/receive-handover')
+  async tasksHandoverReceiver(@AuthUser() user: IAuthUser, @Param('fromUserId') fromUserId: string) {
+    // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
     const userId = user.sub
-    return await this.offboarding.tasksHandoverReceiver(toUserId, userId);
+    return await this.offboarding.tasksHandoverReceiver(fromUserId, userId);
   }
 
   @Auth()
