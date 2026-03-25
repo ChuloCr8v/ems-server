@@ -111,15 +111,16 @@ model User {
   rPipFor               RecommendedPip[]       @relation("PipRecommendedFor")
   hrDepartmentApprovals HrDepartmentApproval[]
 
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  logActor          Logs[]              @relation("LogActor")
-  logTo             Logs[]              @relation("LogTo")
-  projectLabels     ProjectLabels[]
-  emails            Email[]
-  financeClearances FinanceClearance[]
-  facilityClearance FacilityClearance[]
-  signature         Signatures[]
+  createdAt                    DateTime              @default(now())
+  updatedAt                    DateTime              @updatedAt
+  logActor                     Logs[]                @relation("LogActor")
+  logTo                        Logs[]                @relation("LogTo")
+  projectLabels                ProjectLabels[]
+  emails                       Email[]
+  financeClearances            FinanceClearance[]
+  facilityClearance            FacilityClearance[]
+  signature                    Signatures[]
+  createdKpiTemplateCategories KpiTemplateCategory[] @relation("KpiTemplateCategoryCreator")
 
   @@index([email])
   @@index([id])
@@ -153,7 +154,8 @@ model Department {
   hrDepartmentApprovals HrDepartmentApproval[]
   projectLabels         ProjectLabels[]
 
-  emails Email[]
+  emails                Email[]
+  kpiTemplateCategories KpiTemplateCategory[]
 }
 
 model Team {
@@ -1132,16 +1134,46 @@ model Appraisal {
 model AppraisalKpi {
   id String @id @default(uuid()) @db.Uuid
 
-  objective    String
-  actualResult String
-  rating       Float
-  comment      String?
+  categoryName        String?
+  objective           String
+  actualResult        String?
+  rating              Float?
+  comment             String?
+  templateCategoryId  String? @db.Uuid
+  templateObjectiveId String? @db.Uuid
 
   appraisal   Appraisal? @relation(fields: [appraisalId], references: [id])
   appraisalId String?    @db.Uuid
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model KpiTemplateCategory {
+  id           String                 @id @default(uuid()) @db.Uuid
+  name         String
+  type         KpiCategoryType
+  departmentId String?                @db.Uuid
+  department   Department?            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdById  String?                @db.Uuid
+  createdBy    User?                  @relation("KpiTemplateCategoryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  objectives   KpiTemplateObjective[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([type])
+  @@index([departmentId])
+}
+
+model KpiTemplateObjective {
+  id         String              @id @default(uuid()) @db.Uuid
+  name       String
+  categoryId String              @db.Uuid
+  category   KpiTemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([categoryId])
 }
 
 model AppraisalSignatures {

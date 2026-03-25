@@ -4,7 +4,7 @@ import { Department, Prisma, Role, User } from '@prisma/client';
 
 @Injectable()
 export class ApproverService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getApproversForDepartment(user: any) {
     const departments = user.defaultDepartment

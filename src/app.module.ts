@@ -30,6 +30,7 @@ import { CategoryModule } from './category/category.module';
 import { CategoryService } from './category/category.service';
 import { AppraisalModule } from './appraisal/appraisal.module';
 import { CompetencyModule } from './kpi/competency.module';
+import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
 import { PuppeteerModule } from './puppeteer/puppeteer.module';
@@ -64,6 +65,7 @@ import { LeadershipModule } from './leadership/leadership.module';
     CategoryModule,
     AppraisalModule,
     CompetencyModule,
+    KpiModule,
     ReportModule,
     PuppeteerModule,
     EventEmitterModule.forRoot(),
