@@ -5,18 +5,17 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { TaxService } from './tax.service';
 import { PayslipTemplateService } from './template.service';
 import { PuppeteerModule } from 'src/puppeteer/puppeteer.module';
-import { MailService } from 'src/mail/mail.service';
+import { MailModule } from 'src/mail/mail.module';
 
 import { PayrollCronService } from './payroll-cron.service';
 
 @Module({
-  imports: [PrismaModule, PuppeteerModule],
+  imports: [PrismaModule, PuppeteerModule, MailModule],
   controllers: [PayrollController],
   providers: [
     PayrollService,
     TaxService,
     PayslipTemplateService,
-    MailService,
     PayrollCronService,
   ],
 })

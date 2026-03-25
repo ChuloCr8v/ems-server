@@ -10,6 +10,7 @@ import {
 } from 'src/events/employment.event';
 import {
   LeaveApprovedEvent,
+  LeaveReminderPayload,
   LeaveRequestedPayload,
 } from 'src/events/leave.event';
 import { NotificationActionType } from '@prisma/client';
@@ -173,6 +174,34 @@ export class NotificationListener {
         type: 'LEAVE_REQUESTED',
         title: 'New Leave Request',
         message: `${employee.firstName} ${employee.lastName} has submitted a new leave request awaiting your review and approval.`,
+      });
+    }
+  }
+
+  @OnEvent('leave.reminder.sent')
+  async handleLeaveReminder(event: LeaveReminderPayload) {
+    const employee = await this.prisma.user.findUnique({
+      where: { id: event.employeeId },
+    });
+
+    const notifications = event.recipientIds.map((recipientId) => ({
+      recipientId,
+      actorId: event.employeeId,
+      type: 'LEAVE_REMINDER',
+      title: 'Leave Request Reminder',
+      message: `${employee.firstName} ${employee.lastName} sent a reminder for a pending leave request awaiting your review.`,
+      actionData: {
+        requestId: event.leaveRequestId,
+      },
+    }));
+
+    await this.notificationService.createMany(notifications);
+
+    for (const recipientId of event.recipientIds) {
+      this.gateway.sendToUser(recipientId, {
+        type: 'LEAVE_REMINDER',
+        title: 'Leave Request Reminder',
+        message: `${employee.firstName} ${employee.lastName} sent a reminder for a pending leave request awaiting your review.`,
       });
     }
   }

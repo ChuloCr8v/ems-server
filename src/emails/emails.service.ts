@@ -14,7 +14,7 @@ export class EmailsService {
   ) {}
 
   async sendEmail(body: SendEmailDto) {
-    const { to, recipients, subject, message } = body;
+    const { to, recipients, subject, message, attachments } = body;
 
     try {
       let recipientEmails: string[] = [];
@@ -75,7 +75,7 @@ export class EmailsService {
 
       this.eventEmitter.emit(
         'emails.sent',
-        new SendEmailEvent(recipientEmails, subject, message),
+        new SendEmailEvent(recipientEmails, subject, message, attachments),
       );
 
       return {

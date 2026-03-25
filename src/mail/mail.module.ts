@@ -6,10 +6,12 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { MailListener } from 'src/listeners/mail.listener';
+import { UploadsModule } from 'src/uploads/uploads.module';
 
 @Module({
   imports: [
     PrismaModule,
+    UploadsModule,
     MailerModule.forRoot({
       transport: {
         host: process.env.EMAIL_HOST,

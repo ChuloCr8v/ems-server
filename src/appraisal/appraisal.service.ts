@@ -208,7 +208,6 @@ export class AppraisalService {
     }
   }
 
-
   async listAppraisals(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -225,6 +224,9 @@ export class AppraisalService {
       return await this.prisma.appraisal.findMany({
         where: {
           appraisedId: userId,
+          NOT: {
+            status: { in: ["PENDING", "MANAGER_DRAFT"] }
+          }
         },
         include: this.appraisalInclude,
       });
@@ -355,26 +357,20 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean = false
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        departments: { include: { approver: true } },
-      },
-    });
+
     const appraisal = await this.prisma.appraisal.findUnique({
       where: { id: appraisalId },
       include: { department: true },
     });
 
-    const isManager = this.isManagerOfUser(userId, appraisal.appraisedId);
-    if (!isManager) {
-      throw bad('You are not authorized to appraise this user');
-    }
+    const isManager = await this.isManagerOfUser(userId, appraisal.appraisedId);
+
     if (
       ["COMPLETED", "APPRAISED"].includes(appraisal.status)
     ) bad("Appraisal conducted already for this employee")
-    return this.saveManagerDraft(userId, appraisalId, data);
+    return this.saveManagerDraft(userId, appraisalId, data, isDraft, isManager);
 
   }
 
@@ -630,9 +626,7 @@ export class AppraisalService {
   // ) {
   //   const appraisal = await this.validateUserAppraisal(userId, appraisalId);
   //   const {
-  //     objectiveRatings,
-  //     feedback,
-  //     goalsAndAchievements,
+
   //     signatures,
   //     appraisalPip,
   //   } = data;
@@ -698,73 +692,103 @@ export class AppraisalService {
     userId: string,
     appraisalId: string,
     data: FillAppraisalDto,
+    isDraft: boolean = false,
+    isManager: boolean,
   ) {
     //Find appraisal and validate manager authorization
     const appraisal = await this.validateManagerAppraisal(userId, appraisalId);
 
-    const { kpi, competencyAssessment, leadershipAssessment, achievements, developmentNeeds, goals, managerComment, signatures } = data;
+    const { kpi, competencyAssessment, leadershipAssessment, achievements, developmentNeeds, goals, managerComment, employeeComment, signatures } = data;
 
     //Update appraisal in transaction
     await this.prisma.$transaction(async (tx) => {
+      if (isManager) {
+        //Update Kpi
+        if (kpi?.length > 0) {
+          await this.updateKpi(tx, appraisal.id, kpi);
+        }
 
-      //Update Kpi
-      if (kpi?.length > 0) {
-        await this.updateKpi(tx, appraisal.id, kpi);
+        //Update development needs
+        if (developmentNeeds?.length > 0) {
+          await this.updateDevelopmentNeeds(tx, appraisal.id, developmentNeeds);
+        }
+
+        //Update competency assessment
+        if (competencyAssessment?.length > 0) {
+          await this.updateCompetencyAssessment(tx, appraisal, competencyAssessment);
+        }
+
+        if (leadershipAssessment?.length > 0) {
+          await this.updateLeadershipAssessment(tx, appraisal, leadershipAssessment);
+        }
+
+        //Update Achievements
+        if (achievements?.length > 0) {
+          await this.updateAchievements(
+            tx,
+            appraisalId,
+            achievements,
+          );
+        }
+
+        //Update Goals 
+        if (goals?.length > 0) {
+          await this.updateGoals(
+            tx,
+            appraisalId,
+            goals,
+          );
+        }
+
+        //update signatures
+        if (signatures) {
+          await this.prisma.$transaction(async (tx) => {
+            await this.updateSignatures(
+              tx,
+              appraisalId,
+              signatures,
+              'manager',
+            );
+          });
+        }
+      } else {
+        if (signatures) {
+          await this.prisma.$transaction(async (tx) => {
+            await this.updateSignatures(
+              tx,
+              appraisalId,
+              signatures,
+              'employee',
+            );
+          });
+        }
       }
 
-      //Update development needs
-      if (developmentNeeds?.length > 0) {
-        await this.updateDevelopmentNeeds(tx, appraisal.id, developmentNeeds);
-      }
+      const status = () => {
+        if (isDraft) {
+          if (isManager) {
+            return "MANAGER_DRAFT"
+          } else if (!isManager) return "EMPLOYEE_DRAFT"
+        }
 
-      //Update competency assessment
-      if (competencyAssessment?.length > 0) {
-        await this.updateCompetencyAssessment(tx, appraisal, competencyAssessment);
-      }
+        if (isManager) {
+          if (appraisal.status === "AWAITING_MANAGER") {
+            return "APPRAISED"
+          } else return "AWAITING_EMPLOYEE"
+        }
 
-      if (leadershipAssessment?.length > 0) {
-        await this.updateLeadershipAssessment(tx, appraisal, leadershipAssessment);
-      }
-
-      //Update Achievements
-      if (achievements?.length > 0) {
-        await this.updateAchievements(
-          tx,
-          appraisalId,
-          achievements,
-        );
-      }
-
-      //Update Goals 
-      if (goals?.length > 0) {
-        await this.updateGoals(
-          tx,
-          appraisalId,
-          goals,
-        );
+        if (!isManager) return "AWAITING_MANAGER"
       }
 
       //Update Appraisal as Manager draft
       await tx.appraisal.update({
         where: { id: appraisalId },
         data: {
-          status: 'MANAGER_DRAFT',
-          managerComment: managerComment,
+          status: status(),
+          ...(isManager ? { managerComment } : { employeeComment }),
         },
       });
     });
-
-    //update signatures
-    if (signatures) {
-      await this.prisma.$transaction(async (tx) => {
-        await this.updateSignatures(
-          tx,
-          appraisalId,
-          signatures,
-          'manager',
-        );
-      });
-    }
 
     const updatedAppraisal = await this.prisma.appraisal.findUnique({ where: { id: appraisalId } });
 
@@ -1534,7 +1558,7 @@ export class AppraisalService {
   //   }
 
   //   if (appraisal.appraisedId !== userId) {
-  //     throw new ForbiddenException(
+  //     bad(
   //       'You are not authorized to access this appraisal',
   //     );
   //   }
@@ -1567,7 +1591,7 @@ export class AppraisalService {
       userId,
       appraisal.appraisedId,
     );
-    if (!isAuthorized) {
+    if (!isAuthorized && appraisal.appraisedId !== userId) {
       throw bad('You are not authorized to appraise this user');
     }
 
@@ -1728,22 +1752,19 @@ export class AppraisalService {
     }
 
     if (appraisal.status === AppraisalStatus.COMPLETED) {
-      return appraisal;
+      bad("Appraisal has been completed");
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const closed = await tx.appraisal.update({
-        where: { id: appraisalId },
-        data: { status: AppraisalStatus.COMPLETED, updatedAt: new Date() },
-      });
+    if (appraisal.status !== AppraisalStatus.APPRAISED) {
+      bad("Employee yet to be apprqaised");
+    }
 
-      await this.snapshotAppraisalCompetencies(appraisalId);
-      await this.snapshotAppraisalLeadership(appraisalId);
-
-      return closed;
+    const closed = await this.prisma.appraisal.update({
+      where: { id: appraisalId },
+      data: { status: AppraisalStatus.COMPLETED, updatedAt: new Date() },
     });
 
-    return updated;
+    return closed;
   }
 
   private getCurrentQuarter(date: Date): number {
