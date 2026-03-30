@@ -82,7 +82,7 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  @Auth([Role.USER, Role.RECEIVER])
+  @Auth([Role.USER])
   @Post('receive-handover')
   async uploadHandoverSignature(
     @Body() data: UploadHandoverSignatureDto,

@@ -244,6 +244,7 @@ export class OffboardingService {
           task: true,
           clearance: true,
           upload: true,
+          fromUser: true,
         },
       });
 
