@@ -234,6 +234,39 @@ export class OffboardingService {
     try {
       const user = await this.findUserById(userId);
       if(!user) throw bad("User Not Found");
+
+      const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+      if(isManager) {
+        // Get manager's department IDs
+        const managerDeptIds = user.departments?.map(dept => dept.id) || [];
+        
+        // If the user is a manager, fetch handovers where the toUser is in one of their departments
+        const handovers = await this.prisma.taskHandover.findMany({
+          where: {
+            OR: [
+              // { fromUserId: userId },
+              // { toUserId: userId },
+              {
+                toUser: {
+                  departments: {
+                    some: {
+                      id: { in: managerDeptIds }
+                    }
+                  }
+                }
+              }
+            ],
+          },
+          include: {
+            task: true,
+            clearance: true,
+            upload: true,
+            fromUser: true, 
+            toUser: true,
+          },
+        });
+        return handovers;
+      }
       // Fetch all handover records where the current user is the recipient
       const handovers = await this.prisma.taskHandover.findMany({
         where: {
