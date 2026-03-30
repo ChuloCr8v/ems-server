@@ -296,11 +296,16 @@ export class OffboardingService {
         throw bad("No department clearance is linked to these task handovers");
       }
 
+      const clearanceId = handoverWithClearance.clearance?.clearanceId;
+      if(!clearanceId) {
+        throw bad("Associated clearance record not found for these task handovers");
+      }
+
       // Step 3: Ensure no handover e-signature has already been recorded
       const existing = await this.prisma.signatures.findUnique({
         where: {
           clearanceId_role: {
-            clearanceId: handoverWithClearance.clearanceId,
+            clearanceId: clearanceId,
             role: "RECEIVER",
           },
           userId: userId
@@ -312,7 +317,7 @@ export class OffboardingService {
 
       // Step 4: Record the receiver's e-signature as acceptance of the handover
       await this.signClearance(userId, {
-        clearanceId: handoverWithClearance.clearanceId,
+        clearanceId: clearanceId,
         role: "RECEIVER",
         uploadId: signatureId,
       });
