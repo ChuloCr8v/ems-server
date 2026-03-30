@@ -77,9 +77,9 @@ export class UploadHandoverSignatureDto {
     @IsNotEmpty()
     signatureId: string;
 
-    @IsString()
-    @IsNotEmpty()
-    fromUserId: string; // The user they are receiving the task from
+    // @IsString()
+    // @IsNotEmpty()
+    // fromUserId: string; // The user they are receiving the task from
 }
 
 export class FinanceClearanceDto {

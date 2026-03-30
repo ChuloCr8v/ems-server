@@ -283,7 +283,7 @@ export class OffboardingService {
 
   async receiverSignature(userId: string, data: UploadHandoverSignatureDto) {
     try {
-      const { fromUserId, signatureId } = data;
+      const { signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
       const handovers = await this.tasksHandoverReceiver(userId);
       if (!handovers || handovers.length === 0) {
