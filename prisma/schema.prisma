@@ -556,6 +556,8 @@ model FinanceClearance {
   employee        User       @relation(fields: [employeeId], references: [id])
   clearanceId     String?    @unique @db.Uuid
   clearance       Clearance? @relation(fields: [clearanceId], references: [id])
+  aaId            String?         @db.Uuid
+  aa              AssetAssesment? @relation(fields: [aaId], references: [id])
   comment         Comment[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -567,6 +569,8 @@ model FacilityClearance {
   employee    User         @relation(fields: [employeeId], references: [id])
   clearanceId String?      @unique @db.Uuid
   clearance   Clearance?   @relation(fields: [clearanceId], references: [id])
+  aaId            String?         @db.Uuid
+  aa              AssetAssesment? @relation(fields: [aaId], references: [id])
   assignment  Assignment[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -583,6 +587,8 @@ model AssetAssesment {
   assessedById  String     @db.Uuid
   assessedBy    User       @relation(fields: [assessedById], references: [id])
   assessedAt    DateTime   @default(now())
+  facility      FacilityClearance[]
+  finance       FinanceClearance[]
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 }

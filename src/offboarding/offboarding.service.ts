@@ -259,7 +259,13 @@ export class OffboardingService {
           },
           include: {
             task: true,
-            clearance: true,
+             clearance: { 
+              include: { 
+                clearance: {
+                  include: { signatures: true }
+                }
+              }
+            },
             upload: true,
             fromUser: true, 
             toUser: true,
