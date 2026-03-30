@@ -266,7 +266,7 @@ export class OffboardingService {
                 }
               }
             },
-            upload: true,
+            upload: { include: { signatures: true } },
             fromUser: true, 
             toUser: true,
           },
@@ -288,7 +288,7 @@ export class OffboardingService {
                 }
               }
             },
-          upload: true,
+          upload: { include: { signatures: true }},
           fromUser: true,
           toUser: true,
         },
