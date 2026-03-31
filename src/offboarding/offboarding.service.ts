@@ -246,7 +246,7 @@ export class OffboardingService {
       const isUser = this.userHasRole(user, Role.USER);
       const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
       const managerDeptIds = user.departments?.map(dept => dept.id) || []; 
-      const isReceiver = this.userHasRole(user, Role.RECEIVER);
+      const isReceiver = this.userHasRole(user, Role.RECEIVER) || this.userHasRole(user, Role.USER);
 
       let whereClause: any = {};
 
