@@ -91,8 +91,6 @@ export class OffboardingService {
     async taskHandOver(userId: string, data: HandoverTaskDto) {
     try {
       const user = await this.findUserById(userId);
-      if (!user) throw bad("User Not Found");
-
       const { toUserId, note, uploads, signatureId } = data;
 
       const tasks = await this.getTasksForHandover(userId);
@@ -124,9 +122,9 @@ export class OffboardingService {
 
       await this.prisma.$transaction(async (tx) => {
         // Update receiver role once
-        await tx.user.update({
+         tx.user.update({
           where: { id: toUserId },
-          data: { userRole: [Role.RECEIVER] },
+          data: { userRole: { push: Role.RECEIVER } },
         });
 
          // Extract assignments belonging to the current user
@@ -189,13 +187,12 @@ export class OffboardingService {
           }),
 
           //Update clearance status
-          await this.prisma.clearance.update({
+          tx.clearance.update({
             where: { id: clearance.id },
             data: {
               status: 'USER_SIGNED',
             }
           }),
-
         ]);
       });
 
@@ -258,8 +255,14 @@ export class OffboardingService {
 
       if (isReceiver) {
         filters.push({
-          toUserId: userId
-        });
+          task: {
+            assignees: {
+              some: {
+                userId: userId
+              }
+            }
+          }
+       });
       }
 
       if (isManager && managerDeptIds.length > 0) {
