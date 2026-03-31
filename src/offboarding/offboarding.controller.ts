@@ -95,13 +95,31 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  @Auth([Role.RECEIVER, Role.USER, Role.DEPT_MANAGER])
-  @Get('receiver')
-  async tasksHandoverReceiver(@AuthUser() user: IAuthUser) {
-    // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
-    const userId = user.sub
-    return await this.offboarding.tasksHandoverReceiver(userId);
+  @Auth()
+  @Get('handover')
+  async getHandover(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.offboarding.getHandover(userId);
   }
+
+  @Auth([Role.DEPT_MANAGER])
+  @Patch(':clearanceId/complete')
+  async completeDepartmentClearance(
+    @Param('clearanceId') clearanceId: string,
+    @AuthUser() user: IAuthUser
+  ) {
+    const managerId = user.sub;
+    const result = await this.offboarding.completeDepartmentClearance(clearanceId, managerId);
+    return result;
+  }
+
+  // @Auth([Role.RECEIVER, Role.USER, Role.DEPT_MANAGER])
+  // @Get('receiver')
+  // async tasksHandoverReceiver(@AuthUser() user: IAuthUser) {
+  //   // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
+  //   const userId = user.sub
+  //   return await this.offboarding.tasksHandoverReceiver(userId);
+  // }
 
   @Auth()
   @Post('return-assets')
