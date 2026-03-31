@@ -479,6 +479,7 @@ model Clearance {
 
   approvedBy String?
   approvedAt DateTime?
+  completedAt DateTime?
 
   offboardingId String       @db.Uuid
   offboarding   Offboarding  @relation(fields: [offboardingId], references: [id])
@@ -1489,6 +1490,11 @@ enum ClearanceType {
 
 enum ClearanceStatus {
   PENDING
+  USER_SIGNED
+  RECEIVER_SIGNED
+  DM_SIGNED
+  AM_SIGNED
+  HR_SIGNED
   COMPLETED
   APPROVED
   REJECTED

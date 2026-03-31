@@ -189,6 +189,14 @@ export class OffboardingService {
             },
           }),
 
+          //Update clearance status
+          await this.prisma.clearance.update({
+            where: { id: clearance.id },
+            data: {
+              status: 'USER_SIGNED',
+            }
+          }),
+
         ]);
       });
 
@@ -229,77 +237,134 @@ export class OffboardingService {
     }
   }
 
-
-  async tasksHandoverReceiver(userId: string) {
+   async getHandover(userId: string) {
     try {
       const user = await this.findUserById(userId);
-      if(!user) throw bad("User Not Found");
 
+      if (!user) throw bad("User not found");
+
+      const isUser = this.userHasRole(user, Role.USER);
       const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
-      if(isManager) {
-        // Get manager's department IDs
-        const managerDeptIds = user.departments?.map(dept => dept.id) || [];
-        
-        // If the user is a manager, fetch handovers where the toUser is in one of their departments
-        const handovers = await this.prisma.taskHandover.findMany({
-          where: {
-            OR: [
-              // { fromUserId: userId },
-              // { toUserId: userId },
-              {
-                toUser: {
-                  departments: {
-                    some: {
-                      id: { in: managerDeptIds }
-                    }
-                  }
-                }
-              }
-            ],
-          },
-          include: {
-            task: true,
-             clearance: { 
-              include: { 
-                clearance: {
-                  include: { signatures: true }
-                }
-              }
-            },
-            upload: { include: { signatures: true } },
-            fromUser: true, 
-            toUser: true,
-          },
-        });
-        return handovers;
+      const managerDeptIds = user.departments?.map(dept => dept.id) || []; 
+      const isReceiver = this.userHasRole(user, Role.RECEIVER);
+
+      let whereClause: any = {};
+
+      if (isUser) {
+        whereClause.fromUserId = userId;
       }
-      // Fetch all handover records where the current user is the recipient
-      const handovers = await this.prisma.taskHandover.findMany({
-        where: {
-          // fromUserId,
-          toUserId: user.id,
-        },
+
+      else if (isReceiver) {
+        whereClause.toUserId = userId;
+      }
+
+      else if (isManager) {
+        // OPTIONAL: restrict to department
+        whereClause.task = {
+          departmentId: { in: managerDeptIds }
+        };
+      }
+
+      else {
+        throw bad("You are not authorised to view this information");
+      }
+
+      return await this.prisma.taskHandover.findMany({
+        where: whereClause,
+
         include: {
           task: true,
-           clearance: { 
-              include: { 
-                clearance: {
-                  include: { signatures: true }
+          clearance: {
+            include: {
+              clearance: {
+                include: {
+                  signatures: true
                 }
               }
-            },
-          upload: { include: { signatures: true }},
+            }
+          },
+          upload: true,
           fromUser: true,
           toUser: true,
-        },
+        }
       });
 
-      return handovers;
     } catch (error) {
       console.log(error);
-      bad(`Failed to fetch handed-over tasks: ${error.message}`);
+      throw bad(`Failed to get handover details: ${error.message}`);
     }
   }
+
+  // async tasksHandoverReceiver(userId: string) {
+  //   try {
+  //     const user = await this.findUserById(userId);
+  //     if(!user) throw bad("User Not Found");
+
+  //     const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+  //     if(isManager) {
+  //       // Get manager's department IDs
+  //       const managerDeptIds = user.departments?.map(dept => dept.id) || [];
+        
+  //       // If the user is a manager, fetch handovers where the toUser is in one of their departments
+  //       const handovers = await this.prisma.taskHandover.findMany({
+  //         where: {
+  //           OR: [
+  //             // { fromUserId: userId },
+  //             // { toUserId: userId },
+  //             {
+  //               toUser: {
+  //                 departments: {
+  //                   some: {
+  //                     id: { in: managerDeptIds }
+  //                   }
+  //                 }
+  //               }
+  //             }
+  //           ],
+  //         },
+  //         include: {
+  //           task: true,
+  //            clearance: { 
+  //             include: { 
+  //               clearance: {
+  //                 include: { signatures: true }
+  //               }
+  //             }
+  //           },
+  //           upload: { include: { signatures: true } },
+  //           fromUser: true, 
+  //           toUser: true,
+  //         },
+  //       });
+  //       return handovers;
+  //     }
+  //     // Fetch all handover records where the current user is the recipient
+  //     const handovers = await this.prisma.taskHandover.findMany({
+  //       where: {
+  //         // fromUserId,
+  //         toUserId: user.id,
+  //       },
+  //       include: {
+  //         task: true,
+  //          clearance: { 
+  //             include: { 
+  //               clearance: {
+  //                 include: { signatures: true }
+  //               }
+  //             }
+  //           },
+  //         upload: { include: { signatures: true }},
+  //         fromUser: true,
+  //         toUser: true,
+  //       },
+  //     });
+
+  //     return handovers;
+  //   } catch (error) {
+  //     console.log(error);
+  //     bad(`Failed to fetch handed-over tasks: ${error.message}`);
+  //   }
+  // }
 
   async validateDepartmentClearance(userId: string) {
     try {
@@ -331,7 +396,7 @@ export class OffboardingService {
     try {
       const { signatureId } = data;
       // Step 1: Fetch all tasks that were handed over to this user from the specified sender
-      const handovers = await this.tasksHandoverReceiver(userId);
+      const handovers = await this.getHandover(userId);
       if (!handovers || handovers.length === 0) {
         throw bad("No tasks were handed over to you from this user");
       }
@@ -366,6 +431,14 @@ export class OffboardingService {
         clearanceId: clearanceId,
         role: "RECEIVER",
         uploadId: signatureId,
+      });
+
+      //Step 5: Record clearance status update
+      await this.prisma.clearance.update({
+        where: { id: clearanceId },
+        data: {
+          status: 'RECEIVER_SIGNED',
+        }
       });
 
       return {
@@ -412,7 +485,7 @@ export class OffboardingService {
       await this.prisma.clearance.update({
         where: { id: clearanceId },
         data: {
-          status: 'COMPLETED',
+          status: 'DM_SIGNED',
           approvedBy: managerId,
           approvedAt: new Date(),
         }
@@ -425,6 +498,70 @@ export class OffboardingService {
       bad(`Failed to complete department clearance: ${error.message}`);
     }
   }
+
+  async completeDepartmentClearance(userId: string, clearanceId: string) {
+
+    try {
+
+      const user = await this.findUserById(userId);
+
+      if (!user) throw bad("User not found");
+
+      const clearance = await this.findClearanceById(clearanceId);
+
+      if (!clearance) throw bad("Clearance Not Found");
+
+      if (clearance.type !== "DEPARTMENT") {
+        throw bad("Invalid clearance type");
+      }
+
+      // Ensure tasks handed over
+
+      const deptClearance = clearance.department;
+
+      if (!deptClearance?.tasksHandedOver) {
+        throw bad("Tasks must be handed over before completing clearance");
+      }
+
+    // Validate signatures
+
+      const signatures = clearance.signatures;
+
+      const signedRoles = new Set(signatures.map(s => s.role));
+
+      const requiredRoles: SignatureRole[] = ["USER", "DEPT_MANAGER", "RECEIVER"];
+
+      const missingRoles = requiredRoles.filter(role => !signedRoles.has(role));
+
+        if (missingRoles.length > 0) {
+          throw bad(
+            `Missing required signatures: ${missingRoles.join(", ")}`
+          );
+        }
+
+    // Authorization check
+      const canComplete = this.userHasRole(user, Role.DEPT_MANAGER)
+        if (!canComplete) {
+          throw bad("You are not authorized to complete this clearance");
+        }
+
+    // Complete clearance
+        return await this.prisma.clearance.update({
+          where: { id: clearanceId },
+          data: {
+            status: "COMPLETED",
+            completedAt: new Date(),
+          },
+        });
+
+    } catch (error) {
+
+      console.log(error);
+
+      throw bad(`Failed to complete department clearance: ${error.message}`);
+
+    }
+ }
 
   //////////////////////////////////////// FINANCE CLEARANCE //////////////////////////////////////////
 
@@ -680,6 +817,26 @@ export class OffboardingService {
     } catch (error) {
       console.log(error);
       bad(`Failed to find user clearance: ${error.message}`);
+    }
+  }
+
+   private async findClearanceById(clearanceId: string) {
+    try {
+      const clearance = await this.prisma.clearance.findUnique({
+        where: { id: clearanceId },
+        include: {
+          department: true,
+          finance: true,
+          facility: true,
+          signatures: true,
+          offboarding: true,
+        }
+      });
+      if(!clearance) throw bad("Clearance Not Found");
+      return clearance;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to find clearance by ID: ${error.message}`);
     }
   }
 
