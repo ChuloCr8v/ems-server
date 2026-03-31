@@ -468,7 +468,6 @@ model Offboarding {
   initiatedById   String      @db.Uuid
   initiatedBy     User        @relation("InitiatedBy", fields: [initiatedById], references: [id])
   clearance       Clearance[]
-  // signatures      OffboardingSignatures[]
   uploads         Upload[]
 }
 
@@ -523,27 +522,9 @@ model DepartmentClearance {
   notes           String?
   clearanceId     String?        @unique @db.Uuid
   clearance       Clearance?     @relation(fields: [clearanceId], references: [id])
-  // employeeSignature  DCSignatures?  @relation("EmployeeSignature")
-  // managerSignature   DCSignatures?  @relation("ManagerSignature")
-  // handoverESignature DCSignatures?  @relation("HandoverEmployeeSignature")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
-
-// model DCSignatures {
-//   id                   String               @id @default(uuid()) @db.Uuid
-//   signatureId          String?              @unique @db.Uuid
-//   signature            Upload?              @relation(fields: [signatureId], references: [id])
-//   signedAt             DateTime?
-//   employeeSignatureId  String?              @unique @db.Uuid
-//   employeeSignature    DepartmentClearance? @relation("EmployeeSignature", fields: [employeeSignatureId], references: [id])
-//   managerSignatureId   String?              @unique @db.Uuid
-//   managerSignature     DepartmentClearance? @relation("ManagerSignature", fields: [managerSignatureId], references: [id])
-//   handoverESignatureId String?              @unique @db.Uuid
-//   handoverESignature   DepartmentClearance? @relation("HandoverEmployeeSignature", fields: [handoverESignatureId], references: [id])
-//   createdAt            DateTime             @default(now())
-//   updatedAt            DateTime             @updatedAt
-// }
 
 model FinanceClearance {
   id              String     @id @default(uuid()) @db.Uuid

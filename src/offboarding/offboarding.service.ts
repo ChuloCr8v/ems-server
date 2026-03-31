@@ -10,7 +10,6 @@ import { MailService } from 'src/mail/mail.service';
 import { BulkReturnDto, DepartmentClearanceDto, FinanceClearanceDto, HandoverTaskDto, InitiateExit, ReportAssetDto, SignDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TaskHandoverSignatureRequestedEvent } from 'src/events/offboarding';
-import { trace } from 'console';
 
 @Injectable()
 export class OffboardingService {
