@@ -236,41 +236,50 @@ export class OffboardingService {
     }
   }
 
-   async getHandover(userId: string) {
+  async getHandover(userId: string) {
     try {
-      const user = await this.findUserById(userId);
 
-      if (!user) throw bad("User not found");
+      const user = await this.findUserById(userId);
 
       const isUser = this.userHasRole(user, Role.USER);
       const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
-      const managerDeptIds = user.departments?.map(dept => dept.id) || []; 
-      const isReceiver = this.userHasRole(user, Role.RECEIVER) || this.userHasRole(user, Role.USER);
+      const isReceiver = this.userHasRole(user, Role.RECEIVER);
 
-      let whereClause: any = {};
+      const managerDeptIds =
+        user.departments?.map(dept => dept.id) || [];
+
+      const filters = [];
 
       if (isUser) {
-        whereClause.fromUserId = userId;
+        filters.push({
+          fromUserId: userId
+        });
       }
 
-      else if (isReceiver) {
-        whereClause.toUserId = userId;
+      if (isReceiver) {
+        filters.push({
+          toUserId: userId
+        });
       }
 
-      else if (isManager) {
-        // OPTIONAL: restrict to department
-        whereClause.task = {
-          departmentId: { in: managerDeptIds }
-        };
+      if (isManager && managerDeptIds.length > 0) {
+        filters.push({
+          task: {
+            departmentId: {
+              in: managerDeptIds
+            }
+          }
+        });
       }
 
-      else {
+      if (!filters.length) {
         throw bad("You are not authorised to view this information");
       }
 
       return await this.prisma.taskHandover.findMany({
-        where: whereClause,
-
+        where: {
+          OR: filters
+        },
         include: {
           task: true,
           clearance: {
@@ -289,8 +298,13 @@ export class OffboardingService {
       });
 
     } catch (error) {
+
       console.log(error);
-      throw bad(`Failed to get handover details: ${error.message}`);
+
+      throw bad(
+        `Failed to get handover details: ${error.message}`
+      );
+
     }
   }
 
