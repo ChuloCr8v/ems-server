@@ -102,6 +102,13 @@ export class OffboardingController {
     return await this.offboarding.getHandover(userId);
   }
 
+  @Auth([Role.RECEIVER])
+  @Get('receiver')
+  async getReceiverHandover(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.offboarding.getReceiverHandover(userId);
+  }
+
   @Auth([Role.DEPT_MANAGER])
   @Patch(':clearanceId/complete')
   async completeDepartmentClearance(
