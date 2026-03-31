@@ -113,14 +113,6 @@ export class OffboardingController {
     return result;
   }
 
-  // @Auth([Role.RECEIVER, Role.USER, Role.DEPT_MANAGER])
-  // @Get('receiver')
-  // async tasksHandoverReceiver(@AuthUser() user: IAuthUser) {
-  //   // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
-  //   const userId = user.sub
-  //   return await this.offboarding.tasksHandoverReceiver(userId);
-  // }
-
   @Auth()
   @Post('return-assets')
   async bulkReturnAssets(@AuthUser() user: IAuthUser, @Body() data: BulkReturnDto, @Res() res: Response) {
