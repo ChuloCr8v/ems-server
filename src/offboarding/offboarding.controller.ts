@@ -89,7 +89,6 @@ export class OffboardingController {
     @AuthUser() user: IAuthUser,
     @Res() res: Response,
   ) {
-    // The current authenticated user is the one RECEIVING the task, so user.sub is the recipient
     const userId = user.sub
     const result = await this.offboarding.receiverSignature(userId, data);
     return res.status(200).json(result);
