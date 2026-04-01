@@ -304,7 +304,11 @@ export class OffboardingService {
               }
             }
           },
-          upload: true,
+          upload: {
+            include: {
+              handover: true,
+            },
+          },
           fromUser: true,
           toUser: true,
         }
