@@ -743,7 +743,7 @@ export class OffboardingService {
   const rules = {
     DEPARTMENT: ["USER", "DEPT_MANAGER", "RECEIVER"],
     FACILITY: ["USER", "ASSET_MANAGER"],
-    FINANCE: ["USER", "HR"]
+    FINANCE: ["USER", "HR", "ADMIN"]
   };
 
   if (!rules[clearanceType].includes(role)) {
