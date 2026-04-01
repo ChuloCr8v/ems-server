@@ -254,15 +254,20 @@ export class OffboardingService {
       }
 
       if (isReceiver) {
-        filters.push({
-          task: {
-            assignees: {
-              some: {
-                userId: userId
+       filters.push({
+          OR: [
+            { toUserId: userId }, // handover record
+            {
+              task: {
+                assignees: {
+                  some: {
+                    userId: userId
+                  }
+                }
               }
             }
-          }
-       });
+          ]
+        });
       }
 
       if (isManager && managerDeptIds.length > 0) {
