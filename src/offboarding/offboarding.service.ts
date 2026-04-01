@@ -237,15 +237,15 @@ export class OffboardingService {
     try {
 
       const user = await this.findUserById(userId);
-      const userRoles = user.userRole || [];
+      // const userRoles = user.userRole || [];
 
-      const isUser = userRoles.includes(Role.USER);
-      const isManager = userRoles.includes(Role.DEPT_MANAGER);
-      const isReceiver = userRoles.includes(Role.RECEIVER);
+      // const isUser = userRoles.includes(Role.USER);
+      // const isManager = userRoles.includes(Role.DEPT_MANAGER);
+      // const isReceiver = userRoles.includes(Role.RECEIVER);
 
-      // const isUser = this.userHasRole(user, Role.USER);
-      // const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
-      // const isReceiver = this.userHasRole(user, Role.RECEIVER);
+      const isUser = this.userHasRole(user, Role.USER);
+      const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+      const isReceiver = this.userHasRole(user, Role.RECEIVER);
 
       const managerDeptIds =
         user.departments?.map(dept => dept.id) || [];
