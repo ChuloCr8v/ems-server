@@ -150,7 +150,7 @@ export class OffboardingService {
                 fromUser: { connect: { id: userId } },
                 toUser: { connect: { id: toUserId } },
                 clearance: { connect: { id: deptClearanceId } },
-                upload: uploads
+                uploads: uploads
                   ? {
                       connect: uploads.map(id => ({ id })),
                     }
@@ -225,7 +225,7 @@ export class OffboardingService {
       if(!manager) throw bad("You are not authorised to view this documents")
       return await this.prisma.taskHandover.findMany({
         where: { fromUserId: employeeId },
-        select: { upload: true },
+        select: { uploads: true },
       })
     } catch (error) {
       console.log(error);
@@ -237,11 +237,6 @@ export class OffboardingService {
     try {
 
       const user = await this.findUserById(userId);
-      // const userRoles = user.userRole || [];
-
-      // const isUser = userRoles.includes(Role.USER);
-      // const isManager = userRoles.includes(Role.DEPT_MANAGER);
-      // const isReceiver = userRoles.includes(Role.RECEIVER);
 
       const isUser = this.userHasRole(user, Role.USER);
       const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
@@ -304,7 +299,7 @@ export class OffboardingService {
               }
             }
           },
-          upload: {
+          uploads: {
             include: {
               handover: true,
             },
