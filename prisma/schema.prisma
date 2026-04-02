@@ -506,7 +506,7 @@ model TaskHandover {
   clearanceId String?              @db.Uuid
   clearance   DepartmentClearance? @relation(fields: [clearanceId], references: [id])
 
-  upload Upload[]
+  uploads  Upload[]
 
   note String?
 
