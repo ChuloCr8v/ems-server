@@ -661,10 +661,26 @@ export class AssetService {
 
         const adjustedCategory = mapCategory(row['category']) as AssetCategory;
 
+        //// Generate serial number if not provided
+        const generateSerial = (category: AssetCategory) => {
+        const date = new Date();
+        const formattedDate = `${date.getFullYear()}${String(
+          date.getMonth() + 1
+        ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+        return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
+      };
+
+        const serialNo =
+          row['serialNo']?.trim() ||
+          generateSerial(adjustedCategory);
+
         // ✅ Prepare asset data
         const assetData: CreateAssetDto = {
           name: row['name'],
-          serialNo: row['serialNo'] || `${'N/A' + index}`,
+          serialNo: serialNo,
           category: adjustedCategory,
           description: row['description'] || null,
         };
@@ -776,4 +792,21 @@ export class AssetService {
       data: { status: AssetStatus.AVAILABLE },
     });
   }
+
+
+  ///////////////////////////  HELPERS ///////////////////////////
+//   private const generateSerial = (category: AssetCategory) => {
+//   const date = new Date();
+//   const formattedDate = `${date.getFullYear()}${String(
+//     date.getMonth() + 1
+//   ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+//   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+//   return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
+// };
+
+// const serialNo =
+//   row['serialNo']?.trim() ||
+//   generateSerial(adjustedCategory);
 }
