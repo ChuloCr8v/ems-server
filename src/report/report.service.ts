@@ -245,7 +245,7 @@ export class ReportService {
       };
     } catch (error) {
       console.error('Error creating report:', error);
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -375,7 +375,7 @@ export class ReportService {
         `Error generating ${isTechSolutions ? 'Technology Solutions' : 'general'} weekly reports:`,
         error,
       );
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -390,7 +390,11 @@ export class ReportService {
       if (!user) bad('User not found');
 
       const reports = await this.prisma.report.findMany({
-        where: { week: Number(week), user: { departments: { some: { id: department } } } },
+        where: {
+           week: Number(week), 
+           user: { departments: { some: { id: department } } },
+           tasks: { some: { status: { not: 'CANCELLED' } } },
+        },
         include: this.reportWithRelations.include,
         orderBy: { createdAt: 'desc' },
       });
@@ -414,7 +418,7 @@ export class ReportService {
 
       return weeklyData;
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
 
     return null;
@@ -434,7 +438,7 @@ export class ReportService {
 
       return this.groupByWeekDeptUser(accessibleReports);
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -529,7 +533,7 @@ export class ReportService {
 
       return reports;
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -768,7 +772,7 @@ export class ReportService {
 
       return Array.from(weeks.values());
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 }

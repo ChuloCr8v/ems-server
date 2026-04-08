@@ -661,7 +661,7 @@ export class AssetService {
 
         const adjustedCategory = mapCategory(row['category']) as AssetCategory;
 
-        //// Generate serial number if not provided
+        //Generate serial number if not provided
         const generateSerial = (category: AssetCategory) => {
         const date = new Date();
         const formattedDate = `${date.getFullYear()}${String(
