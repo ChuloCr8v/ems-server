@@ -91,7 +91,7 @@ export class OffboardingService {
     async taskHandOver(userId: string, data: HandoverTaskDto) {
     try {
       const user = await this.findUserById(userId);
-      const { toUserId, note, uploads, signatureId } = data;
+      const { toUserId, note, fileLink, fileName, signatureId } = data;
 
       const tasks = await this.getTasksForHandover(userId);
       if (!tasks.length) {
@@ -150,12 +150,9 @@ export class OffboardingService {
                 fromUser: { connect: { id: userId } },
                 toUser: { connect: { id: toUserId } },
                 clearance: { connect: { id: deptClearanceId } },
-                uploads: uploads
-                  ? {
-                      connect: uploads.map(id => ({ id })),
-                    }
-                  : undefined,
-              },
+                fileLink,
+                fileName,
+               },
             })
           ),
 
@@ -218,20 +215,20 @@ export class OffboardingService {
     }
   }
 
-  async getHandoverDocuments(employeeId: string, managerId: string) {
-    try {
-      const employee = await this.findUserById(employeeId)
-      const manager = this.isManagerOfUser(managerId, employee.id);
-      if(!manager) throw bad("You are not authorised to view this documents")
-      return await this.prisma.taskHandover.findMany({
-        where: { fromUserId: employeeId },
-        select: { uploads: true },
-      })
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to fetch handed-over documents: ${error.message}`);
-    }
-  }
+  // async getHandoverDocuments(employeeId: string, managerId: string) {
+  //   try {
+  //     const employee = await this.findUserById(employeeId)
+  //     const manager = this.isManagerOfUser(managerId, employee.id);
+  //     if(!manager) throw bad("You are not authorised to view this documents")
+  //     return await this.prisma.taskHandover.findMany({
+  //       where: { fromUserId: employeeId },
+  //       select: { uploads: true },
+  //     })
+  //   } catch (error) {
+  //     console.log(error);
+  //     bad(`Failed to fetch handed-over documents: ${error.message}`);
+  //   }
+  // }
 
   async getHandover(userId: string) {
     try {
@@ -298,11 +295,6 @@ export class OffboardingService {
                 }
               }
             }
-          },
-          uploads: {
-            include: {
-              handover: true,
-            },
           },
           fromUser: true,
           toUser: true,
@@ -410,13 +402,13 @@ export class OffboardingService {
 
       await this.validateDepartmentClearance(userId);
 
-      const { deptClearanceId, clearanceId } = await this.findUserClearance(userId, notes); 
+      const { deptClearanceId, clearanceId } = await this.findUserDeptClearance(userId, notes); 
 
       //Confirm that the fromUser and toUser have already uploaded their signatures
       const signatures = await this.prisma.signatures.findMany({
         where: {
           clearanceId: clearanceId,
-          role: { in: ["USER"] },
+          role: { in: ["USER", "RECEIVER"] },
         }
       });
       
@@ -620,6 +612,45 @@ export class OffboardingService {
     }
   }
 
+  async getReturnedAssets(clearanceId: string) {
+    try {
+      //First find facility clearance
+      const clearance = await this.prisma.clearance.findUnique({
+        where: {
+           id: clearanceId,
+           type: 'FACILITIES',
+        },
+        include: {
+          facility: true,
+        }
+      });
+      if(!clearance) throw bad("Clearance Not Found");
+      const assignments = await this.prisma.assignment.findMany({
+        where: {
+          facilityId: clearance.facility?.id,
+          status: "RETURNED",
+          isReturned: true,
+        },
+        include: { asset: true, }
+      });
+      return assignments;
+    } catch (error) {
+      console.log(error);
+      bad(`Get bulk return failed: ${error.message}`);
+    }
+  }
+
+  async getAssetAssesments(assignmentId: string) {
+    try {
+      return await this.prisma.assetAssesment.findMany({
+        where: { assignmentId }
+      });
+    } catch (error) {
+      console.log(error);
+      bad(`Get asset assessment failed: ${error.message}`);
+    }
+  }
+
   async reportAsset(managerId: string, assignmentId: string, data: ReportAssetDto) {
     try {
       const { status, liabilityCost, description } = data;
@@ -750,7 +781,7 @@ export class OffboardingService {
     }
   }
 
-  private async findUserClearance(userId: string, notes?: string) {
+  private async findUserDeptClearance(userId: string, notes?: string) {
     try {
       const clearance = await this.prisma.clearance.findFirst({
         where: {

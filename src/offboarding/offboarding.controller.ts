@@ -62,12 +62,12 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  @Auth([Role.DEPT_MANAGER])
-  @Get(':empoyeeId/handover-doc')
-  async getHandoverDocuments(@AuthUser() user: IAuthUser, @Param('employeeId') employeeId: string) {
-    const userId = user.sub;
-    return await this.offboarding.getHandoverDocuments(userId, employeeId);
-  }
+  // @Auth([Role.DEPT_MANAGER])
+  // @Get(':empoyeeId/handover-doc')
+  // async getHandoverDocuments(@AuthUser() user: IAuthUser, @Param('employeeId') employeeId: string) {
+  //   const userId = user.sub;
+  //   return await this.offboarding.getHandoverDocuments(userId, employeeId);
+  // }
 
   @Auth([Role.DEPT_MANAGER])
   @Post(':userId/department-clearance')
@@ -125,6 +125,18 @@ export class OffboardingController {
     const userId = user.sub
     const assets = await this.offboarding.bulkReturnAssets(userId, data);
     return res.status(200).json({ message: `User has submitted his assets`, assets });
+  }
+
+  @Auth([Role.ADMIN, Role.HR, Role.ASSET_MANAGER])
+  @Get('clearanceId/returned-assets')
+  async getReturnedAssets(@Param('clearanceId') clearanceId: string) {
+    return await this.offboarding.getReturnedAssets(clearanceId);
+  }
+
+  @Auth()
+  @Get(':assignmentId/asset-assesment')
+  async getAssetAssesments(@Param('assignmentId') assignmentId: string) {
+    return await this.offboarding.getAssetAssesments(assignmentId);
   }
 
   @Auth([Role.ASSET_MANAGER])

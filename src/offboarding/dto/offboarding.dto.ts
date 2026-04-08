@@ -45,17 +45,15 @@ export class HandoverTaskDto {
     @IsNotEmpty()
     toUserId: string;
 
-    // @IsString()
-    // @IsNotEmpty()
-    // fromUserId: string;
+    @IsString()
+    fileLink: string;
+
+    @IsString()
+    fileName: string;
 
     @IsString()
     @IsOptional()
     note?: string;
-
-    @IsArray()
-    @IsOptional()
-    uploads?: string[];
 
     @IsString()
     @IsNotEmpty()

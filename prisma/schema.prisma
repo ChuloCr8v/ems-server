@@ -241,7 +241,7 @@ model Upload {
   commentId         String?           @db.Uuid
   paymentId         String?           @db.Uuid
   assetId           String?           @db.Uuid
-  handoverId        String?           @db.Uuid
+  // handoverId        String?           @db.Uuid
   financeId         String?           @db.Uuid
   requestId         String?           @db.Uuid
   publicId          String?           @unique
@@ -257,7 +257,7 @@ model Upload {
   claim             Claim?            @relation(fields: [claimId], references: [id])
   comment           Comment?          @relation(fields: [commentId], references: [id])
   guarantor         GuarantorContact? @relation(fields: [guarantorId], references: [id])
-  handover          TaskHandover?     @relation(fields: [handoverId], references: [id])
+  // handover          TaskHandover?     @relation(fields: [handoverId], references: [id])
   // finance           FinanceClearance? @relation(fields: [financeId], references: [id])
   offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
   prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
@@ -476,8 +476,8 @@ model Clearance {
   type   ClearanceType
   status ClearanceStatus @default(PENDING)
 
-  approvedBy String?
-  approvedAt DateTime?
+  approvedBy  String?
+  approvedAt  DateTime?
   completedAt DateTime?
 
   offboardingId String       @db.Uuid
@@ -499,6 +499,8 @@ model TaskHandover {
 
   fromUserId String @db.Uuid
   toUserId   String @db.Uuid
+  fileLink   String?
+  fileName   String?
 
   fromUser User @relation("TransferredFrom", fields: [fromUserId], references: [id])
   toUser   User @relation("TransferredTo", fields: [toUserId], references: [id])
@@ -506,7 +508,7 @@ model TaskHandover {
   clearanceId String?              @db.Uuid
   clearance   DepartmentClearance? @relation(fields: [clearanceId], references: [id])
 
-  uploads  Upload[]
+  // uploads  Upload[]
 
   note String?
 
