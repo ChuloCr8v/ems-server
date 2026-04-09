@@ -288,13 +288,22 @@ export class ReportService {
           ...user.userTask.flatMap((t) => t.task),
           ...user.createdTasks,
         ]
-          .filter((item: Task) => {
-            return (
-              item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED ||
-              (item.status === TaskStatus.COMPLETED && !item.isReported) ||
-              (item.status === TaskStatus.CANCELLED && !item.isReported)
-            );
-          })
+             .filter((item: Task) => {
+              return (
+                item.status !== TaskStatus.CANCELLED &&
+                (
+                  item.status !== TaskStatus.COMPLETED || 
+                  (item.status === TaskStatus.COMPLETED && !item.isReported)
+                )
+              );
+             })
+          // .filter((item: Task) => {
+          //   return (
+          //     item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED ||
+          //     (item.status === TaskStatus.COMPLETED && !item.isReported) ||
+          //     (item.status === TaskStatus.CANCELLED && !item.isReported)
+          //   );
+          // })
           .map((item: Task) => item.id)
           .filter(Boolean);
 
