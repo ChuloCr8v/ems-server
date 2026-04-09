@@ -66,7 +66,7 @@ export class OffboardingService {
       return { exit };
     } catch (error) {
       console.log(error);
-      bad(`Failed to initiate offboarding: ${error.message}`);
+      bad(`Failed to initiate offboarding: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -84,7 +84,7 @@ export class OffboardingService {
         });
       } catch (error) {
         console.log(error);
-        bad(`Failed to get tasks for handover: ${error.message}`);
+        bad(`Failed to get tasks for handover: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -211,7 +211,7 @@ export class OffboardingService {
 
     } catch (error) {
       console.error(error);
-      throw bad(`Failed to initiate task handover: ${error.message}`);
+      throw bad(`Failed to initiate task handover: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -304,7 +304,7 @@ export class OffboardingService {
     } catch (error) {
       console.log(error);
       throw bad(
-        `Failed to get handover details: ${error.message}`
+        `Failed to get handover details: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -331,7 +331,7 @@ export class OffboardingService {
       return true;
     } catch (error) {
       console.log(error);
-      bad(`Failed to validate department clearance: ${error.message}`);
+      bad(`Failed to validate department clearance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -390,7 +390,7 @@ export class OffboardingService {
       };
     } catch (error) {
       console.log(error);
-      bad(`Failed to upload handover signature: ${error.message}`);
+      bad(`Failed to upload handover signature: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -438,7 +438,7 @@ export class OffboardingService {
 
     } catch (error) {
       console.log(error);
-      bad(`Failed to complete department clearance: ${error.message}`);
+      bad(`Failed to complete department clearance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -501,7 +501,7 @@ export class OffboardingService {
 
       console.log(error);
 
-      throw bad(`Failed to complete department clearance: ${error.message}`);
+      throw bad(`Failed to complete department clearance: ${error instanceof Error ? error.message : String(error)}`);
 
     }
  }
@@ -608,7 +608,7 @@ export class OffboardingService {
       };
     } catch (error) {
       console.log(error);
-      bad(`Bulk return failed: ${error.message}`);
+      bad(`Bulk return failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -636,7 +636,7 @@ export class OffboardingService {
       return assignments;
     } catch (error) {
       console.log(error);
-      bad(`Get bulk return failed: ${error.message}`);
+      bad(`Get bulk return failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -647,7 +647,7 @@ export class OffboardingService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Get asset assessment failed: ${error.message}`);
+      bad(`Get asset assessment failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -688,7 +688,7 @@ export class OffboardingService {
       return reviewAssignment;
     } catch (error) {
       console.log(error);
-      bad(`Failed to review facility clearance: ${error.message}`);
+      bad(`Failed to review facility clearance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -700,7 +700,7 @@ export class OffboardingService {
       if(!assetAssessment) throw bad("Asset Assessment Not Found");
     } catch (error) {
       console.log(error);
-      bad(`Failed to send liability costs: ${error.message}`);
+      bad(`Failed to send liability costs: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -743,7 +743,7 @@ export class OffboardingService {
 
     } catch (error) {
        console.log(error);
-      bad(`Failed to sign clearance for user: ${error.message}`);
+      bad(`Failed to sign clearance for user: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -757,7 +757,7 @@ export class OffboardingService {
       return user;
     } catch (error) {
       console.log(error);
-      bad(`Failed to get user: ${error.message}`);
+      bad(`Failed to get user: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -811,7 +811,7 @@ export class OffboardingService {
       return { deptClearanceId: dc.id, clearanceId: clearance.id };
     } catch (error) {
       console.log(error);
-      bad(`Failed to find user clearance: ${error.message}`);
+      bad(`Failed to find user clearance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -831,7 +831,7 @@ export class OffboardingService {
       return clearance;
     } catch (error) {
       console.log(error);
-      bad(`Failed to find clearance by ID: ${error.message}`);
+      bad(`Failed to find clearance by ID: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
