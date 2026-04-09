@@ -22,7 +22,7 @@ const reportWithRelationsInclude = Prisma.validator<Prisma.ReportDefaultArgs>()(
   {
     include: {
       tasks: {
-        where: { status: { not: TaskStatus.CANCELLED } },
+        // where: { status: { not: TaskStatus.CANCELLED } },
         include: {
           department: true,
           category: true,
@@ -603,7 +603,9 @@ export class ReportService {
     for (const report of reports) {
       if (report.week !== week) continue;
 
-      for (const task of report.tasks) {
+      for (const task of report.tasks.filter(
+        (t) => t.status !== TaskStatus.CANCELLED
+      )) {
         let assigned = false;
 
         // Check which department project labels this task belongs to
