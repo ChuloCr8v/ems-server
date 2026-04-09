@@ -22,6 +22,7 @@ const reportWithRelationsInclude = Prisma.validator<Prisma.ReportDefaultArgs>()(
   {
     include: {
       tasks: {
+        where: { status: { not: 'CANCELLED' } },
         include: {
           department: true,
           category: true,
@@ -393,19 +394,7 @@ export class ReportService {
         where: {
            week: Number(week), 
            user: { departments: { some: { id: department } } },
-           tasks: {
-            some: {
-              projectLabels: {
-                some: {
-                  tasks: {
-                    some: {
-                      status: { not: 'CANCELLED'}
-                    }
-                  }
-                }
-              }
-            }
-           },
+           tasks: { some: { status: { not: 'CANCELLED' } } },
         },
         include: this.reportWithRelations.include,
         orderBy: { createdAt: 'desc' },
