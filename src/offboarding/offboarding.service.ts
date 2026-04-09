@@ -567,7 +567,7 @@ export class OffboardingService {
         where: {
           type: 'DEPARTMENT',
           offboarding: { userId },
-          status: 'COMPLETED',
+          status: 'DM_SIGNED',
         },
       });
       if(!clearance) throw bad("Department clearance must be completed before intiating facility clearance");
