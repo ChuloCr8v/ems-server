@@ -23,7 +23,7 @@ const reportWithRelationsInclude = Prisma.validator<Prisma.ReportDefaultArgs>()(
   {
     include: {
       tasks: {
-        // where: { status: { not: TaskStatus.CANCELLED } },
+        where: { status: { not: TaskStatus.CANCELLED } },
         include: {
           department: true,
           category: true,
@@ -289,20 +289,11 @@ export class ReportService {
           ...user.userTask.flatMap((t) => t.task),
           ...user.createdTasks,
         ]
-            //  .filter((item: Task) => {
-            //   return (
-            //     item.status !== TaskStatus.CANCELLED || item.isReported &&
-            //     (
-            //       item.status !== TaskStatus.COMPLETED || 
-            //       (item.status === TaskStatus.COMPLETED && !item.isReported)
-            //     )
-            //   );
-            //  })
           .filter((item: Task) => {
             return (
               item.status !== TaskStatus.COMPLETED && item.status !== TaskStatus.CANCELLED ||
               (item.status === TaskStatus.COMPLETED && !item.isReported) ||
-              (item.status === TaskStatus.CANCELLED && item.isReported)
+              (item.status === TaskStatus.CANCELLED && !item.isReported)
             );
           })
           .map((item: Task) => item.id)

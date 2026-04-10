@@ -50,8 +50,8 @@ export class AssetService {
 
     try {
       return await this.prisma.asset.create({ data });
-    } catch (err) {
-      bad(err);
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -696,7 +696,7 @@ export class AssetService {
       } catch (error) {
         errors.push({
           row: index + 2, // Excel rows start at 1, headers at row 1
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           data: row,
         });
       }
@@ -721,7 +721,7 @@ export class AssetService {
       });
     } catch (error) {
       throw new InternalServerErrorException(
-        `Failed to delete asset ${error.message}`,
+        `Failed to delete asset ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
