@@ -20,7 +20,6 @@ import {
   PipRecommendedEvent,
   PipRejectedEvent,
 } from 'src/events/pip.event';
-import { connect } from 'http2';
 
 @Injectable()
 export class PipService {
@@ -124,7 +123,7 @@ export class PipService {
       return createdPip;
     } catch (error) {
       console.log(error);
-      bad(`Failed to create pip: ${error.message}`);
+      bad(`Failed to create pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -212,7 +211,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to get pips: ${error.message}`);
+      bad(`Failed to get pips: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -252,7 +251,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to get pip: ${error.message}`);
+      bad(`Failed to get pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -300,7 +299,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to update pip: ${error.message}`);
+      bad(`Failed to update pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -325,7 +324,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to get pips: ${error.message}`);
+      bad(`Failed to get pips: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -417,7 +416,7 @@ export class PipService {
       return recommendedPip;
     } catch (error) {
       console.log(error);
-      bad(`Failed to recommend pip: ${error.message}`);
+      bad(`Failed to recommend pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -497,7 +496,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to get recommended pips: ${error.message}`);
+      bad(`Failed to get recommended pips: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -594,7 +593,7 @@ export class PipService {
       }
     } catch (error) {
       console.log(error);
-      bad(`Failed to approve pip: ${error.message}`);
+      bad(`Failed to approve pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -664,7 +663,7 @@ export class PipService {
       };
     } catch (error) {
       console.log(error);
-      bad(`Failed to send pip to HR: ${error.message}`);
+      bad(`Failed to send pip to HR: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -741,7 +740,7 @@ export class PipService {
       }
     } catch (error) {
       console.log(error);
-      bad(`Failed to approve department pip: ${error.message}`);
+      bad(`Failed to approve department pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -831,7 +830,7 @@ export class PipService {
       }
     } catch (error) {
       console.log(error);
-      bad(`Failed to reject department pip: ${error.message}`);
+      bad(`Failed to reject department pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1185,7 +1184,7 @@ export class PipService {
       return managerPips;
     } catch (error) {
       console.log(error);
-      bad(`Failed to ge all manager's pip: ${error.message}`);
+      bad(`Failed to ge all manager's pip: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1241,7 +1240,7 @@ export class PipService {
       });
     } catch (error) {
       console.log(error);
-      bad(`Failed to delete all PIPs: ${error.message}`);
+      bad(`Failed to delete all PIPs: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1293,7 +1292,7 @@ export class PipService {
       return updatedPip;
     } catch (error) {
       console.log(error);
-      bad(`Failed to mark PIP as completed: ${error.message}`);
+      bad(`Failed to mark PIP as completed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1358,7 +1357,7 @@ export class PipService {
       return claim;
     } catch (error) {
       console.log(error);
-      bad(`Failed to make pip claim request: ${error.message}`);
+      bad(`Failed to make pip claim request: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1372,7 +1371,7 @@ export class PipService {
       return user;
     } catch (error) {
       console.log(error);
-      bad(`Failed to get user: ${error.message}`);
+      bad(`Failed to get user: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

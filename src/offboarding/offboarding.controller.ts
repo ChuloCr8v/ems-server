@@ -128,9 +128,9 @@ export class OffboardingController {
   }
 
   @Auth([Role.ADMIN, Role.HR, Role.ASSET_MANAGER])
-  @Get(':clearanceId/returned-assets')
-  async getReturnedAssets(@Param('clearanceId') clearanceId: string) {
-    return await this.offboarding.getReturnedAssets(clearanceId);
+  @Get(':offboardingId/returned-assets')
+  async getReturnedAssets(@Param('offboardingId') offboardingId: string) {
+    return await this.offboarding.getReturnedAssets(offboardingId);
   }
 
   @Auth()

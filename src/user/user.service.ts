@@ -48,7 +48,7 @@ export class UserService {
 
       return me;
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -195,7 +195,7 @@ export class UserService {
       return assigned;
     } catch (error) {
       console.error(error);
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -236,7 +236,7 @@ export class UserService {
 
       return approveUser;
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -415,7 +415,7 @@ export class UserService {
 
       return bad('You do not have permission to view this user');
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -566,7 +566,7 @@ export class UserService {
       }
       return user;
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -788,7 +788,7 @@ export class UserService {
         message: "user's status updated successfully",
       };
     } catch (e) {
-      bad(e);
+      bad(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -804,7 +804,7 @@ export class UserService {
         message: 'users deleted successfully',
       };
     } catch (e) {
-      bad(e);
+      bad(e instanceof Error ? e.message : String(e));
     }
   }
 }

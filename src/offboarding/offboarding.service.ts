@@ -612,22 +612,18 @@ export class OffboardingService {
     }
   }
 
-  async getReturnedAssets(clearanceId: string) {
+  async getReturnedAssets(offboardingId: string) {
     try {
-      //First find facility clearance
-      const clearance = await this.prisma.clearance.findUnique({
-        where: {
-           id: clearanceId,
-           type: 'FACILITIES',
-        },
-        include: {
-          facility: true,
-        }
+      //Find User Offboarding
+      const offboarding = await this.prisma.offboarding.findUnique({
+        where: { id: offboardingId },
+        include: { clearance: true, user: true },
       });
-      if(!clearance) throw bad("Clearance Not Found");
+      if(!offboarding) throw bad("Offboarding record not found for user");
+
       const assignments = await this.prisma.assignment.findMany({
         where: {
-          facilityId: clearance.facility?.id,
+          userId: offboarding.userId,
           status: "RETURNED",
           isReturned: true,
         },
@@ -752,7 +748,7 @@ export class OffboardingService {
     try {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
-        include: { departments: true, approver: true, },
+        include: { departments: true, approver: true, offboarding: true},
       });
       return user;
     } catch (error) {
