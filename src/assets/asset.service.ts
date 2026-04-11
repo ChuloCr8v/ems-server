@@ -11,6 +11,7 @@ import {
   ReportFaultDto,
   UpdateFaultStatusDto,
   ImageDto,
+  // CreateAssetCategory,
 } from './dto/assets.dto';
 import { AssetCategory, AssetStatus, FaultStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
@@ -19,6 +20,12 @@ import { bad, mustHave } from 'src/utils/error.utils';
 @Injectable()
 export class AssetService {
   constructor(private prisma: PrismaService) {}
+
+  // async createAssetCategory(data: CreateAssetCategory) {
+  //   return await this.prisma.assetCategory.create({
+  //     data: { name: data.name },
+  //   });
+  // }
 
   async createAsset(createAssetDto: CreateAssetDto) {
     const assetId = 'ZCL' + Date.now().toString().slice(-6);
@@ -696,7 +703,7 @@ export class AssetService {
       } catch (error) {
         errors.push({
           row: index + 2, // Excel rows start at 1, headers at row 1
-          error: error instanceof Error ? error.message : String(error),
+          error: error  ,
           data: row,
         });
       }

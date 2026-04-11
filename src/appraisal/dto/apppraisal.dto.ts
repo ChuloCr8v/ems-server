@@ -1,4 +1,4 @@
-import { AppraisalPipStatus, AppraisalStatus } from '@prisma/client';
+ import { AppraisalPipStatus, AppraisalStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
