@@ -68,11 +68,11 @@ export class CreateAssetDto {
   @IsString()
   serialNo?: string;
 
-  // @ApiProperty({
-  //   enum: AssetCategory,
-  //   description: 'Category of the asset',
-  //   example: 'IT_EQUIPMENT',
-  // })
+  @ApiProperty({
+    enum: AssetCategory,
+    description: 'Category of the asset',
+    example: 'IT_EQUIPMENT',
+  })
   @IsNotEmpty()
   @IsString()
   category: AssetCategory;
