@@ -57,7 +57,7 @@ export class CategoryService {
         data: res,
       };
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -78,7 +78,7 @@ export class CategoryService {
         },
       });
     } catch (error) {
-      bad(error);
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
 }

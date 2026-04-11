@@ -37,6 +37,12 @@ export class ImageDto {
   mimeType?: string;
 }
 
+// export class CreateAssetCategory {
+//   @IsString()
+//   @IsNotEmpty()
+//   name: string;
+// }
+
 export class CreateAssetDto {
   @ApiProperty({
     description: 'Name of the asset',
@@ -62,11 +68,11 @@ export class CreateAssetDto {
   @IsString()
   serialNo?: string;
 
-  @ApiProperty({
-    enum: AssetCategory,
-    description: 'Category of the asset',
-    example: 'IT_EQUIPMENT',
-  })
+  // @ApiProperty({
+  //   enum: AssetCategory,
+  //   description: 'Category of the asset',
+  //   example: 'IT_EQUIPMENT',
+  // })
   @IsNotEmpty()
   @IsString()
   category: AssetCategory;

@@ -612,11 +612,11 @@ export class OffboardingService {
     }
   }
 
-  async getReturnedAssets(offboardingId: string) {
+  async getReturnedAssets(userId: string) {
     try {
       //Find User Offboarding
       const offboarding = await this.prisma.offboarding.findUnique({
-        where: { id: offboardingId },
+        where: { id: userId },
         include: { clearance: true, user: true },
       });
       if(!offboarding) throw bad("Offboarding record not found for user");
