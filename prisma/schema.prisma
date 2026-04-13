@@ -388,43 +388,53 @@ model Comment {
 
 ////////////////////////////////// ASSETS //////////////////////////////
 model Asset {
-  id           String         @id @default(uuid()) @db.Uuid
-  assetId      String         @unique
-  name         String
-  serialNo     String?        @unique
-  category     AssetCategory?
-  purchaseDate DateTime?
-  vendor       String?
-  cost         Float?
-  description  String?
-  isReturned   Boolean?       @default(false)
-  status       AssetStatus?   @default(AVAILABLE)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  assignments  Assignment[]
-  faults       Fault[]
-  assetImages  Upload[]       @relation("AssetImages")
+  id              String         @id @default(uuid()) @db.Uuid
+  assetId         String         @unique
+  name            String
+  serialNo        String?        @unique
+  category        AssetCategory?
+  assetCategoryId String?        @db.Uuid
+  assetCategory   ASCategory?    @relation(fields: [assetCategoryId], references: [id])
+  purchaseDate    DateTime?
+  vendor          String?
+  cost            Float?
+  description     String?
+  isReturned      Boolean?       @default(false)
+  status          AssetStatus?   @default(AVAILABLE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assignments     Assignment[]
+  faults          Fault[]
+  assetImages     Upload[]       @relation("AssetImages")
+}
+
+model ASCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  asset     Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Assignment {
-  id                String             @id @default(uuid())
-  assetId           String             @db.Uuid
-  userId            String             @db.Uuid
-  assignedAt        DateTime
-  retrievedAt       DateTime?
-  notes             String?
-  condition         String?
-  status            AssignmentStatus?
-  isVerified        Boolean            @default(false)
-  isPaid            Boolean            @default(false)
-  isReturned        Boolean?           @default(false)
-  verifiedAt        DateTime?
-  returnedAt        DateTime?
-  facilityId        String?            @db.Uuid
-  assetAssessmentId AssetAssesment[]
-  asset             Asset              @relation(fields: [assetId], references: [id])
-  facility          FacilityClearance? @relation(fields: [facilityId], references: [id])
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String             @id @default(uuid())
+  assetId     String             @db.Uuid
+  userId      String             @db.Uuid
+  assignedAt  DateTime
+  retrievedAt DateTime?
+  notes       String?
+  condition   String?
+  status      AssignmentStatus?
+  isVerified  Boolean            @default(false)
+  isPaid      Boolean            @default(false)
+  isReturned  Boolean?           @default(false)
+  verifiedAt  DateTime?
+  returnedAt  DateTime?
+  facilityId  String?            @db.Uuid
+  assessment  AssetAssesment[]
+  asset       Asset              @relation(fields: [assetId], references: [id])
+  facility    FacilityClearance? @relation(fields: [facilityId], references: [id])
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -497,8 +507,8 @@ model TaskHandover {
   task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
   taskId String @db.Uuid
 
-  fromUserId String @db.Uuid
-  toUserId   String @db.Uuid
+  fromUserId String  @db.Uuid
+  toUserId   String  @db.Uuid
   fileLink   String?
   fileName   String?
 
@@ -1657,6 +1667,7 @@ enum AssetCategory {
 enum AAStatus {
   LOST
   DAMAGED
+  FAULTY
 }
 
 enum AssetStatus {

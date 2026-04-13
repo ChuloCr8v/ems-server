@@ -616,7 +616,7 @@ export class OffboardingService {
     try {
       //Find User Offboarding
       const offboarding = await this.prisma.offboarding.findUnique({
-        where: { id: userId },
+        where: { userId: userId },
         include: { clearance: true, user: true },
       });
       if(!offboarding) throw bad("Offboarding record not found for user");
@@ -636,10 +636,15 @@ export class OffboardingService {
     }
   }
 
-  async getAssetAssesments(assignmentId: string) {
+  async getAssetAssesments(userId: string) {
+    const user = await this.findUserById(userId);
     try {
       return await this.prisma.assetAssesment.findMany({
-        where: { assignmentId }
+        where: {
+          assignment: {
+            userId: user.id,
+          },
+        },
       });
     } catch (error) {
       console.log(error);
@@ -688,17 +693,17 @@ export class OffboardingService {
     }
   }
 
-  async sendLiabiltyCosts(aaId: string, userId: string) {
-    try {
-      const assetAssessment = await this.prisma.assetAssesment.findUnique({
-        where: { id: aaId },
-      });
-      if(!assetAssessment) throw bad("Asset Assessment Not Found");
-    } catch (error) {
-      console.log(error);
-      bad(`Failed to send liability costs: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+  // async sendLiabiltyCosts(aaId: string, userId: string) {
+  //   try {
+  //     const assetAssessment = await this.prisma.assetAssesment.findUnique({
+  //       where: { id: aaId },
+  //     });
+  //     if(!assetAssessment) throw bad("Asset Assessment Not Found");
+  //   } catch (error) {
+  //     console.log(error);
+  //     bad(`Failed to send liability costs: ${error instanceof Error ? error.message : String(error)}`);
+  //   }
+  // }
 
   async facilityClearance(managerId: string, userId: string) {}
 

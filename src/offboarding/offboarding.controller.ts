@@ -134,9 +134,9 @@ export class OffboardingController {
   }
 
   @Auth()
-  @Get(':assignmentId/asset-assesment')
-  async getAssetAssesments(@Param('assignmentId') assignmentId: string) {
-    return await this.offboarding.getAssetAssesments(assignmentId);
+  @Get(':userId/asset-assesment')
+  async getAssetAssesments(@Param('userId') userId: string) {
+    return await this.offboarding.getAssetAssesments(userId);
   }
 
   @Auth([Role.ASSET_MANAGER])

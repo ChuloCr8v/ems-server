@@ -29,6 +29,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
 import {
   ArchiveAssetDto,
+  AssetCategoryDto,
   AssignAssetDto,
   CreateAssetDto,
   ReportFaultDto,
@@ -42,6 +43,11 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 @Controller('assets')
 export class AssetsController {
   constructor(private readonly assetsService: AssetService) {}
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Post('category')
+  @ApiOperation({ summary: 'Create a new asset category'})
+  @ApiBody({type: AssetCategoryDto})
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
