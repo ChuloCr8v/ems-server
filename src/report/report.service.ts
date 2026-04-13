@@ -17,7 +17,6 @@ import { CreateDepartmentWeeklyReportDto } from './dto/report.dto';
 import { randomBytes } from 'crypto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ReportSubmittedEvent } from 'src/events/report.event';
-import { report } from 'process';
 
 const reportWithRelationsInclude = Prisma.validator<Prisma.ReportDefaultArgs>()(
   {

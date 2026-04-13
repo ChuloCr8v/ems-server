@@ -37,11 +37,11 @@ export class ImageDto {
   mimeType?: string;
 }
 
-// export class CreateAssetCategory {
-//   @IsString()
-//   @IsNotEmpty()
-//   name: string;
-// }
+export class AssetCategoryDto{
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+}
 
 export class CreateAssetDto {
   @ApiProperty({

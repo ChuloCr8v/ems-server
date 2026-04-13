@@ -11,7 +11,7 @@ import {
   ReportFaultDto,
   UpdateFaultStatusDto,
   ImageDto,
-  // CreateAssetCategory,
+  AssetCategoryDto,
 } from './dto/assets.dto';
 import { AssetCategory, AssetStatus, FaultStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
@@ -21,11 +21,68 @@ import { bad, mustHave } from 'src/utils/error.utils';
 export class AssetService {
   constructor(private prisma: PrismaService) {}
 
-  // async createAssetCategory(data: CreateAssetCategory) {
-  //   return await this.prisma.assetCategory.create({
-  //     data: { name: data.name },
-  //   });
-  // }
+  async createAssetCategory(data: AssetCategoryDto) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({
+        where: { name: data.name },
+      });
+      if(existing) throw bad(`${existing.name} category already exists`, 404);
+       return await this.prisma.aSCategory.create({
+        data: { name: data.name },
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async updateAssetCategory(id: string, data: AssetCategoryDto) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({ where: { id } } );
+      if(!existing) throw bad(`${existing.name} category not found`, 404);
+      return await this.prisma.aSCategory.update({
+        where: { id },
+        data: { name: data.name },
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async getAssetCategories() {
+    try {
+      return await this.prisma.aSCategory.findMany({});
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error)); 
+    }
+  }
+
+  async getAssetCategory(id: string) {
+    try {
+      return await this.prisma.aSCategory.findUnique({ where: { id } });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async removeAssetCategory(id: string) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({ where: { id } } );
+      if(!existing) throw bad(`Category not found`, 404);
+      return await this.prisma.aSCategory.delete({ where: { id } });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async createMultiAssetCategory(categories: AssetCategoryDto[]) {
+    try {
+      return await this.prisma.aSCategory.createMany({
+        data: categories,
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   async createAsset(createAssetDto: CreateAssetDto) {
     const assetId = 'ZCL' + Date.now().toString().slice(-6);
