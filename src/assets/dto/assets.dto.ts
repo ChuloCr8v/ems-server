@@ -75,7 +75,7 @@ export class CreateAssetDto {
   })
   @IsNotEmpty()
   @IsString()
-  category: AssetCategory;
+  assetCategoryId: string;
 
   // @ApiProperty({
   //   description: 'Purchase date of the asset in YYYY-MM-DD format',
