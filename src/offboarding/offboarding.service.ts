@@ -100,7 +100,7 @@ export class OffboardingService {
 
       const clearance = await this.prisma.clearance.findFirst({
         where: {
-          offboarding: { userId },
+          offboarding: { userId: user.id },
           type: "DEPARTMENT",
         },
         include: { department: true },
@@ -214,21 +214,6 @@ export class OffboardingService {
       throw bad(`Failed to initiate task handover: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-
-  // async getHandoverDocuments(employeeId: string, managerId: string) {
-  //   try {
-  //     const employee = await this.findUserById(employeeId)
-  //     const manager = this.isManagerOfUser(managerId, employee.id);
-  //     if(!manager) throw bad("You are not authorised to view this documents")
-  //     return await this.prisma.taskHandover.findMany({
-  //       where: { fromUserId: employeeId },
-  //       select: { uploads: true },
-  //     })
-  //   } catch (error) {
-  //     console.log(error);
-  //     bad(`Failed to fetch handed-over documents: ${error.message}`);
-  //   }
-  // }
 
   async getHandover(userId: string) {
     try {
@@ -521,56 +506,102 @@ export class OffboardingService {
 
   //////////////////////////////////////// FINANCE CLEARANCE //////////////////////////////////////////
 
-  // async initiateFinanceClearance(employeeId: string, data: FinanceClearanceDto) {
-  //   try {
-  //     const { isLoan, isReimbursement, isTravel, travelAmount, loanAmount, reimburseAmount } = data;
-  //     const employee = await this.findUserById(employeeId);
-  //     if(!employee) throw bad("Employee not found");
+  async getAllPendingClaims(userId: string) {
+    const user = await this.findUserById(userId);
+    try {
+      const claims = await this.prisma.claim.findMany({
+        where: {
+          userId: user.id,
+          status: "PENDING",
+        },
+        include: {
+          finance: true
+        }
+      });
+      return claims
+    } catch (error) {
+       console.log(error);
+      bad(`Get all pending claims failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
-  //     //Check if user has completed department clearance
-  //     const clearance = await this.prisma.clearance.findFirst({
-  //       where: {
-  //         type: 'DEPARTMENT',
-  //         offboarding: { userId: employeeId },
-  //         status: 'COMPLETED',
-  //       },
-  //     });
-  //     if(!clearance) throw bad("Department clearance must be completed before intiating finance clearance");
+  async initiateFinanceClearance(userId: string, employeeId: string, data: FinanceClearanceDto) {
+    try {
+      const { isLoan, loanAmount, comment } = data;
+      return await this.prisma.$transaction(async (tx) => {
+        const employee = await this.findUserById(employeeId);
 
-  //     //Initiate finance clearance
-  //     const finance = await this.prisma.clearance.create({
-  //       data: {
-  //         type: 'FINANCE',
-  //         offboarding: { connect: { userId: employeeId } },
-  //         finance: {
-  //           create: {
-  //             employee: { connect: { id: employeeId } },
-  //             travelAmount,
-  //             isTravel,
-  //             isLoan,
-  //             loanAmount,
-  //           },
-  //         },
-  //       },
-  //     });
-  //   } catch (error) {
-  //     console.log(error);
-  //     bad(`Failed to initiate finance clearance: ${error.message}`);
-  //   }
-  // }
+        //Find finanace clearance record linked to user's offboarding
+        const clearance = await this.prisma.clearance.findFirst({
+          where: {
+            offboarding: { userId: employee.id },
+            type: "FINANCE",
+          },
+          include: { finance: true },
+        });
+        if(!clearance) {
+          throw bad("Finance clearance not found for user's offboarding");
+        }
+
+        //Get all pending claims for the user
+        const pendingClaims = await this.getAllPendingClaims(employeeId);
+
+        if(clearance.finance?.id) {
+          return clearance.finance.id;
+        }
+        const created = await tx.financeClearance.create({
+          data: {
+            employee: { connect: { id: employee.id } },
+            clearance: { connect: { id: clearance.id } },
+            isLoan,
+            loanAmount: isLoan ? loanAmount : null,
+            ...(comment && {
+              comment: {
+                create: { comment }
+              }
+            }),
+            ...(pendingClaims.length > 0 && {
+              claims: {
+                connect: pendingClaims.map(c => ({ id: c.id }))
+              }
+            })
+          }
+        });
+        return created.id;
+      });
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to initiate finance clearance: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+        
 
   ////////////////////////////// FACILITY CLEARANCE ////////////////////////////////////////
   async bulkReturnAssets(userId: string, data: BulkReturnDto){
     try {
        //Check if user has completed department clearance
-      const clearance = await this.prisma.clearance.findFirst({
+      const deptClearance = await this.prisma.clearance.findFirst({
         where: {
           type: 'DEPARTMENT',
           offboarding: { userId },
           status: 'DM_SIGNED',
         },
       });
-      if(!clearance) throw bad("Department clearance must be completed before intiating facility clearance");
+      if(!deptClearance) {
+        throw bad("Department clearance must be completed before intiating facility clearance");
+      } 
+
+      //Find facility clearence record linked to user's offboarding
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          offboarding: { userId },
+          type: "FACILITIES",
+        },
+        include: { facility: true },
+      });
+      if(!clearance) {
+        throw bad("Facility clearance not found for user's offboarding");
+      }
 
       const { assignmentIds } = data;
       if(!assignmentIds || assignmentIds.length === 0) {
@@ -645,6 +676,9 @@ export class OffboardingService {
             userId: user.id,
           },
         },
+        include: {
+          assignment: true,
+        }
       });
     } catch (error) {
       console.log(error);

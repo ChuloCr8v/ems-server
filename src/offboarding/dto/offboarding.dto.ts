@@ -84,22 +84,6 @@ export class FinanceClearanceDto {
   @IsOptional()
   @IsNumber()
   loanAmount: number;
-
-  @IsBoolean()
-  @IsNotEmpty()
-  isTravel: boolean;
-
-  @IsOptional()
-  @IsNumber()
-  travelAmount: number;
-
-  @IsBoolean()
-  @IsNotEmpty()
-  isReimbursement: boolean;
-
-  @IsOptional()
-  @IsNumber()
-  reimburseAmount: number;
   
   @IsString()
   @IsOptional()
