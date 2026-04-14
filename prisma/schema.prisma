@@ -566,7 +566,7 @@ model AssetAssesment {
   assignment    Assignment          @relation(fields: [assignmentId], references: [id])
   status        AAStatus
   description   String?
-  liabilityCost Float
+  liabilityCost Float?
   isCleared     Boolean?            @default(false)
   assessedById  String              @db.Uuid
   assessedBy    User                @relation(fields: [assessedById], references: [id])

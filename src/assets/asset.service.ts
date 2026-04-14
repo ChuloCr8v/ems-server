@@ -99,7 +99,7 @@ export class AssetService {
       assetId,
       name: createAssetDto.name,
       serialNo: createAssetDto.serialNo,
-      category: createAssetDto.category,
+      assetCategoryId: createAssetDto.assetCategoryId,
       // purchaseDate: new Date(createAssetDto.purchaseDate),
       vendor: createAssetDto.vendor,
       cost: Number(createAssetDto.cost),
@@ -244,7 +244,7 @@ export class AssetService {
     const data: any = {
       name: updateAssetDto.name,
       serialNo: updateAssetDto.serialNo,
-      category: updateAssetDto.category,
+      assetCategoryId: updateAssetDto.assetCategoryId,
       // purchaseDate: updateAssetDto.purchaseDate
       //   ? new Date(updateAssetDto.purchaseDate)
       //   : existing.purchaseDate,
@@ -745,7 +745,7 @@ export class AssetService {
         const assetData: CreateAssetDto = {
           name: row['name'],
           serialNo: serialNo,
-          category: adjustedCategory,
+          assetCategoryId: adjustedCategory,
           description: row['description'] || null,
         };
 

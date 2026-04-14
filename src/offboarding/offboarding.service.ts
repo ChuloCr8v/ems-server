@@ -579,19 +579,25 @@ export class OffboardingService {
   ////////////////////////////// FACILITY CLEARANCE ////////////////////////////////////////
   async bulkReturnAssets(userId: string, data: BulkReturnDto){
     try {
-       //Check if user has completed department clearance
-      const deptClearance = await this.prisma.clearance.findFirst({
-        where: {
-          type: 'DEPARTMENT',
-          offboarding: { userId },
-          status: 'DM_SIGNED',
-        },
-      });
-      if(!deptClearance) {
-        throw bad("Department clearance must be completed before intiating facility clearance");
-      } 
+      const { assignmentIds } = data;
+      if(!assignmentIds?.length) {
+        throw bad("No assets selected for return");
+      }
 
-      //Find facility clearence record linked to user's offboarding
+      return await this.prisma.$transaction(async (tx) => {
+        //Check if user has completed department clearance
+        const deptClearance = await this.prisma.clearance.findFirst({
+          where: {
+            type: 'DEPARTMENT',
+            offboarding: { userId },
+            status: 'DM_SIGNED',
+          },
+        });
+        if(!deptClearance) {
+          throw bad("Department clearance must be completed before intiating facility clearance");
+        } 
+
+         //Find facility clearence record linked to user's offboarding
       const clearance = await this.prisma.clearance.findFirst({
         where: {
           offboarding: { userId },
@@ -602,8 +608,12 @@ export class OffboardingService {
       if(!clearance) {
         throw bad("Facility clearance not found for user's offboarding");
       }
+      })
+       
 
-      const { assignmentIds } = data;
+     
+
+      // const { assignmentIds } = data;
       if(!assignmentIds || assignmentIds.length === 0) {
         throw bad("No assets selected for return");
       }
