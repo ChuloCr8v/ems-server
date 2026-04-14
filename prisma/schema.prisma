@@ -242,7 +242,7 @@ model Upload {
   paymentId         String?           @db.Uuid
   assetId           String?           @db.Uuid
   // handoverId        String?           @db.Uuid
-  financeId         String?           @db.Uuid
+  // financeId         String?           @db.Uuid
   requestId         String?           @db.Uuid
   publicId          String?           @unique
   secureUrl         String?           @unique
@@ -276,10 +276,6 @@ model Upload {
 
   appraisalSignatures AppraisalSignatures?
   signatures          Signatures[]
-  // DCSignatures DCSignatures?
-  // financeSignatures       FinanceSignatures?
-  // faclitySignatures       FacilitySignature?
-  // offboardingSignatures OffboardingSignatures?
 }
 
 model Contacts {
@@ -477,7 +473,6 @@ model Offboarding {
   initiatedById   String      @db.Uuid
   initiatedBy     User        @relation("InitiatedBy", fields: [initiatedById], references: [id])
   clearance       Clearance[]
-  // signatures      OffboardingSignatures[]
   uploads         Upload[]
 }
 
@@ -518,8 +513,6 @@ model TaskHandover {
   clearanceId String?              @db.Uuid
   clearance   DepartmentClearance? @relation(fields: [clearanceId], references: [id])
 
-  // uploads  Upload[]
-
   note String?
 
   createdAt DateTime @default(now())
@@ -542,16 +535,13 @@ model FinanceClearance {
   id              String          @id @default(uuid()) @db.Uuid
   isLoan          Boolean         @default(false)
   loanAmount      Float?
-  isTravel        Boolean         @default(false)
-  travelAmount    Float?
-  isReimbursement Boolean         @default(false)
-  reimburseAmount Float?
   employeeId      String          @db.Uuid
   employee        User            @relation(fields: [employeeId], references: [id])
   clearanceId     String?         @unique @db.Uuid
   clearance       Clearance?      @relation(fields: [clearanceId], references: [id])
   aaId            String?         @db.Uuid
   aa              AssetAssesment? @relation(fields: [aaId], references: [id])
+  claims          Claim[]
   comment         Comment[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -847,6 +837,9 @@ model Claim {
   comments Comment[]
   pipId    String?   @unique @db.Uuid
   pip      Pip?      @relation(fields: [pipId], references: [id], onDelete: SetNull)
+
+  financeId  String?  @db.Uuid
+  finance    FinanceClearance? @relation(fields: [financeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt

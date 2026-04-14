@@ -48,6 +48,58 @@ export class AssetsController {
   @Post('category')
   @ApiOperation({ summary: 'Create a new asset category'})
   @ApiBody({type: AssetCategoryDto})
+  @ApiCreatedResponse({ description: 'Asset category successfully created' })
+  async createCategory(@Body() dto: AssetCategoryDto) {
+    return this.assetsService.createAssetCategory(dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all asset categories' })
+  @ApiOkResponse({ description: 'List of all asset categories' })
+  async getAllCategories() {
+    return this.assetsService.getAssetCategories();
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Get('category/:id')
+  @ApiOperation({ summary: 'Get asset category by ID' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiOkResponse({ description: 'Asset category details' })
+  @ApiResponse({ status: 404, description: 'Asset category not found' })
+  async getCategoryById(@Param('id') id: string) {
+    return this.assetsService.getAssetCategory(id);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Post('categories/multi')
+  @ApiOperation({ summary: 'Create multiple asset categories' })
+  @ApiBody({ type: [AssetCategoryDto] })
+  @ApiCreatedResponse({ description: 'Asset categories successfully created' })
+  async createMultipleCategories(@Body() dto: AssetCategoryDto[]) {
+    return this.assetsService.createMultiAssetCategory(dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Put('category/:id')
+  @ApiOperation({ summary: 'Update an asset category' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiBody({ type: AssetCategoryDto })
+  @ApiOkResponse({ description: 'Asset category successfully updated' })
+  async updateCategory(@Param('id') id: string, @Body() dto: AssetCategoryDto) {
+    return this.assetsService.updateAssetCategory(id, dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Delete('category/:id')
+  @ApiOperation({ summary: 'Delete an asset category' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiOkResponse({ description: 'Asset category successfully deleted' })
+  @ApiResponse({ status: 404, description: 'Asset category not found' })
+  async deleteCategory(@Param('id') id: string) {
+    await this.assetsService.removeAssetCategory(id);
+    return { message: 'Asset category has been deleted successfully' };
+  }
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
