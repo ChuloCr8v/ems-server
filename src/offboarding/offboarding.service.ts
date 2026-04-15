@@ -608,45 +608,50 @@ export class OffboardingService {
       if(!clearance) {
         throw bad("Facility clearance not found for user's offboarding");
       }
-      })
-       
-
-     
-
-      // const { assignmentIds } = data;
-      if(!assignmentIds || assignmentIds.length === 0) {
-        throw bad("No assets selected for return");
-      }
-
-      //Fetch assignments to validate ownership
-      const assignments = await this.prisma.assignment.findMany({
+       const assignments = await tx.assignment.findMany({
         where: {
           id: { in: assignmentIds },
           userId,
           status: "ASSIGNED",
           returnedAt: null,
         },
-      });
-      if(assignments.length === 0) {
-        throw bad("No valid assigned asset found");
-      }
+       });
+        if(assignments.length !== assignmentIds.length) {
+          throw bad("Some assets are invalid or already returned");
+        }
 
-      await this.prisma.$transaction(async(tx) => {
-        for(const assignment of assignments) {
-          await tx.assignment.update({
-            where: { id: assignment.id },
+        //Ensure facility clearance exists
+        let facilityId = clearance.facility?.id;
+        if(!facilityId) {
+          const created = await tx.facilityClearance.create({
+            data: {
+              employee: { connect: { id: userId } },
+              clearance: { connect: { id: clearance.id } },
+            },
+          });
+          facilityId = created.id;
+        }
+
+        //Update & link assignments
+        await Promise.all(assignments.map(a =>
+          tx.assignment.update({
+            where: { id: a.id },
             data: {
               returnedAt: new Date(),
               status: "RETURNED",
-              isReturned: true
-            },
-          });
-        }
+              isReturned: true,
+              facility: {
+                connect: { id: facilityId }
+              }
+            }
+          })
+        ))
+          return {
+          message: "Assets returned successfully",
+          count: assignments.length,
+        };
       });
-      return {
-        message: "Assets returned successfully",
-        count: assignments.length,
-      };
+    
     } catch (error) {
       console.log(error);
       bad(`Bulk return failed: ${error instanceof Error ? error.message : String(error)}`);
