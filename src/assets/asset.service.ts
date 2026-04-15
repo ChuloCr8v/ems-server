@@ -575,12 +575,12 @@ export class AssetService {
     };
   }
 
-  async createMultiAssets(file: Express.Multer.File) {
+    async createMultiAssets(file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
-    // Read the Excel file
+    // Read Excel
     const workbook = XLSX.read(file.buffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -593,174 +593,179 @@ export class AssetService {
     const results = [];
     const errors = [];
 
+    // Preload categories (PERFORMANCE BOOST)
+    const existingCategories = await this.prisma.aSCategory.findMany();
+    const categoryMap = new Map(
+      existingCategories.map((c) => [c.name.toLowerCase(), c])
+    );
+
+    // Serial generator
+    const generateSerial = (categoryName?: string) => {
+      const date = new Date();
+      const formattedDate = `${date.getFullYear()}${String(
+        date.getMonth() + 1
+      ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const prefix = categoryName
+        ? categoryName.slice(0, 3).toUpperCase()
+        : 'GEN';
+
+      return `AST-${prefix}-${formattedDate}-${random}`;
+    };
+
+
+    const assetId = 'ZCL' + Date.now().toString().slice(-6);
+
+    // Prevent duplicates inside the same file
+    const seenSerials = new Set<string>();
+
     for (const [index, row] of jsonData.entries()) {
       try {
-        // ✅ Validate required fields
-        if (!row['name']) {
+        // Normalize keys (optional but safer)
+        const name = row['name']?.toString().trim();
+        const rawSerial = row['serialNo']?.toString().trim();
+        const rawCategory = row['category']?.toString().trim().toLowerCase();
+
+        // ✅ Validate required field
+        if (!name) {
           errors.push({
             row: index + 2,
-            error: `Missing required field: name`,
+            error: 'Missing required field: name',
             data: row,
           });
           continue;
         }
 
-        // ✅ Check serialNo/name uniqueness
+        // Generate serial if missing
+        let serialNo = rawSerial || generateSerial(rawCategory);
+
+        // Prevent duplicate serials inside file
+        if (seenSerials.has(serialNo)) {
+          errors.push({
+            row: index + 2,
+            error: 'Duplicate serial number in file',
+            data: row,
+          });
+          continue;
+        }
+        seenSerials.add(serialNo);
+
+        // ✅ Check DB uniqueness
         let existing = null;
-        if (row['serialNo'] || row['name']) {
+        if (serialNo) {
           existing = await this.prisma.asset.findFirst({
-            where: {
-              OR: [
-                row['serialNo'] ? { serialNo: row['serialNo'] } : {},
-                // row['name'] ? { name: row['name'] } : {},
-              ],
-            },
+            where: { serialNo },
           });
         }
 
         if (existing) {
           errors.push({
             row: index + 2,
-            error: `Asset with this serialNo or name already exists`,
+            error: `Asset with serialNo "${serialNo}" already exists`,
             data: row,
           });
-          continue; // skip this row
+          continue;
         }
 
-        // ✅ Handle assignee safely
-        const assigneeName: string | undefined = row['assignee'];
+        // Handle dynamic category
+        let category = null;
+
+        if (rawCategory) {
+          category = categoryMap.get(rawCategory);
+
+          if (!category) {
+            category = await this.prisma.aSCategory.create({
+              data: {
+                name: rawCategory,
+              },
+            });
+
+            categoryMap.set(rawCategory, category); // cache it
+          }
+        }
+
+        // Handle assignee
         let assignee = null;
+        const assigneeName: string | undefined = row['assignee'];
 
         if (assigneeName) {
           const parts = assigneeName.trim().split(/\s+/);
-          const firstName = parts[0] || null;
-          const lastName = parts.slice(1).join(' ') || null;
+          const firstName = parts[0];
+          const lastName = parts.slice(1).join(' ');
 
-          console.log(parts, firstName, lastName);
-
-          if (firstName) {
-            assignee = await this.prisma.user.findFirst({
-              where: lastName
-                ? {
-                    firstName: {
-                      contains: firstName,
-                      mode: 'insensitive',
+          assignee = await this.prisma.user.findFirst({
+            where: lastName
+              ? {
+                  AND: [
+                    {
+                      firstName: {
+                        contains: firstName,
+                        mode: 'insensitive',
+                      },
                     },
-                    lastName: {
-                      contains: lastName,
-                      mode: 'insensitive',
+                    {
+                      lastName: {
+                        contains: lastName,
+                        mode: 'insensitive',
+                      },
                     },
-                  }
-                : {
-                    firstName: {
-                      contains: firstName,
-                      mode: 'insensitive',
-                    },
+                  ],
+                }
+              : {
+                  firstName: {
+                    contains: firstName,
+                    mode: 'insensitive',
                   },
+                },
+          });
+        }
+
+        // Create asset inside transaction
+        const asset = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.asset.create({
+            data: {
+              assetId,
+              name,
+              serialNo,
+              description: row['description'] || null,
+              purchaseDate: row['purchaseDate']
+                ? new Date(row['purchaseDate'])
+                : null,
+              vendor: row['vendor'] || null,
+              cost: row['cost'] ? Number(row['cost']) : null,
+
+              ...(category && {
+                assetCategory: {
+                  connect: { id: category.id },
+                },
+              }),
+            }
+          });
+
+          if (assignee) {
+            await tx.assignment.create({
+              data: {
+                asset: {
+                  connect: { id: created.id },
+                },
+                user: {
+                  connect: { id: assignee.id },
+                },
+                assignedAt: new Date(),
+              },
             });
           }
-        }
 
-        console.log(assignee);
-
-        // ✅ Category mapping with switch
-        const mapCategory = (raw?: string): AssetCategory => {
-          if (!raw) return AssetCategory.GENERAL;
-
-          const normalized = raw.trim().toLowerCase();
-
-          switch (normalized) {
-            // Telecom
-            case 'mtn sim':
-            case 'airtel sim':
-            case 'cug sim':
-            case 'mtn 4g lte hotspot b300':
-              return AssetCategory.TELECOM;
-
-            // Computing Hardware
-            case 'laptop':
-            case 'mac laptop':
-            case 'hard drive':
-            case 'nasco brand':
-            case 'phone':
-            case 'monitor':
-            case 'printer':
-            case 'scanner':
-            case 'webcam':
-            case 'mouse':
-            case 'lg sound box':
-            case 'pos':
-            case 'rollup banner':
-            case 'tripod stand':
-            case 'ring light':
-            case 'wireless mic':
-            case 'gimbal':
-              return AssetCategory.HARDWARE;
-
-            // Office Accessories
-            case 'id card':
-            case 'back bag':
-            case 'back pack':
-            case 'keys':
-            case 'stamp':
-            case 'clip pad':
-              return AssetCategory.ACCESSORY;
-
-            // Safety Equipment
-            case 'safety jacket':
-            case 'raincoat':
-            case 'toolbox':
-            case 'splicer':
-              return AssetCategory.SAFETY_EQUIPMENT;
-
-            // Medical
-            case 'bp monitor':
-              return AssetCategory.MEDICAL_EQUIPMENT;
-
-            // Default
-            default:
-              return AssetCategory.GENERAL;
-          }
-        };
-
-        const adjustedCategory = mapCategory(row['category']) as AssetCategory;
-
-        //Generate serial number if not provided
-        const generateSerial = (category: AssetCategory) => {
-        const date = new Date();
-        const formattedDate = `${date.getFullYear()}${String(
-          date.getMonth() + 1
-        ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
-
-        const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-        return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
-      };
-
-        const serialNo =
-          row['serialNo']?.trim() ||
-          generateSerial(adjustedCategory);
-
-        // ✅ Prepare asset data
-        const assetData: CreateAssetDto = {
-          name: row['name'],
-          serialNo: serialNo,
-          assetCategoryId: adjustedCategory,
-          description: row['description'] || null,
-        };
-
-        // ✅ Create the asset
-        const asset = await this.createAsset(assetData);
-
-        if (assignee) {
-          await this.assignAsset(asset.id, { userId: assignee.id });
-        }
+          return created;
+        });
 
         results.push(asset);
       } catch (error) {
         errors.push({
-          row: index + 2, // Excel rows start at 1, headers at row 1
-          error: error  ,
+          row: index + 2,
+          error: error instanceof Error ? error.message : String(error) || 'Unknown error',
           data: row,
         });
       }
@@ -773,6 +778,205 @@ export class AssetService {
       errors,
     };
   }
+
+  // async createMultiAssets(file: Express.Multer.File) {
+  //   if (!file) {
+  //     throw new BadRequestException('No file uploaded');
+  //   }
+
+  //   // Read the Excel file
+  //   const workbook = XLSX.read(file.buffer);
+  //   const sheetName = workbook.SheetNames[0];
+  //   const worksheet = workbook.Sheets[sheetName];
+  //   const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+  //   if (!jsonData || jsonData.length === 0) {
+  //     throw new BadRequestException('Excel file is empty');
+  //   }
+
+  //   const results = [];
+  //   const errors = [];
+
+  //   for (const [index, row] of jsonData.entries()) {
+  //     try {
+  //       // ✅ Validate required fields
+  //       if (!row['name']) {
+  //         errors.push({
+  //           row: index + 2,
+  //           error: `Missing required field: name`,
+  //           data: row,
+  //         });
+  //         continue;
+  //       }
+
+  //       // ✅ Check serialNo/name uniqueness
+  //       let existing = null;
+  //       if (row['serialNo'] || row['name']) {
+  //         existing = await this.prisma.asset.findFirst({
+  //           where: {
+  //             OR: [
+  //               row['serialNo'] ? { serialNo: row['serialNo'] } : {},
+  //               // row['name'] ? { name: row['name'] } : {},
+  //             ],
+  //           },
+  //         });
+  //       }
+
+  //       if (existing) {
+  //         errors.push({
+  //           row: index + 2,
+  //           error: `Asset with this serialNo or name already exists`,
+  //           data: row,
+  //         });
+  //         continue; // skip this row
+  //       }
+
+  //       // ✅ Handle assignee safely
+  //       const assigneeName: string | undefined = row['assignee'];
+  //       let assignee = null;
+
+  //       if (assigneeName) {
+  //         const parts = assigneeName.trim().split(/\s+/);
+  //         const firstName = parts[0] || null;
+  //         const lastName = parts.slice(1).join(' ') || null;
+
+  //         console.log(parts, firstName, lastName);
+
+  //         if (firstName) {
+  //           assignee = await this.prisma.user.findFirst({
+  //             where: lastName
+  //               ? {
+  //                   firstName: {
+  //                     contains: firstName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                   lastName: {
+  //                     contains: lastName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                 }
+  //               : {
+  //                   firstName: {
+  //                     contains: firstName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                 },
+  //           });
+  //         }
+  //       }
+
+  //       console.log(assignee);
+
+  //       // ✅ Category mapping with switch
+  //       const mapCategory = (raw?: string): AssetCategory => {
+  //         if (!raw) return AssetCategory.GENERAL;
+
+  //         const normalized = raw.trim().toLowerCase();
+
+  //         switch (normalized) {
+  //           // Telecom
+  //           case 'mtn sim':
+  //           case 'airtel sim':
+  //           case 'cug sim':
+  //           case 'mtn 4g lte hotspot b300':
+  //             return AssetCategory.TELECOM;
+
+  //           // Computing Hardware
+  //           case 'laptop':
+  //           case 'mac laptop':
+  //           case 'hard drive':
+  //           case 'nasco brand':
+  //           case 'phone':
+  //           case 'monitor':
+  //           case 'printer':
+  //           case 'scanner':
+  //           case 'webcam':
+  //           case 'mouse':
+  //           case 'lg sound box':
+  //           case 'pos':
+  //           case 'rollup banner':
+  //           case 'tripod stand':
+  //           case 'ring light':
+  //           case 'wireless mic':
+  //           case 'gimbal':
+  //             return AssetCategory.HARDWARE;
+
+  //           // Office Accessories
+  //           case 'id card':
+  //           case 'back bag':
+  //           case 'back pack':
+  //           case 'keys':
+  //           case 'stamp':
+  //           case 'clip pad':
+  //             return AssetCategory.ACCESSORY;
+
+  //           // Safety Equipment
+  //           case 'safety jacket':
+  //           case 'raincoat':
+  //           case 'toolbox':
+  //           case 'splicer':
+  //             return AssetCategory.SAFETY_EQUIPMENT;
+
+  //           // Medical
+  //           case 'bp monitor':
+  //             return AssetCategory.MEDICAL_EQUIPMENT;
+
+  //           // Default
+  //           default:
+  //             return AssetCategory.GENERAL;
+  //         }
+  //       };
+
+  //       const adjustedCategory = mapCategory(row['category']) as AssetCategory;
+
+  //       //Generate serial number if not provided
+  //       const generateSerial = (category: AssetCategory) => {
+  //       const date = new Date();
+  //       const formattedDate = `${date.getFullYear()}${String(
+  //         date.getMonth() + 1
+  //       ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+  //       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  //       return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
+  //     };
+
+  //       const serialNo =
+  //         row['serialNo']?.trim() ||
+  //         generateSerial(adjustedCategory);
+
+  //       // ✅ Prepare asset data
+  //       const assetData: CreateAssetDto = {
+  //         name: row['name'],
+  //         serialNo: serialNo,
+  //         assetCategoryId: adjustedCategory,
+  //         description: row['description'] || null,
+  //       };
+
+  //       // ✅ Create the asset
+  //       const asset = await this.createAsset(assetData);
+
+  //       if (assignee) {
+  //         await this.assignAsset(asset.id, { userId: assignee.id });
+  //       }
+
+  //       results.push(asset);
+  //     } catch (error) {
+  //       errors.push({
+  //         row: index + 2, // Excel rows start at 1, headers at row 1
+  //         error: error  ,
+  //         data: row,
+  //       });
+  //     }
+  //   }
+
+  //   return {
+  //     successCount: results.length,
+  //     errorCount: errors.length,
+  //     results,
+  //     errors,
+  //   };
+  // }
 
   async deleteAsset(id: string) {
     try {
