@@ -7,13 +7,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     await this.$connect();
   }
 
-   async beginTransaction<T>(callback: (prisma: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-        return this.$transaction(callback);
-    }
-
-   async onModuleDestroy() {
-    await this.$disconnect();
+  async beginTransaction<T>(
+    callback: (prisma: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(callback);
   }
 
-  
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
 }

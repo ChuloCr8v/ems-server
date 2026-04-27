@@ -9,131 +9,174 @@ datasource db {
 }
 
 model Notification {
-  id          String    @id @default(uuid())
-  recipientId String?   @db.Uuid
-  actorId     String?   @db.Uuid
-  prospectId  String?   @db.Uuid
+  id          String                  @id @default(uuid())
+  recipientId String?                 @db.Uuid
+  actorId     String?                 @db.Uuid
+  prospectId  String?                 @db.Uuid
   type        String
   message     String
-  read        Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  actor       User?     @relation("NotificationActor", fields: [actorId], references: [id])
-  prospect    Prospect? @relation(fields: [prospectId], references: [id])
-  recipient   User?     @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: SetNull)
+  read        Boolean                 @default(false)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  actionData  Json?
+  actionType  NotificationActionType?
+  title       String?
+  actor       User?                   @relation("NotificationActor", fields: [actorId], references: [id])
+  prospect    Prospect?               @relation(fields: [prospectId], references: [id])
+  recipient   User?                   @relation("NotificationRecipient", fields: [recipientId], references: [id])
 }
 
 model User {
-  id                    String             @id @default(uuid()) @db.Uuid
-  eId                   String?            @unique
-  personalEmail         String?            @unique
-  email                 String?            @unique
-  firstName             String
-  lastName              String
-  phone                 String?
-  workPhone             String?
-  role                  String?
-  gender                String
-  duration              String?
-  jobType               JobType?
-  country               String?
-  state                 String?
-  address               String?
-  startDate             DateTime?
-  status                Status             @default(PENDING)
-  userRole              Role[]
-  maritalStatus         MaritalStatus?
-  levelId               String?            @db.Uuid
-  prospectId            String?            @unique @db.Uuid
-  dateOfBirth           DateTime?
-  approvals             Approval[]
-  approver              Approver[]
-  assignments           Assignment[]
-  bank                  Bank?
-  claims                Claim[]
-  comment               Comment[]
-  contacts              Contacts?
-  departmentCreator     Department?        @relation("departmentCreator")
-  faultReporter         Fault[]            @relation("reportedBy")
-  faultResolver         Fault[]            @relation("resolvedBy")
-  invite                Invite[]
-  requestDoa            LeaveRequest[]     @relation("deedOfAssignement")
-  requests              LeaveRequest[]     @relation("user")
-  notificationActor     Notification[]     @relation("NotificationActor")
-  notificationRecipient Notification[]     @relation("NotificationRecipient")
-  offboarding           Offboarding?
-  payroll               Payroll?
-  payComponent          PayrollComponent[]
-  payslip               Payslip[]
-  responses             Response[]
-
-  userDocuments     Upload[]     @relation("UserDocuments")
-  level             Level?       @relation(fields: [levelId], references: [id])
-  prospect          Prospect?    @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  userTask          UserTask[]
-  departments       Department[] @relation("DepartmentToUser")
-  prospectDocuments Upload[]     @relation("ProspectDocuments")
-
-  createdTasks  Task[] @relation("CreatedTasks")
-  approvedTasks Task[] @relation("ApprovedTasks")
-
-  taskCategory Category[]
-  appraisals   Appraisal[] @relation("Appraised")
-  appraisers   Appraisal[] @relation("Appraiser")
-
-  extensionRequests ExtensionRequests[]
-
-  reports       Report[]
-  taskIssues    TaskIssues[]
-  taskTransfers TaskTransfer[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                           String                 @id @default(uuid()) @db.Uuid
+  eId                          String?                @unique
+  personalEmail                String?                @unique
+  email                        String?                @unique
+  firstName                    String
+  lastName                     String
+  phone                        String?
+  workPhone                    String?
+  role                         String?
+  gender                       String
+  duration                     String?
+  jobType                      JobType?
+  country                      String?
+  state                        String?
+  address                      String?
+  startDate                    DateTime?
+  dateOfBirth                  DateTime?
+  status                       Status                 @default(PENDING)
+  userRole                     Role[]
+  maritalStatus                MaritalStatus?
+  levelId                      String?                @db.Uuid
+  prospectId                   String?                @unique @db.Uuid
+  createdAt                    DateTime               @default(now())
+  updatedAt                    DateTime               @updatedAt
+  defaultId                    String?                @db.Uuid
+  teamId                       String?                @db.Uuid
+  isOffboarding                Boolean                @default(false)
+  appraisals                   Appraisal[]            @relation("Appraised")
+  appraisers                   Appraisal[]            @relation("Appraiser")
+  approvals                    Approval[]
+  approver                     Approver[]
+  assessment                   AssetAssesment[]
+  assignments                  Assignment[]
+  bank                         Bank?
+  taskCategory                 Category[]
+  claims                       Claim[]
+  comment                      Comment[]
+  contacts                     Contacts?
+  DefaultOfficePresence        DefaultOfficePresence?
+  departmentCreator            Department?            @relation("departmentCreator")
+  extensionRequests            ExtensionRequests[]
+  facilityClearance            FacilityClearance[]
+  faultReporter                Fault[]                @relation("reportedBy")
+  faultResolver                Fault[]                @relation("resolvedBy")
+  financeClearances            FinanceClearance[]
+  hrDepartmentApprovals        HrDepartmentApproval[]
+  invite                       Invite[]
+  createdKpiTemplateCategories KpiTemplateCategory[]  @relation("KpiTemplateCategoryCreator")
+  requestDoa                   LeaveRequest[]         @relation("deedOfAssignement")
+  requests                     LeaveRequest[]         @relation("user")
+  logActor                     Logs[]                 @relation("LogActor")
+  logTo                        Logs[]                 @relation("LogTo")
+  notificationActor            Notification[]         @relation("NotificationActor")
+  notificationRecipient        Notification[]         @relation("NotificationRecipient")
+  initiatedOffboarding         Offboarding[]          @relation("InitiatedBy")
+  offboarding                  Offboarding?           @relation("InitiatedFor")
+  OfficePresence               OfficePresence[]
+  payroll                      Payroll?
+  payComponent                 PayrollComponent[]
+  payslip                      Payslip[]
+  pip                          Pip[]
+  projectLabels                ProjectLabels[]
+  rPipBy                       RecommendedPip[]       @relation("PipRecommendedBy")
+  rPipFor                      RecommendedPip[]       @relation("PipRecommendedFor")
+  reports                      Report[]
+  responses                    Response[]
+  signature                    Signatures[]
+  approvedTasks                Task[]                 @relation("ApprovedTasks")
+  createdTasks                 Task[]                 @relation("CreatedTasks")
+  taskFrom                     TaskHandover[]         @relation("TransferredFrom")
+  taskTo                       TaskHandover[]         @relation("TransferredTo")
+  taskIssues                   TaskIssues[]
+  taskTransfers                TaskTransfer[]
+  teamCreator                  Team[]                 @relation("teamCreator")
+  userDocuments                Upload[]               @relation("UserDocuments")
+  defaultDepartment            Department?            @relation("default", fields: [defaultId], references: [id])
+  level                        Level?                 @relation(fields: [levelId], references: [id])
+  prospect                     Prospect?              @relation(fields: [prospectId], references: [id])
+  team                         Team?                  @relation("team", fields: [teamId], references: [id])
+  userTask                     UserTask[]
+  departments                  Department[]           @relation("DepartmentToUser")
+  emails                       Email[]                @relation("EmailToUser")
+  prospectDocuments            Upload[]               @relation("ProspectDocuments")
 
   @@index([email])
+  @@index([id])
   @@index([eId])
   @@index([firstName, lastName])
   @@index([levelId])
 }
 
 model Department {
-  id             String            @id @default(uuid()) @db.Uuid
-  name           String            @unique
-  createdById    String?           @unique @db.Uuid
-  status         DepartmentStatus? @default(ACTIVE)
-  approver       Approver[]
-  createdBy      User?             @relation("departmentCreator", fields: [createdById], references: [id])
-  prospects      Prospect[]        @relation("DepartmentToProspect")
-  taskCategories Category[]
-  user           User[]            @relation("DepartmentToUser")
-  kpiCategories  KpiCategory[]
-  appraisals     Appraisal[]
-  tasks          Task[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  name                    String                   @unique
+  createdById             String?                  @unique @db.Uuid
+  status                  DepartmentStatus?        @default(ACTIVE)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @default(now()) @updatedAt
+  pipStatus               PipStatus?               @default(PENDING)
+  appraisals              Appraisal[]
+  approver                Approver[]
+  createdBy               User?                    @relation("departmentCreator", fields: [createdById], references: [id])
+  entitlements            DepartmentEntitlement[]
+  departmentWeeklyReports DepartmentWeeklyReport[]
+  hrDepartmentApprovals   HrDepartmentApproval[]
+  kpiTemplateCategories   KpiTemplateCategory[]
+  pip                     Pip[]
+  tasks                   Task[]
+  teams                   Team[]
+  defaultDepartment       User[]                   @relation("default")
+  taskCategories          Category[]               @relation("CategoryToDepartment")
+  emails                  Email[]                  @relation("DepartmentToEmail")
+  projectLabels           ProjectLabels[]          @relation("DepartmentToProjectLabels")
+  prospects               Prospect[]               @relation("DepartmentToProspect")
+  user                    User[]                   @relation("DepartmentToUser")
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+model Team {
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String            @unique
+  createdById  String?           @db.Uuid
+  status       DepartmentStatus? @default(ACTIVE)
+  departmentId String?           @db.Uuid
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @default(now()) @updatedAt
+  approver     Approver[]
+  task         Task[]
+  createdBy    User?             @relation("teamCreator", fields: [createdById], references: [id])
+  department   Department?       @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  members      User[]            @relation("team")
 }
 
 model Prospect {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  firstName String   @default("")
-  lastName  String   @default("")
-  phone     String
-  gender    String
-  role      String
-  duration  String?
-  startDate DateTime
-  jobType   JobType
-
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique
+  firstName    String         @default("")
+  lastName     String         @default("")
+  phone        String
+  gender       String
+  role         String
+  duration     String?
+  startDate    DateTime
+  jobType      JobType
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   invite       Invite[]
   notification Notification[]
   upload       Upload[]
   user         User?
   departments  Department[]   @relation("DepartmentToProspect")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Invite {
@@ -149,7 +192,7 @@ model Invite {
   prospectId     String?   @db.Uuid
   declineReasons String[]
   comment        Comment[]
-  prospect       Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
+  prospect       Prospect? @relation(fields: [prospectId], references: [id])
   sentBy         User?     @relation(fields: [sentById], references: [id])
 }
 
@@ -164,41 +207,48 @@ model Level {
 }
 
 model Upload {
-  id                String            @id @default(uuid()) @db.Uuid
-  name              String
-  size              Int
-  type              String
-  bytes             Bytes?
-  key               String?
-  order             Int?
-  uri               String?
-  prospectId        String?           @db.Uuid
-  userId            String?           @db.Uuid
-  offboardingId     String?           @db.Uuid
-  commentId         String?           @db.Uuid
-  handoverId        String?           @db.Uuid
-  paymentId         String?           @db.Uuid
-  assetId           String?           @db.Uuid
-  requestId         String?           @db.Uuid
-  publicId          String?           @unique
-  secureUrl         String?           @unique
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  guarantorId       String?           @db.Uuid
-  claimId           String?
-  taskId            String?           @db.Uuid
-  asset             Asset?            @relation("AssetImages", fields: [assetId], references: [id])
-  claim             Claim?            @relation(fields: [claimId], references: [id])
-  comment           Comment?          @relation(fields: [commentId], references: [id])
-  guarantor         GuarantorContact? @relation(fields: [guarantorId], references: [id])
-  handover          HandoverDocument? @relation(fields: [handoverId], references: [id])
-  offboarding       Offboarding?      @relation(fields: [offboardingId], references: [id])
-  payment           Payment?          @relation(fields: [paymentId], references: [id])
-  prospect          Prospect?         @relation(fields: [prospectId], references: [id], onDelete: SetNull)
-  request           LeaveRequest?     @relation(fields: [requestId], references: [id])
-  Task              Task?             @relation(fields: [taskId], references: [id])
-  userDocuments     User?             @relation("UserDocuments", fields: [userId], references: [id])
-  prospectDocuments User[]            @relation("ProspectDocuments")
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                String
+  size                Int
+  type                String
+  bytes               Bytes?
+  key                 String?
+  order               Int?
+  uri                 String?
+  prospectId          String?              @db.Uuid
+  userId              String?              @db.Uuid
+  offboardingId       String?              @db.Uuid
+  commentId           String?              @db.Uuid
+  paymentId           String?              @db.Uuid
+  assetId             String?              @db.Uuid
+  requestId           String?              @db.Uuid
+  claimId             String?
+  guarantorId         String?              @db.Uuid
+  publicId            String?              @unique
+  secureUrl           String?              @unique
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  taskId              String?              @db.Uuid
+  pipId               String?              @db.Uuid
+  recomPipId          String?              @db.Uuid
+  logId               String?              @db.Uuid
+  reportItemId        String?
+  appraisalSignatures AppraisalSignatures?
+  signatures          Signatures[]
+  asset               Asset?               @relation("AssetImages", fields: [assetId], references: [id])
+  claim               Claim?               @relation(fields: [claimId], references: [id])
+  comment             Comment?             @relation(fields: [commentId], references: [id])
+  guarantor           GuarantorContact?    @relation(fields: [guarantorId], references: [id])
+  logs                Logs?                @relation(fields: [logId], references: [id], onDelete: Cascade)
+  offboarding         Offboarding?         @relation(fields: [offboardingId], references: [id])
+  pip                 Pip?                 @relation(fields: [pipId], references: [id])
+  prospect            Prospect?            @relation(fields: [prospectId], references: [id])
+  recomPip            RecommendedPip?      @relation(fields: [recomPipId], references: [id])
+  reportItems         ReportItem?          @relation(fields: [reportItemId], references: [id], onDelete: Cascade)
+  request             LeaveRequest?        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  Task                Task?                @relation(fields: [taskId], references: [id])
+  userDocuments       User?                @relation("UserDocuments", fields: [userId], references: [id])
+  prospectDocuments   User[]               @relation("ProspectDocuments")
 }
 
 model Contacts {
@@ -228,10 +278,10 @@ model NextOfKin {
   firstName String
   lastName  String
   phone     String
+  address   String?
   contactId String?   @db.Uuid
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  address   String?
   contacts  Contacts? @relation(fields: [contactId], references: [id])
 }
 
@@ -240,11 +290,11 @@ model EmergencyContact {
   firstName    String
   lastName     String
   phone        String
+  relationship String?
+  address      String?
   contactId    String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  address      String?
-  relationship String?
   contacts     Contacts? @relation(fields: [contactId], references: [id])
 }
 
@@ -253,81 +303,94 @@ model GuarantorContact {
   firstName    String
   lastName     String
   phone        String
+  address      String?
+  relationship String?
   contactId    String?   @db.Uuid
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  address      String?
-  relationship String?
   contacts     Contacts? @relation(fields: [contactId], references: [id])
   document     Upload[]
 }
 
-enum CommentType {
-  REPLY
-  COMMENT
-}
-
 model Comment {
-  id            String            @id @default(uuid()) @db.Uuid
-  comment       String
-  userId        String?           @db.Uuid
-  inviteId      String?           @db.Uuid
-  offboardingId String?           @db.Uuid
-  paymentId     String?           @db.Uuid
-  handoverId    String?           @db.Uuid
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  handover      HandoverDocument? @relation(fields: [handoverId], references: [id])
-  invite        Invite?           @relation(fields: [inviteId], references: [id])
-  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  payment       Payment?          @relation(fields: [paymentId], references: [id])
-  user          User?             @relation(fields: [userId], references: [id])
-  uploads       Upload[]
-
-  taskId String? @db.Uuid
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
-
-  claimId String?
-  claim   Claim?  @relation(fields: [claimId], references: [id], onDelete: SetNull)
+  id               String                @id @default(uuid()) @db.Uuid
+  comment          String
+  userId           String?               @db.Uuid
+  inviteId         String?               @db.Uuid
+  offboardingId    String?               @db.Uuid
+  paymentId        String?               @db.Uuid
+  handoverId       String?               @db.Uuid
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  taskId           String?               @db.Uuid
+  claimId          String?
+  leaveId          String?               @db.Uuid
+  pipId            String?               @db.Uuid
+  rPipId           String?               @db.Uuid
+  hrDeptApprovalId String?               @db.Uuid
+  financeId        String?               @db.Uuid
+  claim            Claim?                @relation(fields: [claimId], references: [id])
+  finance          FinanceClearance?     @relation(fields: [financeId], references: [id])
+  hrDeptApproval   HrDepartmentApproval? @relation(fields: [hrDeptApprovalId], references: [id])
+  invite           Invite?               @relation(fields: [inviteId], references: [id])
+  leave            LeaveRequest?         @relation(fields: [leaveId], references: [id])
+  offboarding      Offboarding?          @relation(fields: [offboardingId], references: [id])
+  pip              Pip?                  @relation(fields: [pipId], references: [id])
+  rPip             RecommendedPip?       @relation(fields: [rPipId], references: [id])
+  task             Task?                 @relation(fields: [taskId], references: [id])
+  user             User?                 @relation(fields: [userId], references: [id])
+  uploads          Upload[]
 }
 
-/// ///////////////////////////// ASSETS ///////////////////////
+/// /////////////////////////////// ASSETS //////////////////////////////
 model Asset {
-  id           String         @id @default(uuid()) @db.Uuid
-  assetId      String         @unique
-  name         String
-  serialNo     String?        @unique
-  category     AssetCategory?
-  purchaseDate DateTime?
-  vendor       String?
-  cost         Float?
-  description  String?
-  isReturned   Boolean?       @default(false)
-  status       AssetStatus?   @default(AVAILABLE)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  assignments  Assignment[]
-  faults       Fault[]
-  assetImages  Upload[]       @relation("AssetImages")
+  id              String         @id @default(uuid()) @db.Uuid
+  assetId         String         @unique
+  name            String
+  serialNo        String?        @unique
+  category        AssetCategory?
+  purchaseDate    DateTime?
+  vendor          String?
+  cost            Float?
+  description     String?
+  isReturned      Boolean?       @default(false)
+  status          AssetStatus?   @default(AVAILABLE)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  assetCategoryId String?        @db.Uuid
+  assetCategory   ASCategory?    @relation(fields: [assetCategoryId], references: [id])
+  assignments     Assignment[]
+  faults          Fault[]
+  assetImages     Upload[]       @relation("AssetImages")
+}
+
+model ASCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  asset     Asset[]
 }
 
 model Assignment {
-  id            String            @id @default(uuid())
-  assetId       String            @db.Uuid
-  userId        String            @db.Uuid
-  assignedAt    DateTime
-  retrievedAt   DateTime?
-  notes         String?
-  condition     String?
-  status        AssignmentStatus?
-  isVerified    Boolean           @default(false)
-  isPaid        Boolean           @default(false)
-  verifiedAt    DateTime?
-  returnedAt    DateTime?
-  offboardingId String?           @db.Uuid
-  asset         Asset             @relation(fields: [assetId], references: [id])
-  offboarding   Offboarding?      @relation(fields: [offboardingId], references: [id])
-  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String             @id @default(uuid())
+  assetId     String             @db.Uuid
+  userId      String             @db.Uuid
+  assignedAt  DateTime
+  retrievedAt DateTime?
+  notes       String?
+  condition   String?
+  status      AssignmentStatus?
+  isVerified  Boolean            @default(false)
+  isPaid      Boolean            @default(false)
+  verifiedAt  DateTime?
+  returnedAt  DateTime?
+  facilityId  String?            @db.Uuid
+  isReturned  Boolean?           @default(false)
+  assessment  AssetAssesment[]
+  asset       Asset              @relation(fields: [assetId], references: [id])
+  facility    FacilityClearance? @relation(fields: [facilityId], references: [id])
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Fault {
@@ -353,70 +416,161 @@ model Fault {
 }
 
 model Offboarding {
-  id           String                 @id @default(uuid()) @db.Uuid
-  type         ExitType
-  lastWorkDate DateTime
-  reason       String
-  noticePeriod Boolean                @default(false)
-  status       Status                 @default(PENDING)
-  userId       String                 @unique @db.Uuid
-  createdAt    DateTime               @default(now())
-  updatedAt    DateTime               @updatedAt
-  assignments  Assignment[]
-  comment      Comment[]
-  handover     HandoverDocument[]
-  user         User                   @relation(fields: [userId], references: [id])
-  checklist    OffboardingChecklist[]
-  payments     Payment[]
-  uploads      Upload[]
+  id              String      @id @default(uuid()) @db.Uuid
+  type            ExitType
+  reason          String
+  noticePeriod    Boolean?    @default(false)
+  status          Status      @default(PENDING)
+  userId          String      @unique @db.Uuid
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  relievingDate   DateTime?
+  resignationDate DateTime?
+  initiatedById   String      @db.Uuid
+  clearance       Clearance[]
+  comment         Comment[]
+  initiatedBy     User        @relation("InitiatedBy", fields: [initiatedById], references: [id])
+  user            User        @relation("InitiatedFor", fields: [userId], references: [id])
+  uploads         Upload[]
 }
 
-model OffboardingChecklist {
-  id            String      @id @default(uuid()) @db.Uuid
-  task          String
-  status        Status      @default(PENDING)
-  offboardingId String      @db.Uuid
-  offboarding   Offboarding @relation(fields: [offboardingId], references: [id])
-}
-
-model HandoverDocument {
-  id            String       @id @default(uuid()) @db.Uuid
-  offboardingId String?      @db.Uuid
-  isApproved    Boolean      @default(false)
+model Clearance {
+  id            String               @id @default(uuid()) @db.Uuid
+  type          ClearanceType
+  status        ClearanceStatus      @default(PENDING)
+  approvedBy    String?
   approvedAt    DateTime?
-  notes         String?
-  createdAt     DateTime     @default(now())
-  comments      Comment[]
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  upload        Upload[]
+  offboardingId String               @db.Uuid
+  completedAt   DateTime?
+  offboarding   Offboarding          @relation(fields: [offboardingId], references: [id])
+  department    DepartmentClearance?
+  facility      FacilityClearance?
+  finance       FinanceClearance?
+  signatures    Signatures[]
+
+  @@unique([offboardingId, type])
 }
 
-model Payment {
-  id            String       @id @default(uuid()) @db.Uuid
-  offboardingId String?      @db.Uuid
-  approved      Boolean      @default(false)
-  approvedBy    String?      @db.Uuid
-  approvedAt    DateTime?
-  notes         String?
-  createdAt     DateTime     @default(now())
-  comment       Comment[]
-  offboarding   Offboarding? @relation(fields: [offboardingId], references: [id])
-  uploads       Upload[]
-}
+model TaskHandover {
+  id String @id @default(uuid()) @db.Uuid()
 
-model Entitlement {
-  id   String          @id @default(uuid()) @db.Uuid
-  name String          @unique
-  unit EntitlementUnit
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String @db.Uuid
 
-  type    EntitlementType?
-  request LeaveRequest[]
-  levels  LevelEntitlement[]
+  fromUserId String  @db.Uuid
+  toUserId   String  @db.Uuid
+  fileLink   String?
+  fileName   String?
 
-  claims Claim[]
+  fromUser User @relation("TransferredFrom", fields: [fromUserId], references: [id])
+  toUser   User @relation("TransferredTo", fields: [toUserId], references: [id])
+
+  clearanceId String?              @db.Uuid
+  clearance   DepartmentClearance? @relation(fields: [clearanceId], references: [id])
+
+  note String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model DepartmentClearance {
+  id              String         @id @default(uuid()) @db.Uuid
+  tasksHandedOver Boolean        @default(false)
+  handover        TaskHandover[]
+  clearedAt       DateTime?
+  notes           String?
+  clearanceId     String?        @unique @db.Uuid
+  clearance       Clearance?     @relation(fields: [clearanceId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model FinanceClearance {
+  id          String     @id @default(uuid()) @db.Uuid
+  isDebt      Boolean    @default(false)
+  employeeId  String     @db.Uuid
+  employee    User       @relation(fields: [employeeId], references: [id])
+  clearanceId String?    @unique @db.Uuid
+  clearance   Clearance? @relation(fields: [clearanceId], references: [id])
+  debts       Debt[]
+  claims      Claim[]
+  comment     Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Debt {
+  id              String           @id @default(uuid()) @db.Uuid
+  title           String
+  amount          Float
+  remainingAmount Float?
+  status          DebtStatus       @default(PENDING)
+  type            DebtType
+  financeId       String           @db.Uuid
+  finance         FinanceClearance @relation(fields: [financeId], references: [id])
+
+  aa        AssetAssesment[] @relation("DebtAssessments")
+  // transactions Transaction[]
+  createdAt DateTime         @default(now())
+}
+
+model FacilityClearance {
+  id             String          @id @default(uuid()) @db.Uuid
+  employeeId     String          @db.Uuid
+  clearanceId    String?         @unique @db.Uuid
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  aaId           String?         @db.Uuid
+  assignment     Assignment[]
+  AssetAssesment AssetAssesment? @relation(fields: [aaId], references: [id])
+  clearance      Clearance?      @relation(fields: [clearanceId], references: [id])
+  employee       User            @relation(fields: [employeeId], references: [id])
+}
+
+model AssetAssesment {
+  id            String              @id @default(uuid()) @db.Uuid
+  assignmentId  String
+  assignment    Assignment          @relation(fields: [assignmentId], references: [id])
+  status        AAStatus
+  description   String?
+  liabilityCost Float?
+  isCleared     Boolean?            @default(false)
+  assessedById  String              @db.Uuid
+  assessedBy    User                @relation(fields: [assessedById], references: [id])
+  assessedAt    DateTime            @default(now())
+  facility      FacilityClearance[]
+  debts         Debt[]              @relation("DebtAssessments")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model Signatures {
+  id          String        @id @default(uuid()) @db.Uuid
+  clearanceId String        @db.Uuid
+  role        SignatureRole
+  userId      String        @db.Uuid
+  uploadId    String?       @db.Uuid
+  signedAt    DateTime      @default(now())
+  clearance   Clearance     @relation(fields: [clearanceId], references: [id])
+  upload      Upload?       @relation(fields: [uploadId], references: [id])
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@unique([clearanceId, role])
+}
+
+model Entitlement {
+  id          String                  @id @default(uuid()) @db.Uuid
+  name        String                  @unique
+  unit        EntitlementUnit
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  type        EntitlementType?
+  scope       EntitlementScope?
+  claims      Claim[]
+  departments DepartmentEntitlement[]
+  request     LeaveRequest[]
+  levels      LevelEntitlement[]
 }
 
 model LevelEntitlement {
@@ -430,6 +584,19 @@ model LevelEntitlement {
   level         Level       @relation(fields: [levelId], references: [id], onDelete: Cascade)
 
   @@unique([levelId, entitlementId])
+}
+
+model DepartmentEntitlement {
+  id            String      @id @default(uuid()) @db.Uuid
+  departmentId  String      @db.Uuid
+  entitlementId String      @db.Uuid
+  value         Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  entitlement   Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, entitlementId])
 }
 
 model LeaveRequest {
@@ -447,7 +614,8 @@ model LeaveRequest {
   updatedAt         DateTime       @updatedAt
   approvals         Approval[]
   cancelRequest     CancelRequest?
-  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id])
+  comments          Comment[]
+  doa               User           @relation("deedOfAssignement", fields: [doaId], references: [id], onDelete: Cascade)
   type              Entitlement    @relation(fields: [typeId], references: [id])
   user              User           @relation("user", fields: [userId], references: [id])
   response          Response[]
@@ -471,8 +639,10 @@ model Approver {
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
+  teamId       String?     @db.Uuid
   department   Department? @relation(fields: [departmentId], references: [id])
-  user         User        @relation(fields: [userId], references: [id])
+  team         Team?       @relation(fields: [teamId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Approval {
@@ -485,8 +655,8 @@ model Approval {
   actionDate     DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-  approver       User?          @relation(fields: [approverId], references: [id], onDelete: SetNull)
-  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id])
+  approver       User?          @relation(fields: [approverId], references: [id])
+  leaveRequest   LeaveRequest   @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
 
   @@unique([leaveRequestId, phase])
 }
@@ -499,7 +669,7 @@ model Response {
   userId    String        @db.Uuid
   requestId String?       @db.Uuid
   note      String
-  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  request   LeaveRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -519,12 +689,55 @@ model Payroll {
   userId        String             @unique @db.Uuid
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
-  user          User               @relation(fields: [userId], references: [id])
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   component     PayrollComponent[]
   payslip       Payslip[]
 }
 
 model PayrollComponent {
+  id            String                 @id @default(uuid()) @db.Uuid
+  amount        Float
+  type          SalaryType
+  title         String
+  calculations  SalaryCalculationType
+  category      ComponentCategory
+  monthlyAmount Float
+  annualAmount  Float
+  duration      Int?
+  startDate     DateTime?
+  isActive      Boolean                @default(true)
+  payrollId     String                 @db.Uuid
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  userId        String?                @db.Uuid
+  status        PayrollComponentStatus @default(ACTIVE)
+  payroll       Payroll                @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user          User?                  @relation(fields: [userId], references: [id])
+}
+
+model Payslip {
+  id         String             @id @default(uuid()) @db.Uuid
+  name       String
+  userId     String             @db.Uuid
+  createdAt  DateTime           @default(now())
+  month      String
+  payrollId  String             @db.Uuid
+  year       Int
+  amount     Float
+  updatedAt  DateTime?          @updatedAt
+  deductions Float?
+  earnings   Float?
+  gross      Float?
+  net        Float?
+  payroll    Payroll            @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  components PayslipComponent[]
+
+  @@unique([payrollId, month, year])
+  @@index([userId])
+}
+
+model PayslipComponent {
   id            String                @id @default(uuid()) @db.Uuid
   amount        Float
   type          SalaryType
@@ -536,222 +749,212 @@ model PayrollComponent {
   duration      Int?
   startDate     DateTime?
   isActive      Boolean               @default(true)
-  payrollId     String                @db.Uuid
+  payslipId     String                @db.Uuid
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
   userId        String?               @db.Uuid
-  payroll       Payroll               @relation(fields: [payrollId], references: [id], onDelete: Cascade)
-  user          User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
-}
-
-model Payslip {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  data      Bytes
-  userId    String   @db.Uuid
-  createdAt DateTime @default(now())
-  month     Int
-  payrollId String   @db.Uuid
-  year      Int
-  amount    Float
-  payroll   Payroll  @relation(fields: [payrollId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([payrollId])
-  @@index([month, year])
+  payslip       Payslip               @relation(fields: [payslipId], references: [id], onDelete: Cascade)
 }
 
 model Deductions {
-  id   String @id @default(uuid()) @db.Uuid
-  name String
-  data Bytes
-
-  month   String
-  pension Int
-  tax     Int
-
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  data      Bytes
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  month     String
+  pension   Decimal  @db.Decimal(15, 2)
+  tax       Decimal  @db.Decimal(15, 2)
 
-  @@index([id, month])
+  @@index([month])
 }
 
 /// //////////////////////////////////////// CLAIMS ///////////////////////////////////////////
 model Claim {
-  id            String      @id @default(uuid())
+  id            String            @id @default(uuid())
   title         String
   amount        Float
   dateOfExpense DateTime
   description   String?
   notes         String?
-  status        ClaimStatus @default(PENDING)
-
-  userId    String   @db.Uuid
-  claimId   String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  proofUrls Upload[]
-
-  entitlement   Entitlement? @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
-  entitlementId String?      @db.Uuid
-
-  comments Comment[]
-
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
+  status        ClaimStatus       @default(PENDING)
+  createdAt     DateTime?         @default(now())
+  updatedAt     DateTime?         @updatedAt
+  userId        String            @db.Uuid
+  claimId       String            @unique
+  entitlementId String?           @db.Uuid
+  pipId         String?           @unique @db.Uuid
+  type          ClaimType?
+  financeId     String?           @db.Uuid
+  entitlement   Entitlement?      @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  finance       FinanceClearance? @relation(fields: [financeId], references: [id])
+  pip           Pip?              @relation(fields: [pipId], references: [id])
+  user          User              @relation(fields: [userId], references: [id])
+  comments      Comment[]
+  proofUrls     Upload[]
 
   @@index([id])
 }
 
-// model ClaimType {
-//   id          String   @id @default(uuid())
-//   title       String
-//   description String?
-//   createdAt   DateTime @default(now())
-//   updatedAt   DateTime @updatedAt
-//   claim       Claim[]
-// }
-
-/////////////////////////////////////////// PERFORMANCE ////////////////////////////////////////
-
-/////////////////////////////////////////// TASK MANAGEMENT ////////////////////////////////////////
-
 model TaskIssues {
-  id    String @id @default(uuid()) @db.Uuid
-  issue String
-
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId String? @db.Uuid
-
-  reportedBy User?   @relation(fields: [userId], references: [id])
-  userId     String? @db.Uuid
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(uuid()) @db.Uuid
+  issue      String
+  taskId     String?  @db.Uuid
+  userId     String?  @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  reportedBy User?    @relation(fields: [userId], references: [id])
 }
 
 model ExtensionRequests {
-  id String @id @default(uuid()) @db.Uuid
-
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId String? @db.Uuid
-
-  requester   User?    @relation(fields: [requesterId], references: [id])
-  requesterId String?  @db.Uuid
+  id          String       @id @default(uuid()) @db.Uuid
+  taskId      String?      @db.Uuid
+  requesterId String?      @db.Uuid
   dueDate     DateTime
   note        String?
-
-  status ClaimStatus? @default(PENDING)
-
-  isVisible Boolean? @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status      ClaimStatus? @default(PENDING)
+  isVisible   Boolean?     @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  requester   User?        @relation(fields: [requesterId], references: [id])
+  task        Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model Task {
-  id          String     @id @default(uuid()) @db.Uuid
-  taskId      String?    @unique
-  title       String
-  description String?
-  startDate   DateTime?
-  dueDate     DateTime?
-  category    Category[]
-  priority    String?
-  status      TaskStatus @default(PENDING_APPROVAL)
-
-  isReported Boolean @default(false)
-
-  // Relations
-  createdBy   User   @relation("CreatedTasks", fields: [createdById], references: [id])
-  approvedBy  User?  @relation("ApprovedTasks", fields: [approvedById], references: [id])
-  createdById String @db.Uuid
-
-  departmentId String?     @db.Uuid
-  department   Department? @relation(fields: [departmentId], references: [id])
-
-  comments Comment[]
-
-  approvedById String? @db.Uuid
-
-  assignees UserTask[]
-  uploads   Upload[]
-
-  hasTransfer   Boolean?       @default(false)
-  taskTransfers TaskTransfer[]
-
-  // Approval tracking
-  approvalStatus      ApprovalStatus @default(PENDING)
+  title               String
+  description         String?
+  startDate           DateTime?
+  dueDate             DateTime?
+  status              TaskStatus          @default(PENDING_APPROVAL)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  createdById         String              @db.Uuid
   approvalRequestedAt DateTime?
+  approvalStatus      ApprovalStatus      @default(PENDING)
   approvedAt          DateTime?
+  approvedById        String?             @db.Uuid
   rejectionReason     String?
-
-  hasIssues Boolean? @default(false)
-
-  reports           Report[]
-  taskIssues        TaskIssues[]
-  taskDueDates      taskDueDate[]
-  extensionRequests ExtensionRequests[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                  String              @id @default(uuid()) @db.Uuid
+  priority            String?
+  taskId              String?             @unique
+  hasIssues           Boolean?            @default(false)
+  isReported          Boolean             @default(false)
+  departmentId        String?             @db.Uuid
+  hasTransfer         Boolean?            @default(false)
+  teamId              String?             @db.Uuid
+  hasDeadline         Boolean?
+  links               String[]
+  comments            Comment[]
+  extensionRequests   ExtensionRequests[]
+  logs                Logs[]
+  reportItems         ReportItem[]
+  approvedBy          User?               @relation("ApprovedTasks", fields: [approvedById], references: [id], onDelete: Cascade)
+  createdBy           User                @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  department          Department?         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  team                Team?               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  handOver            TaskHandover[]
+  taskIssues          TaskIssues[]
+  taskTransfers       TaskTransfer[]
+  uploads             Upload[]
+  assignees           UserTask[]
+  taskDueDates        taskDueDate[]
+  category            Category[]          @relation("CategoryToTask")
+  projectLabels       ProjectLabels[]     @relation("ProjectLabelsToTask")
+  reports             Report[]            @relation("ReportToTask")
 }
 
 model taskDueDate {
-  id     String  @id @default(uuid()) @db.Uuid()
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId String? @db.Uuid
-
-  dueDate DateTime?
-  note    String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String    @id @default(uuid()) @db.Uuid
+  taskId    String?   @db.Uuid
+  dueDate   DateTime?
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  task      Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model TaskTransfer {
-  id     String  @id @default(uuid()) @db.Uuid()
-  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String? @db.Uuid
-
-  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId String? @db.Uuid
-
-  note String?
-
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  taskId    String?  @db.Uuid
+  note      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Report {
-  id    String @id @default(uuid()) @db.Uuid()
-  week  Int
-  title String
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String @db.Uuid
-  tasks  Task[]
-
+  id        String   @id @default(uuid()) @db.Uuid
+  week      Int
+  title     String
+  userId    String   @db.Uuid
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks     Task[]   @relation("ReportToTask")
+}
+
+model DepartmentWeeklyReport {
+  id           String        @id @default(uuid())
+  reportId     String        @unique
+  departmentId String        @db.Uuid
+  title        String
+  week         Int
+  status       ReportStatus?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  department   Department    @relation(fields: [departmentId], references: [id])
+  reports      ReportItem[]
+
+  @@unique([departmentId, week])
+}
+
+model ReportItem {
+  id             String                 @id @default(uuid())
+  title          String
+  description    String?
+  taskId         String?                @db.Uuid
+  weeklyReportId String
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  projectId      String?                @db.Uuid
+  project        ProjectLabels?         @relation(fields: [projectId], references: [id])
+  task           Task?                  @relation(fields: [taskId], references: [id])
+  weeklyReport   DepartmentWeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+  attachments    Upload[]
 }
 
 model Category {
-  id          String  @id @default(uuid()) @db.Uuid
-  categoryId  String? @unique
-  title       String  @unique
+  id          String        @id @default(uuid()) @db.Uuid
+  categoryId  String?       @unique
+  title       String        @unique
   description String?
   color       String?
+  type        CategoryType?
+  userId      String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments Department[]  @relation("CategoryToDepartment")
+  tasks       Task[]        @relation("CategoryToTask")
+}
 
-  type CategoryType?
-
-  tasks Task[]
-
-  departments Department[]
-
-  userId    String?  @db.Uuid
-  createdBy User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model ProjectLabels {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String?       @unique
+  title       String        @unique
+  description String?
+  color       String?
+  type        CategoryType?
+  userId      String?       @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reportItems ReportItem[]
+  departments Department[]  @relation("DepartmentToProjectLabels")
+  tasks       Task[]        @relation("ProjectLabelsToTask")
 }
 
 model UserTask {
@@ -759,136 +962,416 @@ model UserTask {
   assignedAt DateTime @default(now())
   userId     String   @db.Uuid
   taskId     String   @db.Uuid
-  task       Task     @relation(fields: [taskId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, taskId])
 }
 
-//////////////////////////////////////////  APPRAISAL  ///////////////////////////////////////////
+model Logs {
+  id          String   @id @default(uuid()) @db.Uuid
+  action      String
+  actionAt    DateTime @default(now())
+  actionById  String?  @db.Uuid
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  actionToId  String?  @db.Uuid
+  taskId      String?  @db.Uuid
+  actionBy    User?    @relation("LogActor", fields: [actionById], references: [id])
+  actionTo    User?    @relation("LogTo", fields: [actionToId], references: [id])
+  task        Task?    @relation(fields: [taskId], references: [id])
+  attachments Upload[]
+}
 
 model Appraisal {
-  id                  String               @id @default(uuid()) @db.Uuid
-  quarter             String
-  year                Int
-  managerComment      String?
-  period              String //e.g Quater 3 2025
-  kpi                 Kpi[]
-  goalsAndAchievement GoalsAndAchievement?
-  feedback            Feedback?
-  summary             RatingSummary?
-  submittedAt         DateTime?
-  appraisedAt         DateTime?
-  hrReviewedAt        DateTime?
-  autoGenerated       Boolean              @default(true)
-  isTemplate          Boolean              @default(false)
-  status              AppraisalStatus      @default(GENERATED)
-  departmentId        String               @db.Uuid
-  department          Department           @relation(fields: [departmentId], references: [id])
-  appraiserId         String               @db.Uuid
-  appraiser           User                 @relation("Appraiser", fields: [appraiserId], references: [id])
-  appraisedId         String?              @db.Uuid // The employee being appraised
-  appraised           User?                @relation("Appraised", fields: [appraisedId], references: [id])
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id                   String                          @id @default(uuid()) @db.Uuid
+  quarter              String
+  year                 Int
+  managerComment       String?
+  period               String
+  submittedAt          DateTime?
+  appraisedAt          DateTime?
+  hrReviewedAt         DateTime?
+  averageRating        Float?
+  templateId           String?
+  createdBy            String?
+  autoGenerated        Boolean                         @default(true)
+  isTemplate           Boolean                         @default(false)
+  status               AppraisalStatus                 @default(PENDING)
+  departmentId         String                          @db.Uuid
+  appraiserId          String?                         @db.Uuid
+  appraisedId          String?                         @db.Uuid
+  createdAt            DateTime                        @default(now())
+  updatedAt            DateTime                        @updatedAt
+  employeeComment      String?
+  achievements         Achievement[]
+  appraised            User?                           @relation("Appraised", fields: [appraisedId], references: [id])
+  appraiser            User?                           @relation("Appraiser", fields: [appraiserId], references: [id])
+  department           Department                      @relation(fields: [departmentId], references: [id])
+  kpi                  AppraisalKpi[]
+  kpiObjective         AppraisalKpiObjectiveSnapshot[]
+  leadershipAssessment AppraisalLeadershipSnapshot[]
+  employeeSignature    AppraisalSignatures?            @relation("employeeSignature")
+  managerSignature     AppraisalSignatures?            @relation("managerSignature")
+  competencyAssessment CompetencyCategorySnapshot[]
+  developmentNeeds     DevelopmentNeed[]
+  goals                Goals[]
+  summary              RatingSummary?
 
   @@unique([quarter, year, appraisedId])
-  @@map("appraisals")
 }
 
-model Kpi {
-  id          String        @id @default(uuid()) @db.Uuid
-  appraisalId String?       @unique @db.Uuid
-  appraisal   Appraisal?    @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
-  categories  KpiCategory[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@map("kpis")
+model AppraisalKpi {
+  id                           String                          @id @default(uuid()) @db.Uuid
+  appraisalId                  String?                         @db.Uuid
+  createdAt                    DateTime                        @default(now())
+  updatedAt                    DateTime                        @updatedAt
+  name                         String?
+  appraisal                    Appraisal?                      @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  objectives                   AppraisalKpiObjectiveSnapshot[]
+  competencyObjectiveSnapshots CompetencyObjectiveSnapshot[]
+  summary                      RatingSummarySnapshot[]
 }
 
-model KpiCategory {
-  id           String          @id @default(uuid()) @db.Uuid
-  name         String //e.g., "TECHNICAL SKILL", "TEAM COLLABORATION"
-  kpiId        String?         @db.Uuid
-  kpi          Kpi?            @relation(fields: [kpiId], references: [id])
-  departmentId String?         @db.Uuid
-  department   Department?     @relation(fields: [departmentId], references: [id])
-  objectives   Objective[]
-  type         KpiCategoryType @default(STATIC)
-  isGlobal     Boolean         @default(true)
-  isApproved   Boolean         @default(false)
-  reviewedBy   String?         @db.Uuid // Admin who reviewed the KPIs
-  reviewedAt   DateTime? // When the KPIs were reviewed
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+model AppraisalKpiObjectiveSnapshot {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  rating       Float?
+  actualResult String?
+  comment      String?
+  categoryId   String?       @db.Uuid
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appraisalId  String?       @db.Uuid
+  appraisal    Appraisal?    @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+  category     AppraisalKpi? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+}
 
-  @@unique([name, departmentId])
-  @@map("kpi_categories")
+model KpiTemplateCategory {
+  id           String                 @id @default(uuid()) @db.Uuid
+  name         String
+  type         KpiCategoryType
+  departmentId String?                @db.Uuid
+  createdById  String?                @db.Uuid
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  createdBy    User?                  @relation("KpiTemplateCategoryCreator", fields: [createdById], references: [id])
+  department   Department?            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  objectives   KpiTemplateObjective[]
+
+  @@index([type])
+  @@index([departmentId])
+}
+
+model KpiTemplateObjective {
+  id         String              @id @default(uuid()) @db.Uuid
+  name       String
+  categoryId String              @db.Uuid
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  category   KpiTemplateCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+}
+
+model AppraisalSignatures {
+  id                  String     @id @default(uuid()) @db.Uuid
+  signatureId         String?    @unique @db.Uuid
+  date                DateTime?
+  managerSignatureId  String?    @unique @db.Uuid
+  employeeSignatureId String?    @unique @db.Uuid
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  employeeSignature   Appraisal? @relation("employeeSignature", fields: [employeeSignatureId], references: [id], onDelete: Cascade)
+  managerSignature    Appraisal? @relation("managerSignature", fields: [managerSignatureId], references: [id], onDelete: Cascade)
+  signature           Upload?    @relation(fields: [signatureId], references: [id])
+}
+
+model AppraisalLeadership {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rating    Float?
+  comment   String?
+}
+
+model CompetencyCategory {
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  objectives      Objective[]
+  ratingSummaries RatingSummary[]
 }
 
 model Objective {
-  id         String      @id @default(uuid()) @db.Uuid
-  name       String //e.g., "Knowledge of Resk./Technologies"
-  rating     Float? //Rating (1-5)
-  comment    String?
-  categoryId String      @db.Uuid
-  category   KpiCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  @@map("objectives")
+  id           String              @id @default(uuid()) @db.Uuid
+  name         String
+  rating       Float?
+  comment      String?
+  categoryId   String?             @db.Uuid
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  actualResult String?
+  category     CompetencyCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
-model GoalsAndAchievement {
-  id           String    @id @default(uuid()) @db.Uuid
-  achievements String[]
-  goals        String[]
-  appraisalId  String    @unique @db.Uuid
-  appraisal    Appraisal @relation(fields: [appraisalId], references: [id])
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+model CompetencyObjectiveSnapshot {
+  id             String                      @id @default(uuid()) @db.Uuid
+  name           String
+  rating         Float?
+  actualResult   String?
+  comment        String?
+  categoryId     String?                     @db.Uuid
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  appraisalKpiId String?                     @db.Uuid
+  appraisalKpi   AppraisalKpi?               @relation(fields: [appraisalKpiId], references: [id])
+  category       CompetencyCategorySnapshot? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 }
 
-model Feedback {
-  id          String             @id @default(uuid()) @db.Uuid
-  questions   FeedbackQuestion[]
-  appraisalId String             @unique @db.Uuid
-  appraisal   Appraisal          @relation(fields: [appraisalId], references: [id])
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+model RatingSummarySnapshot {
+  id                           String                      @id @default(uuid()) @db.Uuid
+  averageRating                Float
+  createdAt                    DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
+  competencyCategorySnapshotId String?                     @db.Uuid
+  appraisalKpiId               String?                     @db.Uuid
+  appraisalKpi                 AppraisalKpi?               @relation(fields: [appraisalKpiId], references: [id])
+  competencyCategorySnapshot   CompetencyCategorySnapshot? @relation(fields: [competencyCategorySnapshotId], references: [id])
 }
 
-model FeedbackQuestion {
-  id         String   @id @default(uuid()) @db.Uuid
-  question   String
-  response   String?
-  feedbackId String   @db.Uuid
-  feedback   Feedback @relation(fields: [feedbackId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model CompetencyCategorySnapshot {
+  id          String                        @id @default(uuid()) @db.Uuid
+  name        String
+  createdAt   DateTime                      @default(now())
+  updatedAt   DateTime                      @updatedAt
+  appraisalId String?                       @db.Uuid
+  appraisal   Appraisal?                    @relation(fields: [appraisalId], references: [id])
+  objectives  CompetencyObjectiveSnapshot[]
+  summary     RatingSummarySnapshot[]
+}
+
+model AppraisalLeadershipSnapshot {
+  id          String    @id @default(uuid()) @db.Uuid
+  appraisalId String    @db.Uuid
+  title       String
+  rating      Float?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  comment     String?
+  appraisal   Appraisal @relation(fields: [appraisalId], references: [id], onDelete: Cascade)
+
+  @@index([appraisalId])
+}
+
+model Achievement {
+  id          String     @id @default(uuid()) @db.Uuid
+  title       String
+  appraisalId String?    @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  appraisal   Appraisal? @relation(fields: [appraisalId], references: [id])
+}
+
+model DevelopmentNeed {
+  id              String     @id @default(uuid()) @db.Uuid
+  title           String
+  supportRequired String
+  timeline        String
+  appraisalId     String?    @db.Uuid
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  appraisal       Appraisal? @relation(fields: [appraisalId], references: [id])
+}
+
+model Goals {
+  id          String     @id @default(uuid()) @db.Uuid
+  goal        String
+  outcome     String?
+  timeline    String?
+  appraisalId String?    @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  appraisal   Appraisal? @relation(fields: [appraisalId], references: [id])
 }
 
 model RatingSummary {
-  id                    String    @id @default(uuid()) @db.Uuid
-  appraisalId           String    @unique @db.Uuid
-  appraisal             Appraisal @relation(fields: [appraisalId], references: [id])
-  technicalPerformance  Float?
-  teamCollaboration     Float?
-  initiativesLeadership Float?
-  departmentalKpi       Float?
-  overallPerformance    Float?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  id                   String             @id @default(uuid()) @db.Uuid
+  appraisalId          String             @unique @db.Uuid
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  averageRating        Float
+  competencyCategoryId String             @db.Uuid
+  appraisal            Appraisal          @relation(fields: [appraisalId], references: [id])
+  competencyCategory   CompetencyCategory @relation(fields: [competencyCategoryId], references: [id])
 }
 
-///////////////////////////////////////////// ENUMS  /////////////////////////////////////////////
+/// ///////////////////////////////////////  PIP ///////////////////////////////////////////
+model Pip {
+  id           String          @id @default(uuid()) @db.Uuid
+  title        String
+  platform     String
+  url          String
+  startDate    DateTime
+  endDate      DateTime
+  duration     String
+  cost         Float
+  reason       String
+  status       PipStatus       @default(PENDING)
+  userId       String          @db.Uuid
+  rejectedById String?         @db.Uuid
+  rejecteAt    DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  departmentId String?         @db.Uuid
+  pId          String          @unique
+  rPId         String?         @unique @db.Uuid
+  claim        Claim?
+  comment      Comment[]
+  department   Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  rP           RecommendedPip? @relation("RecommendationToPip", fields: [rPId], references: [id])
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  uploads      Upload[]
+}
+
+model RecommendedPip {
+  id               String    @id @default(uuid()) @db.Uuid
+  rPipId           String    @unique
+  aoi              String
+  recommendedById  String    @db.Uuid
+  recommendedForId String    @db.Uuid
+  reason           String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  link             String?
+  comment          Comment[]
+  pip              Pip?      @relation("RecommendationToPip")
+  recommendedBy    User      @relation("PipRecommendedBy", fields: [recommendedById], references: [id])
+  recommendedFor   User      @relation("PipRecommendedFor", fields: [recommendedForId], references: [id])
+  uploads          Upload[]
+}
+
+model HrDepartmentApproval {
+  id           String     @id @default(uuid()) @db.Uuid
+  departmentId String     @db.Uuid
+  approvedById String     @db.Uuid
+  totalCost    Float
+  status       PipStatus
+  createdAt    DateTime   @default(now())
+  reason       Comment[]
+  approvedBy   User       @relation(fields: [approvedById], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@index([departmentId])
+}
+
+model Email {
+  id          String       @id @default(uuid()) @db.Uuid
+  to          EmailTo
+  subject     String
+  message     String
+  status      EmailStatus  @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  departments Department[] @relation("DepartmentToEmail")
+  users       User[]       @relation("EmailToUser")
+}
+
+model DefaultOfficePresence {
+  id        String       @id @db.Uuid
+  userId    String       @unique @db.Uuid
+  monday    PresenceType @default(OFFICE)
+  tuesday   PresenceType @default(OFFICE)
+  wednesday PresenceType @default(OFFICE)
+  thursday  PresenceType @default(OFFICE)
+  friday    PresenceType @default(OFFICE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime
+  User      User         @relation(fields: [userId], references: [id])
+}
+
+model OfficePresence {
+  id             String       @id @db.Uuid
+  userId         String       @db.Uuid
+  weekStartDate  DateTime
+  monday         PresenceType @default(OFFICE)
+  tuesday        PresenceType @default(OFFICE)
+  wednesday      PresenceType @default(OFFICE)
+  thursday       PresenceType @default(OFFICE)
+  friday         PresenceType @default(OFFICE)
+  isAutoFallback Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  User           User         @relation(fields: [userId], references: [id])
+
+  @@unique([userId, weekStartDate])
+}
+
+enum CommentType {
+  REPLY
+  COMMENT
+}
+
+enum PayrollComponentStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum EmailTo {
+  ZORANS
+  EMPLOYEES
+  DEPARTMENTS
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
 
 enum ApproverRole {
   DEPARTMENT_HEAD
-  DEPARTMENT_LEAD
   HR
   CISO
+  DEPARTMENT_LEAD
+  ASS_DEPT_HEAD
+}
+
+enum AppraisalPipStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum NotificationActionType {
+  INVITE_ACCEPTED
+  EMPLOYEE_ADDED
+  LEAVE_REQUESTED
+  LEAVE_APPROVED
+  LEAVE_DECLINED
+  TASK_ASSIGNED
+  TASK_CREATED
+  CLAIM_CREATED
+  CLAIM_APPROVED
+  CLAIM_REJECTED
+  TASK_UPDATED
+  PAYSLIP_GENERATED
+  APPRAISAL_CREATED
+  APPRAISAL_REVIEWED
+  APPRAISAL_SUBMITTED
+  PIP_RECOMMENDED
+  PIP_APPROVED
+  PIP_REJECTED
+  PIP_COMPLETED
+  PIP_REQUESTED
+  TASK_APPROVED
+  TASK_REJECTED
+  PIP_CREATED
 }
 
 enum ApprovalStatus {
@@ -897,15 +1380,33 @@ enum ApprovalStatus {
   REJECTED
 }
 
-enum TaskStatus {
+enum ClearanceType {
+  DEPARTMENT
+  FINANCE
+  FACILITIES
+}
+
+enum ClearanceStatus {
+  PENDING
+  APPROVED
   REJECTED
+  COMPLETED
+  USER_SIGNED
+  RECEIVER_SIGNED
+  DM_SIGNED
+  AM_SIGNED
+  HR_SIGNED
+}
+
+enum TaskStatus {
   PENDING_APPROVAL
   APPROVED
   IN_PROGRESS
-  PENDING_REVIEW
   COMPLETED
   CANCELLED
+  REJECTED
   ISSUES
+  PENDING_REVIEW
 }
 
 enum AStatus {
@@ -923,6 +1424,21 @@ enum Status {
   CONFIRMED
   COMPLETED
   IN_PROGRESS
+  INACTIVE
+  APPROVED
+  REJECTED
+}
+
+enum PipStatus {
+  PENDING
+  MANAGER_APPROVED
+  HR_APPROVED
+  REJECTED
+  COMPLETED
+  SENT
+  SUBMITTED
+  CLAIM_REQUESTED
+  HR_REVIEWED
 }
 
 enum TaxStatus {
@@ -931,25 +1447,57 @@ enum TaxStatus {
   PAID
 }
 
+enum SignatureRole {
+  USER
+  DEPT_MANAGER
+  HR
+  ASSET_MANAGER
+  SUPER_ADMIN
+  RECEIVER
+}
+
 enum SalaryType {
   EARNING
   DEDUCTION
 }
 
 enum AppraisalStatus {
-  GENERATED // Initial state when quarterly appraisal is generated
-  PENDING // Department KPIs added, waiting for admin review
-  HR_REVIEW // In review with the HR team
-  REVIEWED // Admin has reviewed and approved department KPIs
-  DRAFT // Employee is working on their appraisal
-  SUBMITTED // Employee has submitted for manager review
-  APPRAISED // Manager has reviewed and approved
-  COMPLETED // Final state after HR review
+  GENERATED
+  PENDING
+  HR_REVIEW
+  REVIEWED
+  DRAFT
+  SUBMITTED
+  APPRAISED
+  COMPLETED
+  MANAGER_DRAFT
+  EMPLOYEE_DRAFT
+  AWAITING_EMPLOYEE
+  AWAITING_MANAGER
+  ONGOING
+}
+
+enum DebtStatus {
+  PENDING
+  CLEARED
+}
+
+enum DebtType {
+  ASSET // from AssetAssessment
+  MANUAL // loans, fines, etc.
+}
+
+enum KpiCategoryStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum KpiCategoryType {
   STATIC
   DYNAMIC
+  ORGANIZATIONAL
+  DEPARTMENTAL
 }
 
 enum ComponentCategory {
@@ -990,6 +1538,8 @@ enum Role {
   ASSET_MANAGER
   LEAVE_MANAGER
   TEAM_LEAD
+  ASST_DEPT_MANAGER
+  RECEIVER
 }
 
 enum AssetCategory {
@@ -1006,6 +1556,12 @@ enum AssetCategory {
   GENERAL
 }
 
+enum AAStatus {
+  LOST
+  DAMAGED
+  FAULTY
+}
+
 enum AssetStatus {
   AVAILABLE
   ASSIGNED
@@ -1014,6 +1570,7 @@ enum AssetStatus {
   RETIRED
   ACCEPTED
   MAINTENANCE
+  LOST
 }
 
 enum AssignmentStatus {
@@ -1055,6 +1612,12 @@ enum ClaimStatus {
   PENDING
   APPROVED
   REJECTED
+  REFUNDED
+}
+
+enum ClaimType {
+  TRAINING_PLAN
+  OTHERS
 }
 
 enum Priority {
@@ -1071,9 +1634,28 @@ enum Gender {
 
 enum CategoryType {
   Task
+  STATIC
+  DYNAMIC
 }
 
 enum EntitlementType {
   CLAIMS
   LEAVE
+}
+
+enum EntitlementScope {
+  LEVEL
+  DEPARTMENT
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum PresenceType {
+  OFFICE
+  REMOTE
+  LEAVE
+  ABSENT
 }

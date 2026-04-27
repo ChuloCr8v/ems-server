@@ -27,7 +27,14 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
-import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto } from './dto/assets.dto';
+import {
+  ArchiveAssetDto,
+  AssetCategoryDto,
+  AssignAssetDto,
+  CreateAssetDto,
+  ReportFaultDto,
+  UpdateFaultStatusDto,
+} from './dto/assets.dto';
 import { Role } from '@prisma/client';
 import { Auth } from 'src/auth/decorators/auth.decorator';
 
@@ -35,7 +42,64 @@ import { Auth } from 'src/auth/decorators/auth.decorator';
 @ApiBearerAuth()
 @Controller('assets')
 export class AssetsController {
-  constructor(private readonly assetsService: AssetService) { }
+  constructor(private readonly assetsService: AssetService) {}
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Post('category')
+  @ApiOperation({ summary: 'Create a new asset category'})
+  @ApiBody({type: AssetCategoryDto})
+  @ApiCreatedResponse({ description: 'Asset category successfully created' })
+  async createCategory(@Body() dto: AssetCategoryDto) {
+    return this.assetsService.createAssetCategory(dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Get('categories')
+  @ApiOperation({ summary: 'Get all asset categories' })
+  @ApiOkResponse({ description: 'List of all asset categories' })
+  async getAllCategories() {
+    return this.assetsService.getAssetCategories();
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Get('category/:id')
+  @ApiOperation({ summary: 'Get asset category by ID' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiOkResponse({ description: 'Asset category details' })
+  @ApiResponse({ status: 404, description: 'Asset category not found' })
+  async getCategoryById(@Param('id') id: string) {
+    return this.assetsService.getAssetCategory(id);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Post('categories/multi')
+  @ApiOperation({ summary: 'Create multiple asset categories' })
+  @ApiBody({ type: [AssetCategoryDto] })
+  @ApiCreatedResponse({ description: 'Asset categories successfully created' })
+  async createMultipleCategories(@Body() dto: AssetCategoryDto[]) {
+    return this.assetsService.createMultiAssetCategory(dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Put('category/:id')
+  @ApiOperation({ summary: 'Update an asset category' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiBody({ type: AssetCategoryDto })
+  @ApiOkResponse({ description: 'Asset category successfully updated' })
+  async updateCategory(@Param('id') id: string, @Body() dto: AssetCategoryDto) {
+    return this.assetsService.updateAssetCategory(id, dto);
+  }
+
+  @Auth([Role.ADMIN, Role.ASSET_MANAGER])
+  @Delete('category/:id')
+  @ApiOperation({ summary: 'Delete an asset category' })
+  @ApiParam({ name: 'id', description: 'Category ID' })
+  @ApiOkResponse({ description: 'Asset category successfully deleted' })
+  @ApiResponse({ status: 404, description: 'Asset category not found' })
+  async deleteCategory(@Param('id') id: string) {
+    await this.assetsService.removeAssetCategory(id);
+    return { message: 'Asset category has been deleted successfully' };
+  }
 
   @Auth([Role.ADMIN, Role.FACILITY])
   @Post()
@@ -46,14 +110,12 @@ export class AssetsController {
     type: CreateAssetDto,
   })
   @ApiCreatedResponse({ description: 'Asset successfully created' })
-  async create(
-    @Body() createAssetDto: CreateAssetDto,
-  ) {
+  async create(@Body() createAssetDto: CreateAssetDto) {
     return this.assetsService.createAsset(createAssetDto);
   }
 
   @Auth([Role.ADMIN, Role.FACILITY])
-  @Put("update/:id")
+  @Put('update/:id')
   @ApiOperation({ summary: 'Update an asset' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -65,10 +127,11 @@ export class AssetsController {
   async updateAsset(
     @Param('id') id: string,
     @Body() updateAssetDto: CreateAssetDto,
-    @UploadedFiles() files: {
-      assetImage?: Express.Multer.File[],
-      barcodeImage?: Express.Multer.File[]
-    }
+    @UploadedFiles()
+    files: {
+      assetImage?: Express.Multer.File[];
+      barcodeImage?: Express.Multer.File[];
+    },
   ) {
     return this.assetsService.updateAsset(id, updateAssetDto);
   }
@@ -78,7 +141,7 @@ export class AssetsController {
   @ApiParam({ name: 'filename', description: 'Image filename' })
   async getAssetImage(
     @Param('filename') filename: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const filePath = join(process.cwd(), 'uploads', 'assets', filename);
     res.sendFile(filePath);
@@ -89,7 +152,7 @@ export class AssetsController {
   @ApiParam({ name: 'filename', description: 'Image filename' })
   async getFaultImage(
     @Param('filename') filename: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     const filePath = join(process.cwd(), 'uploads', 'faults', filename);
     res.sendFile(filePath);
@@ -118,7 +181,7 @@ export class AssetsController {
   @ApiBody({ type: AssignAssetDto })
   @ApiCreatedResponse({ description: 'Asset successfully assigned' })
   @ApiResponse({ status: 400, description: 'Invalid assignment data' })
-  async assignAsset(@Param("id") id: string, @Body() dto: AssignAssetDto) {
+  async assignAsset(@Param('id') id: string, @Body() dto: AssignAssetDto) {
     return this.assetsService.assignAsset(id, dto);
   }
 
@@ -173,7 +236,7 @@ export class AssetsController {
   @ApiResponse({ status: 404, description: 'Fault not found' })
   updateFaultStatus(
     @Param('id') id: string,
-    @Body() dto: { resolvedById: string, notes: string, }
+    @Body() dto: { resolvedById: string; notes: string },
   ) {
     return this.assetsService.resolveFault(id, dto);
   }
@@ -239,20 +302,40 @@ export class AssetsController {
     return this.assetsService.createMultiAssets(file);
   }
 
-  @Put("retrieve")
-  async retrieveAsset(@Body() dto: { assetIds: string[], retrievedById: string, notes: string }) {
-    return this.assetsService.retrieveAssets(dto)
+  @Put('retrieve')
+  async retrieveAsset(
+    @Body() dto: { assetIds: string[]; retrievedById: string; notes: string },
+  ) {
+    return this.assetsService.retrieveAssets(dto);
   }
 
-  @Delete(":id")
-  @Auth([Role.ADMIN, Role.SUPERADMIN])
+  @Delete(':id')
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
   @ApiOperation({ summary: 'Delete asset by ID' })
   @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
   @ApiResponse({ status: 200, description: 'Asset deleted successfully' })
   async deleteAsset(@Param('id') id: string, @Res() res: Response) {
     await this.assetsService.deleteAsset(id);
-    return res.status(200).json({ message: `Asset has been deleted successfully` });
+    return res
+      .status(200)
+      .json({ message: `Asset has been deleted successfully` });
+  }
+
+  @Put(':id/archive')
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
+  @ApiOperation({ summary: 'Archive asset by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
+  @ApiResponse({ status: 200, description: 'Asset archived successfully' })
+  archiveAsset(@Param('id') id: string, @Body() dto: ArchiveAssetDto) {
+    return this.assetsService.archiveAsset(id, dto);
+  }
+
+  @Put(':id/unarchive')
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.FACILITY])
+  @ApiOperation({ summary: 'Unarchive asset by ID' })
+  @ApiParam({ name: 'id', required: true, description: 'Asset ID' })
+  @ApiResponse({ status: 200, description: 'Asset unarchived successfully' })
+  unarchiveAsset(@Param('id') id: string, @Body() dto: ArchiveAssetDto) {
+    return this.assetsService.unarchiveAsset(id, dto);
   }
 }
-
-

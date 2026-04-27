@@ -1,291 +1,251 @@
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { KpiCategoryType, Role } from '@prisma/client';
-import { CreateKpiCategoryDto, CreateKpiDto, CreateKpiObjectiveDto } from './dto/kpi.dto';
-import { UserService } from 'src/user/user.service';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { bad } from 'src/utils/error.utils';
+import { CreateKpiTemplateDto } from './dto/kpi.dto';
 
 @Injectable()
 export class KpiService {
-    constructor(private readonly prisma: PrismaService, private readonly userService: UserService) { }
+  constructor(private readonly prisma: PrismaService) { }
 
-    // Admin Methods - Global KPIs
-    async createCategory(user: any, data: CreateKpiDto) {
-        // normalize user: if caller passed id string, fetch from db
+  async createCategory(userId: string, data: CreateKpiTemplateDto) {
+    const user = await this.findUserById(userId);
+    const { categories, department } = data;
 
-        // const user = await this.userService.getMe(userId);
-        let dbUser = user;
-        if (typeof user === 'string') {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user }, include: { approver: true } });
-        } else if (user && !user.userRole && user.id) {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user.id }, include: { approver: true } });
-        }
+    const isOrg = [Role.ADMIN, Role.SUPERADMIN].some((role) => user.userRole?.includes(role));
 
-        const { categories } = data;
+    const type = isOrg ? KpiCategoryType.ORGANIZATIONAL : KpiCategoryType.DEPARTMENTAL;
 
-        // If user is ADMIN -> create global categories/objectives
-        if (this.userHasRole(dbUser, Role.ADMIN)) {
-            try {
-                const created = await Promise.all(
-                    categories.map(cat =>
-                        this.prisma.kpiCategory.create({
-                            data: {
-                                name: cat.name,
-                                type: cat.type,
-                                isGlobal: cat.isGlobal ?? true,
-                                isApproved: true,
-                                objectives: cat.objectives && cat.objectives.length > 0 ? {
-                                    create: cat.objectives.map(obj => ({
-                                        name: obj.name,
-                                        rating: null,
-                                        comment: null,
-                                    }))
-                                } : undefined
-                            }
-                        })
-                    )
-                );
-                return created;
-            } catch (error) {
-                throw new BadRequestException('Failed to create KPI category');
-            }
-        }
+    return Promise.all(
+      categories.map(async (category) => {
+        await this.assertCategoryPermission(userId, type, department)
 
-        // If user is DEPT_MANAGER -> create department-specific categories/objectives for manager's department only
-        if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
-            console.log('User has DEPT_MANAGER role:', dbUser.id);
-            // find manager's department
-            const manager = await this.prisma.approver.findFirst({
-                where: { userId: dbUser.id, role: 'DEPT_MANAGER', isActive: true },
-                include: { department: true }
-            });
-
-            if (!manager?.department) {
-                throw new BadRequestException('Not authorized or no department assigned');
-            }
-
-            try {
-                const created = await Promise.all(
-                    categories.map(cat =>
-                        this.prisma.kpiCategory.create({
-                            data: {
-                                name: cat.name,
-                                type: KpiCategoryType.DYNAMIC,
-                                isGlobal: false,
-                                department: { connect: { id: manager.department.id } },
-                                objectives: cat.objectives && cat.objectives.length > 0 ? {
-                                    create: cat.objectives.map(obj => ({
-                                        name: obj.name,
-                                        rating: null,
-                                        comment: null,
-                                    }))
-                                } : undefined
-                            }
-                        })
-                    )
-                );
-                return created;
-            } catch (error) {
-                if (error instanceof BadRequestException ||
-                    error instanceof NotFoundException ||
-                    error instanceof ConflictException) {
-                    throw error;
-                }
-                throw new BadRequestException('Failed to create KPI categories:' + error.message);
-            }
-        }
-
-        throw new BadRequestException('Unauthorized to create KPI categories');
-    }
-
-    async getCategories() {
-        return this.prisma.kpiCategory.findMany({
-            include: {
-                objectives: true,
-                department: {
-                    select: {
-                        id: true,
-                        name: true
-                    }
-                }
-            }
+        return this.prisma.kpiTemplateCategory.create({
+          data: {
+            name: category.name.trim(),
+            type: type,
+            departmentId:
+              type === KpiCategoryType.DEPARTMENTAL
+                ? department
+                : null,
+            createdById: user.id,
+            objectives: {
+              create: (category.objectives ?? [])
+                .filter((objective) => objective.name?.trim())
+                .map((objective) => ({
+                  name: objective.name.trim(),
+                })),
+            },
+          },
+          include: {
+            objectives: true,
+            department: true,
+          },
         });
+      }),
+    );
+  }
+
+  async getCategories(userId: string, type?: KpiCategoryType) {
+    const user = await this.findUserById(userId);
+    const isAdmin = this.userHasAnyRole(user, [Role.ADMIN, Role.SUPERADMIN]);
+    const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+
+    if (isAdmin) {
+      return this.prisma.kpiTemplateCategory.findMany({
+        where: {
+          ...(type ? { type } : {}),
+        },
+        include: {
+          objectives: true,
+          department: true,
+        },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      });
     }
 
-    async getGlobalCategories() {
-        return this.prisma.kpiCategory.findMany({
-            where: { isGlobal: true },
-            include: { objectives: true }
-        });
+    if (!isManager) {
+      return this.prisma.kpiTemplateCategory.findMany({
+        where: {
+          type: KpiCategoryType.ORGANIZATIONAL,
+          ...(type ? { type } : {}),
+        },
+        include: {
+          objectives: true,
+          department: true,
+        },
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      });
     }
 
-    async updateCategory(user: any, categoryId: string, data: CreateKpiDto) {
-        let dbUser = user;
-        if (typeof user === 'string') {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user } });
-        } else if (user && !user.userRole && user.id) {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user.id } });
-        }
+    const managedDepartmentIds = await this.getManagedDepartmentIds(userId);
 
-        const category = await this.prisma.kpiCategory.findUnique({
-            where: { id: categoryId },
-            include: {
-                department: true,
-                objectives: true
-            }
-        });
+    return this.prisma.kpiTemplateCategory.findMany({
+      where: {
+        ...(type ? { type } : {}),
+        OR: [
+          { type: KpiCategoryType.ORGANIZATIONAL },
+          {
+            type: KpiCategoryType.DEPARTMENTAL,
+            departmentId: { in: managedDepartmentIds },
+          },
+        ],
+      },
+      include: {
+        objectives: true,
+        department: true,
+      },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    });
+  }
 
-        if (!category) {
-            throw new NotFoundException('Category not found');
-        }
+  async updateCategory(userId: string, categoryId: string, data: CreateKpiTemplateDto) {
+    const existing = await this.prisma.kpiTemplateCategory.findUnique({
+      where: { id: categoryId },
+      include: { objectives: true },
+    });
 
-        // ADMIN can update any global category
-        if (this.userHasRole(dbUser, Role.ADMIN)) {
-            if (!category.isGlobal) {
-                throw new BadRequestException('Admins can only update global categories');
-            }
-
-            try {
-                const { categories } = data;
-                if (!categories?.[0]) {
-                    throw new BadRequestException('Category data is required');
-                }
-
-                const cat = categories[0]; // Use first category from array
-                return await this.prisma.kpiCategory.update({
-                    where: { id: categoryId },
-                    data: {
-                        name: cat.name,
-                        type: cat.type,
-                        objectives: {
-                            deleteMany: {}, // Remove existing objectives
-                            create: cat.objectives?.map(obj => ({
-                                name: obj.name,
-                                rating: null,
-                                comment: null
-                            }))
-                        }
-                    },
-                    include: { objectives: true }
-                });
-            } catch (error) {
-                throw new BadRequestException('Failed to update category');
-            }
-        }
-
-        // DEPT_MANAGER can only update their department's categories
-        if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
-            const manager = await this.prisma.approver.findFirst({
-                where: {
-                    userId: dbUser.id,
-                    role: 'DEPT_MANAGER',
-                    isActive: true,
-                    departmentId: category.departmentId
-                }
-            });
-
-            if (!manager) {
-                throw new BadRequestException('Not authorized to update this category');
-            }
-
-            try {
-                const { categories } = data;
-                if (!categories?.[0]) {
-                    throw new BadRequestException('Category data is required');
-                }
-
-                const cat = categories[0];
-                return await this.prisma.kpiCategory.update({
-                    where: { id: categoryId },
-                    data: {
-                        name: cat.name,
-                        type: KpiCategoryType.DYNAMIC,
-                        objectives: {
-                            deleteMany: {}, // Remove existing objectives
-                            create: cat.objectives?.map(obj => ({
-                                name: obj.name,
-                                rating: null,
-                                comment: null
-                            }))
-                        }
-                    },
-                    include: { objectives: true }
-                });
-            } catch (error) {
-                throw new BadRequestException('Failed to update department category');
-            }
-        }
-
-        throw new BadRequestException('Unauthorized to update categories');
+    if (!existing) {
+      throw new NotFoundException('KPI category not found');
     }
 
-    async removeCategory(user: any, categoryId: string) {
-        // Ensure we have a valid user object from DB
-        let dbUser = user;
-        if (typeof user === 'string' || (user && !user.userRole && user.id)) {
-            dbUser = await this.prisma.user.findUnique({ where: { id: user.id || user } });
-        }
-
-        const category = await this.prisma.kpiCategory.findUnique({
-            where: { id: categoryId },
-            include: { department: true },
-        });
-
-        if (!category) {
-            throw new NotFoundException('Category not found');
-        }
-
-        // ===== ADMIN BLOCK =====
-        if (this.userHasRole(dbUser, Role.ADMIN)) {
-            if (!category.isGlobal) {
-                throw new BadRequestException('Admins can only delete global categories');
-            }
-
-            try {
-                await this.prisma.kpiCategory.delete({
-                    where: { id: categoryId }
-                });
-                return true;
-            } catch (error) {
-                console.log(error)
-                throw new BadRequestException('Failed to delete category');
-            }
-        }
-
-        // ===== DEPT_MANAGER BLOCK =====
-        if (this.userHasRole(dbUser, Role.DEPT_MANAGER)) {
-            const manager = await this.prisma.approver.findFirst({
-                where: {
-                    userId: dbUser.id,
-                    role: 'DEPT_MANAGER',
-                    isActive: true,
-                    departmentId: category.departmentId,
-                },
-            });
-
-            if (!manager) {
-                throw new BadRequestException('Not authorized to delete this category');
-            }
-
-            try {
-                await this.prisma.kpiCategory.delete({
-                    where: { id: categoryId }
-                });
-                return true;
-            } catch (error) {
-                console.log(error)
-                throw new BadRequestException('Failed to delete department category');
-            }
-        }
-
-        throw new BadRequestException('Unauthorized to delete categories');
+    const category = data.categories?.[0];
+    if (!category) {
+      throw new BadRequestException('Category data is required');
     }
 
-    //////////////////////////////// Helper Methods //////////////////////////
-    private userHasRole(userObj: any, role: Role) {
-        if (!userObj) return false;
-        // userObj.userRole may be an array of Role or a single Role string
-        const roles = (userObj.userRole ?? userObj.role) as any;
-        if (Array.isArray(roles)) return roles.includes(role);
-        return roles === role;
+    await this.assertExistingCategoryPermission(userId, existing.id);
+
+    return this.prisma.kpiTemplateCategory.update({
+      where: { id: categoryId },
+      data: {
+        name: category.name.trim(),
+        objectives: {
+          deleteMany: {},
+          create: (category.objectives ?? [])
+            .filter((objective) => objective.name?.trim())
+            .map((objective) => ({
+              name: objective.name.trim(),
+            })),
+        },
+      },
+      include: {
+        objectives: true,
+        department: true,
+      },
+    });
+  }
+
+  async removeCategory(userId: string, categoryId: string) {
+    await this.assertExistingCategoryPermission(userId, categoryId);
+    await this.prisma.kpiTemplateCategory.delete({
+      where: { id: categoryId },
+    });
+    return true;
+  }
+
+  async getTemplatesForDepartment(departmentId: string) {
+    return this.prisma.kpiTemplateCategory.findMany({
+      where: {
+        OR: [
+          { type: KpiCategoryType.ORGANIZATIONAL },
+          {
+            type: KpiCategoryType.DEPARTMENTAL,
+            departmentId,
+          },
+        ],
+      },
+      include: {
+        objectives: true,
+      },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  private async assertExistingCategoryPermission(userId: string, categoryId: string) {
+    const category = await this.prisma.kpiTemplateCategory.findUnique({
+      where: { id: categoryId },
+    });
+
+    if (!category) {
+      throw new NotFoundException('KPI category not found');
     }
+
+    await this.assertCategoryPermission(userId, category.type, category.departmentId ?? undefined);
+  }
+
+  private async assertCategoryPermission(
+    userId: string,
+    type: KpiCategoryType,
+    departmentId?: string,
+  ) {
+    const user = await this.findUserById(userId);
+    const isAdmin = this.userHasAnyRole(user, [Role.ADMIN, Role.SUPERADMIN]);
+    const isManager = this.userHasRole(user, Role.DEPT_MANAGER);
+
+    if (type === KpiCategoryType.ORGANIZATIONAL) {
+      if (!isAdmin) {
+        throw bad('Only admins can manage organizational KPIs');
+      }
+      return;
+    }
+
+    if (type !== KpiCategoryType.DEPARTMENTAL) {
+      throw bad('Unsupported KPI category type');
+    }
+
+    if (!departmentId) {
+      throw new BadRequestException('departmentId is required for departmental KPIs');
+    }
+
+    if (!isManager) {
+      throw bad('Only managers can manage departmental KPIs');
+    }
+
+    const managedDepartmentIds = await this.getManagedDepartmentIds(userId);
+    if (!managedDepartmentIds.includes(departmentId)) {
+      throw bad('You can only manage KPI templates for your department');
+    }
+  }
+
+  private async getManagedDepartmentIds(userId: string) {
+    const managedDepartments = await this.prisma.department.findMany({
+      where: {
+        approver: {
+          some: {
+            userId,
+            role: Role.DEPT_MANAGER,
+            isActive: true,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return managedDepartments.map((department) => department.id);
+  }
+
+  private userHasRole(user: { userRole: Role[] }, role: Role) {
+    return user.userRole?.includes(role);
+  }
+
+  private userHasAnyRole(user: { userRole: Role[] }, roles: Role[]) {
+    return roles.some((role) => this.userHasRole(user, role));
+  }
+
+  private async findUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }

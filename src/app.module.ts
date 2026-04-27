@@ -4,7 +4,6 @@ import { UserModule } from './user/user.module';
 import { InviteModule } from './invite/invite.module';
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { ConfigModule } from '@nestjs/config';
 import { DepartmentModule } from './department/department.module';
 import { LevelModule } from './level/level.module';
 import { AppController } from './app.controller';
@@ -30,9 +29,18 @@ import { CategoryController } from './category/category.controller';
 import { CategoryModule } from './category/category.module';
 import { CategoryService } from './category/category.service';
 import { AppraisalModule } from './appraisal/appraisal.module';
+import { CompetencyModule } from './kpi/competency.module';
 import { KpiModule } from './kpi/kpi.module';
 import { ReportModule } from './report/report.module';
 import { ScheduleModule } from '@nestjs/schedule/dist';
+import { PuppeteerModule } from './puppeteer/puppeteer.module';
+import { PipModule } from './pip/pip.module';
+import { PdfshiftService } from './pdfshift/pdfshift.service';
+import { OffboardingModule } from './offboarding/offboarding.module';
+import { EmailsService } from './emails/emails.service';
+import { EmailsController } from './emails/emails.controller';
+import { EmailsModule } from './emails/emails.module';
+import { LeadershipModule } from './leadership/leadership.module';
 
 @Module({
   imports: [
@@ -56,12 +64,31 @@ import { ScheduleModule } from '@nestjs/schedule/dist';
     TasksModule,
     CategoryModule,
     AppraisalModule,
+    CompetencyModule,
     KpiModule,
     ReportModule,
+    PuppeteerModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+    PipModule,
+    OffboardingModule,
+    EmailsModule,
+    LeadershipModule,
   ],
-  controllers: [AppController, UploadsController, NotificationController, CategoryController],
-  providers: [AppService, UploadsService, NotificationService, CategoryService],
+  controllers: [
+    AppController,
+    UploadsController,
+    NotificationController,
+    CategoryController,
+    EmailsController,
+  ],
+  providers: [
+    AppService,
+    UploadsService,
+    NotificationService,
+    CategoryService,
+    PdfshiftService,
+    EmailsService,
+  ],
 })
 export class AppModule { }

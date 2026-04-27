@@ -1,6 +1,15 @@
 import { JobType, MaritalStatus, Role, Status } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { IsArray, IsDate, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDate,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { ContactDto } from 'src/contacts/contacts.dto';
 
@@ -12,7 +21,6 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   email?: string;
-
 
   @IsString()
   @IsOptional()
@@ -32,10 +40,13 @@ export class CreateUserDto {
 
   @IsNotEmpty({ message: 'Role is Required' })
   @IsString()
-  role: string
+  role: string;
 
   @IsNotEmpty({ message: 'Job Type is Required' })
-  @IsEnum(JobType, { each: true, message: 'Job Type must be one of the following: FULL_TIME, CONTRACT' })
+  @IsEnum(JobType, {
+    each: true,
+    message: 'Job Type must be one of the following: FULL_TIME, CONTRACT',
+  })
   jobType: JobType;
 
   @IsNotEmpty({ message: 'Gender is Required' })
@@ -72,7 +83,10 @@ export class CreateUserDto {
   nextOfKin: ContactDto[];
 
   @IsNotEmpty({ message: 'Marital Status is Required' })
-  @IsEnum(MaritalStatus, { each: true, message: 'Marital Status must be one of the following: SINGLE, MARRIED' })
+  @IsEnum(MaritalStatus, {
+    each: true,
+    message: 'Marital Status must be one of the following: SINGLE, MARRIED',
+  })
   maritalStatus: MaritalStatus;
 
   @IsString()
@@ -98,12 +112,12 @@ export class CreateUserDto {
   @IsArray()
   @IsOptional()
   userRole?: Role[];
-
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
   status: Status;
   departments: string[];
+  defaultDepartment: string;
 }
 export class ApproveUserDto {
   @IsString()
@@ -115,7 +129,6 @@ export class ApproveUserDto {
   userRole?: Role[];
 }
 
-
 export class UpdateUserInfo {
   @IsString()
   @IsNotEmpty()
@@ -124,8 +137,7 @@ export class UpdateUserInfo {
 
 // add-employee.dto.ts
 
-export class
-  AddEmployeeDto {
+export class AddEmployeeDto {
   @IsNotEmpty()
   @IsString()
   firstName: string;
@@ -138,11 +150,9 @@ export class
   @IsEmail()
   email: string;
 
-
   @IsOptional()
   @IsString()
   personalEmail?: string;
-
 
   @IsOptional()
   @IsString()

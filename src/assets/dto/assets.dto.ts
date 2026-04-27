@@ -1,33 +1,46 @@
 import { AssetCategory, AssetStatus } from '@prisma/client';
 import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsString, IsNumber, IsDateString, IsOptional, IsArray, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsDateString,
+  IsOptional,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
 
 export class ImageDto {
   @ApiProperty({
     description: 'URL to access the image',
-    example: 'https://example.com/uploads/asset-123.jpg'
+    example: 'https://example.com/uploads/asset-123.jpg',
   })
   url: string;
 
   @ApiProperty({
     description: 'Original filename',
-    example: 'laptop.jpg'
+    example: 'laptop.jpg',
   })
   originalName?: string;
 
   @ApiProperty({
     description: 'File size in bytes',
-    example: 102400
+    example: 102400,
   })
   size?: number;
 
   @ApiProperty({
     description: 'MIME type',
-    example: 'image/jpeg'
+    example: 'image/jpeg',
   })
   mimeType?: string;
+}
+
+export class AssetCategoryDto{
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 }
 
 export class CreateAssetDto {
@@ -43,17 +56,14 @@ export class CreateAssetDto {
     description: 'Images of the asset',
     example: 'laptop.jpg',
   })
-
   @IsOptional()
   @IsArray()
   assetImages?: string[];
-
 
   @ApiProperty({
     description: 'Serial number of the asset',
     example: 'DXPS152023-001',
   })
-
   @IsOptional()
   @IsString()
   serialNo?: string;
@@ -65,7 +75,7 @@ export class CreateAssetDto {
   })
   @IsNotEmpty()
   @IsString()
-  category: AssetCategory;
+  assetCategoryId: string;
 
   // @ApiProperty({
   //   description: 'Purchase date of the asset in YYYY-MM-DD format',
@@ -91,7 +101,7 @@ export class CreateAssetDto {
   @IsOptional()
   @IsNumber()
   @Transform(({ value }) => parseFloat(value))
-  cost?: Number;
+  cost?: number;
 
   @ApiPropertyOptional({
     description: 'Additional description of the asset',
@@ -105,7 +115,7 @@ export class CreateAssetDto {
   @ApiPropertyOptional({
     description: 'Asset image details',
     type: ImageDto,
-    required: false
+    required: false,
   })
   @IsOptional()
   assetImage?: ImageDto;
@@ -113,7 +123,7 @@ export class CreateAssetDto {
   @ApiPropertyOptional({
     description: 'Barcode image details',
     type: ImageDto,
-    required: false
+    required: false,
   })
   @IsOptional()
   barcodeImage?: ImageDto;
@@ -121,7 +131,6 @@ export class CreateAssetDto {
   @IsOptional()
   @IsString()
   assignee?: string;
-
 }
 
 export class AssignAssetDto {
@@ -229,4 +238,15 @@ export class UpdateFaultStatusDto {
   @IsNotEmpty()
   @IsString()
   status: 'PENDING' | 'IN_REVIEW' | 'RESOLVED' | 'REJECTED';
+}
+
+export class ArchiveAssetDto {
+  @ApiPropertyOptional({
+    description: 'Optional reason for archiving or unarchiving an asset',
+    example: 'Device retired after end-of-life hardware audit',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

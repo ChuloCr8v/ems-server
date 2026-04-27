@@ -17,7 +17,7 @@ import {
   IsNumber,
   IsInt,
   Min,
-  Max
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApprovalStatus, TaskStatus } from '@prisma/client';
@@ -26,7 +26,7 @@ export enum TaskPriority {
   LOW = 'LOW',
   MEDIUM = 'MEDIUM',
   HIGH = 'HIGH',
-  URGENT = 'URGENT'
+  URGENT = 'URGENT',
 }
 
 export class CreateTaskDto {
@@ -53,6 +53,10 @@ export class CreateTaskDto {
   category?: string[];
 
   @IsOptional()
+  @IsArray()
+  projectLabels?: string[];
+
+  @IsOptional()
   @IsEnum(TaskPriority, { message: 'Invalid priority' })
   priority?: TaskPriority;
 
@@ -67,7 +71,6 @@ export class CreateTaskDto {
   @Type(() => Boolean)
   requiresApproval?: boolean;
 
-
   @IsOptional()
   @IsArray()
   uploads?: string[];
@@ -75,6 +78,14 @@ export class CreateTaskDto {
   @IsString()
   @IsOptional()
   department?: string;
+
+  @IsEnum(TaskStatus)
+  @IsOptional()
+  status?: TaskStatus;
+
+  @IsArray()
+  @IsOptional()
+  links?: string[]
 }
 
 export class UpdateTaskDto {
@@ -125,13 +136,24 @@ export class UpdateTaskDto {
   uploads?: string[];
 
   // Custom validation: rejectionReason is required when status is CANCELLED
-  @ValidateIf(o => o.status === TaskStatus.CANCELLED)
-  @IsNotEmpty({ message: 'Rejection reason is required when cancelling a task' })
-  requireRejectionReason?: string;
+  // @ValidateIf((o) => o.status === TaskStatus.CANCELLED)
+  // @IsNotEmpty({
+  //   message: 'Rejection reason is required when cancelling a task',
+  // })
+  // requireRejectionReason?: string;
 
-  @ValidateIf(o => o.status === TaskStatus.ISSUES)
+  @ValidateIf((o) => o.status === TaskStatus.ISSUES)
   @IsNotEmpty({ message: 'Issue is required' })
   issue?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({
+    each: true,
+    message: 'Each project label must be a valid user ID',
+  })
+  @ArrayMinSize(0)
+  projectLabels?: string[];
 }
 
 class CreatedByDto {
@@ -286,10 +308,27 @@ export class ApprovalRequestDto {
   taskId: string;
 
   @IsArray()
-  @ArrayMinSize(1, { message: 'At least one assignee is required for approval request' })
+  @ArrayMinSize(1, {
+    message: 'At least one assignee is required for approval request',
+  })
   @IsString({ each: true, message: 'Each assignee must be a valid user ID' })
   @IsNotEmpty({ each: true, message: 'Assignee IDs cannot be empty' })
   assignees: string[];
+}
+
+export class ProcessTaskApprovalDto {
+  @IsEnum(ApprovalStatus)
+  status: ApprovalStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignees?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  rejectionReason?: string;
 }
 
 export class TaskQueryDto {
@@ -356,4 +395,3 @@ export class TaskQueryDto {
   @Type(() => String)
   sortOrder?: 'asc' | 'desc' = 'desc';
 }
-

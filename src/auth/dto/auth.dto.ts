@@ -9,12 +9,12 @@ export class AzureAuthDto {
 export type AuthPayload = {
   sub: string;
   email: string;
-  role: string;
-}
+  role: Role[];
+};
 
 export type IAuthUser = AuthPayload;
 
-export type ReqPayload =
-  {
-    user: User, userRole: Role[]
-  }
+export type ReqPayload = {
+  user: User;
+  userRole: Role[];
+};

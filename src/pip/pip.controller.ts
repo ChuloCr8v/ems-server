@@ -1,0 +1,208 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Res,
+} from '@nestjs/common';
+import { PipService } from './pip.service';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
+import {
+  ApprovePipDto,
+  CreatePipDto,
+  DepartmentPipDto,
+  MarkPipAsCompletedDto,
+  RecommendPipDto,
+  RejectPipDto,
+  RejectDepartmentPipDto,
+} from './dto/pip.dto';
+import { Response } from 'express';
+import { Role } from '@prisma/client';
+
+@Controller('pip')
+export class PipController {
+  constructor(private readonly pipService: PipService) {}
+  @Auth()
+  @Post()
+  async createPip(
+    @AuthUser() user: IAuthUser,
+    @Body() data: CreatePipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pip = await this.pipService.createPip(userId, data);
+    return res.status(200).json({ message: 'A New PIP Has Been Created', pip });
+  }
+
+  @Auth()
+  @Get()
+  async getAllPips(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getAllPips(userId);
+  }
+
+  @Auth()
+  @Get('me')
+  async getMyPips(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getMyPips(userId);
+  }
+
+  @Auth()
+  @Patch(':pipId')
+  async updatePip(
+    @Param('pipId') pipId: string,
+    @Body() data: Partial<CreatePipDto>,
+    @Res() res: Response,
+  ) {
+    const update = await this.pipService.updatePip(pipId, data);
+    return res
+      .status(200)
+      .json({ message: 'A New PIP Has Been Updated', update });
+  }
+
+  @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
+  @Post('recommend')
+  async recommendPip(
+    @AuthUser() user: IAuthUser,
+    @Body() data: RecommendPipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const recommendedPip = await this.pipService.recommendPip(userId, data);
+    return res
+      .status(200)
+      .json({ message: 'A New PIP Has Been Recommended', recommendedPip });
+  }
+
+  @Auth()
+  @Get('recommend')
+  async getAllRecommendedPips(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getAllRecommendedPips(userId);
+  }
+
+  @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
+  @Patch(':pipId/approve')
+  async approvePip(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: ApprovePipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pip = await this.pipService.approvePip(userId, pipId, data);
+    return res.status(200).json({ message: 'PIP Has Been Approved', pip });
+  }
+
+  @Auth([Role.HR, Role.ADMIN])
+  @Patch(':departmentId/approve-department-pips')
+  async approveDepartmentsPip(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Body() data: DepartmentPipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pips = await this.pipService.approveDepartmentPip(
+      userId,
+      departmentId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: 'Department PIPs Have Been Approved', pips });
+  }
+
+  @Auth([Role.HR, Role.ADMIN])
+  @Patch(':departmentId/reject-department-pips')
+  async rejectDepartmentsPip(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Body() data: RejectDepartmentPipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pips = await this.pipService.rejectDepartmentPip(
+      userId,
+      departmentId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: 'Department PIPs Have Been Rejected', pips });
+  }
+
+  @Auth([Role.DEPT_MANAGER, Role.HR, Role.ADMIN])
+  @Patch(':pipId/reject')
+  async rejectPip(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: RejectPipDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pip = await this.pipService.rejectPip(userId, pipId, data);
+    return res.status(200).json({ message: 'PIP Has Been Rejected', pip });
+  }
+
+  @Auth()
+  @Patch(':pipId/complete')
+  async markPipAsCompleted(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Body() data: MarkPipAsCompletedDto,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pip = await this.pipService.markPipAsCompleted(userId, pipId, data);
+    return res
+      .status(200)
+      .json({ message: 'PIP Has Been Marked As Completed', pip });
+  }
+
+  @Auth([Role.DEPT_MANAGER])
+  @Post(':departmentId/send')
+  async sendToHr(
+    @AuthUser() user: IAuthUser,
+    @Param('departmentId') departmentId: string,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const pip = await this.pipService.sendToHr(userId, departmentId);
+    return res.status(200).json({ message: 'PIP Has Been Sent To HR', pip });
+  }
+
+  @Auth([Role.SUPERADMIN])
+  @Get('managers-pip')
+  async getManagersPip(@AuthUser() user: IAuthUser) {
+    const userId = user.sub;
+    return await this.pipService.getAllManagersPip(userId);
+  }
+
+  @Auth([Role.USER])
+  @Post(':pipId/claim')
+  async makePipClaimRequest(
+    @AuthUser() user: IAuthUser,
+    @Param('pipId') pipId: string,
+    @Res() res: Response,
+  ) {
+    const userId = user.sub;
+    const claim = await this.pipService.makePipClaimRequest(pipId, userId);
+    return res
+      .status(200)
+      .json({ message: 'PIP Claim Request Made Successfully', claim });
+  }
+
+  @Auth([Role.SUPERADMIN])
+  @Delete('delete-all')
+  async deleteAllPips(@AuthUser() user: IAuthUser, @Res() res: Response) {
+    const userId = user.sub;
+    await this.pipService.deleteAllPips(userId);
+    return res.status(200).json({ message: 'All PIPs Have Been Deleted' });
+  }
+}

@@ -1,56 +1,73 @@
-import { Body, Controller, Get, Param, Patch, Post, Res, Req, Delete } from '@nestjs/common';
-import { KpiService } from './kpi.service';
-import { CreateKpiDto } from './dto/kpi.dto';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
+import { KpiCategoryType, Role } from '@prisma/client';
 import { Response } from 'express';
-import { Auth } from 'src/auth/decorators/auth.decorator';
-import { Role } from '@prisma/client';
-
-import type { Request } from 'express';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { IAuthUser } from 'src/auth/dto/auth.dto';
+import { CreateKpiTemplateDto } from './dto/kpi.dto';
+import { KpiService } from './kpi.service';
 
 @Controller('kpi')
 export class KpiController {
-  constructor(private readonly kpi: KpiService) {}
+  constructor(private readonly kpiService: KpiService) { }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
-  @Post('categories')
-  async createCategory(@Req() req: Request & { user?: any }, @Body() data: CreateKpiDto, @Res() res: Response) {
-    const user = req.user;
-    const category = await this.kpi.createCategory(user, data);
-    return res.status(200).json({ message: `A New Category Has Been Created`, category });
-  }
-
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.DEPT_MANAGER, Role.HR, Role.USER])
   @Get('categories')
-  async getCategories() {
-    return await this.kpi.getCategories();
+  async getCategories(
+    @AuthUser() user: IAuthUser,
+    @Query('type') type?: KpiCategoryType,
+  ) {
+    return this.kpiService.getCategories(user.sub, type);
   }
 
-  @Get('categories/global')
-  async getGlobalCategories() {
-    return await this.kpi.getGlobalCategories();
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.DEPT_MANAGER, Role.HR])
+  @Post('categories')
+  async createCategory(
+    @AuthUser() user: IAuthUser,
+    @Body() data: CreateKpiTemplateDto,
+    @Res() res: Response,
+  ) {
+    const category = await this.kpiService.createCategory(user.sub, data);
+    return res
+      .status(200)
+      .json({ message: 'KPI category created successfully', category });
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.DEPT_MANAGER])
   @Patch('categories/:categoryId')
   async updateCategory(
-    @Req() req: Request & { user?: any },
+    @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Body() data: CreateKpiDto,
-    @Res() res: Response
+    @Body() data: CreateKpiTemplateDto,
+    @Res() res: Response,
   ) {
-    const user = req.user;
-    const category = await this.kpi.updateCategory(user, categoryId, data);
-    return res.status(200).json({ message: 'Category Updated Successfully', category });
+    const category = await this.kpiService.updateCategory(
+      user.sub,
+      categoryId,
+      data,
+    );
+    return res
+      .status(200)
+      .json({ message: 'KPI category updated successfully', category });
   }
 
-  @Auth([Role.ADMIN, Role.DEPT_MANAGER])
+  @Auth([Role.ADMIN, Role.SUPERADMIN, Role.DEPT_MANAGER])
   @Delete('categories/:categoryId')
   async removeCategory(
-    @Req() req: Request & { user?: any },
+    @AuthUser() user: IAuthUser,
     @Param('categoryId') categoryId: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
-    const user = req.user;
-    await this.kpi.removeCategory(user, categoryId);
-    return res.status(200).json({ message: 'Category Deleted Successfully' });
+    await this.kpiService.removeCategory(user.sub, categoryId);
+    return res.status(200).json({ message: 'KPI category deleted successfully' });
   }
 }

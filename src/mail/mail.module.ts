@@ -4,17 +4,23 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { MailListener } from 'src/listeners/mail.listener';
+import { UploadsModule } from 'src/uploads/uploads.module';
+
 @Module({
   imports: [
+    PrismaModule,
+    UploadsModule,
     MailerModule.forRoot({
       transport: {
         host: process.env.EMAIL_HOST,
         port: +process.env.EMAIL_PORT,
-        secure: true, // true for 465, false for other ports
-        ignoreTLS: true,
+        secure: +process.env.EMAIL_PORT === 465,
+        requireTLS: +process.env.EMAIL_PORT === 587,
         auth: {
-          user: process.env.EMAIL_ID, // generated ethereal user
-          pass: process.env.EMAIL_PASS, // generated ethereal password
+          user: process.env.EMAIL_ID,
+          pass: process.env.EMAIL_PASS,
         },
       },
       defaults: {
@@ -29,7 +35,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
       },
     }),
   ],
-  providers: [MailService],
+  providers: [MailService, MailListener],
   exports: [MailService],
 })
 export class MailModule { }

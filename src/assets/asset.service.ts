@@ -1,28 +1,105 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AssignAssetDto, CreateAssetDto, ReportFaultDto, UpdateFaultStatusDto, ImageDto } from './dto/assets.dto';
+import {
+  AssignAssetDto,
+  CreateAssetDto,
+  ReportFaultDto,
+  UpdateFaultStatusDto,
+  ImageDto,
+  AssetCategoryDto,
+} from './dto/assets.dto';
 import { AssetCategory, AssetStatus, FaultStatus } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import { bad, mustHave } from 'src/utils/error.utils';
 
 @Injectable()
 export class AssetService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
+  async createAssetCategory(data: AssetCategoryDto) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({
+        where: { name: data.name },
+      });
+      if(existing) throw bad(`${existing.name} category already exists`, 404);
+       return await this.prisma.aSCategory.create({
+        data: { name: data.name },
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async updateAssetCategory(id: string, data: AssetCategoryDto) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({ where: { id } } );
+      if(!existing) throw bad(`${existing.name} category not found`, 404);
+      return await this.prisma.aSCategory.update({
+        where: { id },
+        data: { name: data.name },
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async getAssetCategories() {
+    try {
+      return await this.prisma.aSCategory.findMany({});
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error)); 
+    }
+  }
+
+  async getAssetCategory(id: string) {
+    try {
+      return await this.prisma.aSCategory.findUnique({ where: { id } });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async removeAssetCategory(id: string) {
+    try {
+      const existing = await this.prisma.aSCategory.findUnique({ where: { id } } );
+      if(!existing) throw bad(`Category not found`, 404);
+      return await this.prisma.aSCategory.delete({ where: { id } });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async createMultiAssetCategory(categories: AssetCategoryDto[]) {
+    try {
+      return await this.prisma.aSCategory.createMany({
+        data: categories,
+      });
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
+    }
+  }
 
   async createAsset(createAssetDto: CreateAssetDto) {
-    const assetId = "ZCL" + Date.now().toString().slice(-6);
+    const assetId = 'ZCL' + Date.now().toString().slice(-6);
 
     const existing = await this.prisma.asset.findUnique({
       where: { serialNo: createAssetDto.serialNo },
     });
-    if (existing) bad(`An asset with serial number ${createAssetDto.serialNo} already exists.`);
+    if (existing)
+      bad(
+        `An asset with serial number ${createAssetDto.serialNo} already exists.`,
+      );
 
     const data = {
       assetId,
       name: createAssetDto.name,
       serialNo: createAssetDto.serialNo,
-      category: createAssetDto.category,
+      assetCategoryId: createAssetDto.assetCategoryId,
       // purchaseDate: new Date(createAssetDto.purchaseDate),
       vendor: createAssetDto.vendor,
       cost: Number(createAssetDto.cost),
@@ -30,18 +107,17 @@ export class AssetService {
       status: AssetStatus.AVAILABLE,
       assetImages: createAssetDto.assetImages
         ? {
-          connect: createAssetDto.assetImages.map((id) => ({ id })),
-        }
+            connect: createAssetDto.assetImages.map((id) => ({ id })),
+          }
         : undefined,
     };
 
     try {
       return await this.prisma.asset.create({ data });
-    } catch (err) {
-      bad(err);
+    } catch (error) {
+      bad(error instanceof Error ? error.message : String(error));
     }
   }
-
 
   async getAllAssets() {
     return this.prisma.asset.findMany({
@@ -62,7 +138,6 @@ export class AssetService {
           },
           take: 1,
         },
-
       },
       orderBy: {
         createdAt: 'desc',
@@ -125,8 +200,8 @@ export class AssetService {
         userId,
         assignedAt: new Date(),
         notes,
-        status: "ASSIGNED",
-        condition: "GOOD",
+        status: 'ASSIGNED',
+        condition: 'GOOD',
       },
     });
 
@@ -142,10 +217,7 @@ export class AssetService {
     };
   }
 
-  async updateAsset(
-    id: string,
-    updateAssetDto: CreateAssetDto,
-  ) {
+  async updateAsset(id: string, updateAssetDto: CreateAssetDto) {
     const existing = await this.prisma.asset.findUnique({
       where: { id },
       include: { assetImages: true },
@@ -162,7 +234,9 @@ export class AssetService {
         where: { serialNo: updateAssetDto.serialNo },
       });
       if (serialNoExists) {
-        bad(`An asset with serial number ${updateAssetDto.serialNo} already exists.`);
+        bad(
+          `An asset with serial number ${updateAssetDto.serialNo} already exists.`,
+        );
       }
     }
 
@@ -170,7 +244,7 @@ export class AssetService {
     const data: any = {
       name: updateAssetDto.name,
       serialNo: updateAssetDto.serialNo,
-      category: updateAssetDto.category,
+      assetCategoryId: updateAssetDto.assetCategoryId,
       // purchaseDate: updateAssetDto.purchaseDate
       //   ? new Date(updateAssetDto.purchaseDate)
       //   : existing.purchaseDate,
@@ -197,20 +271,24 @@ export class AssetService {
   }
 
   async reportFault(reportFaultDto: ReportFaultDto) {
-    mustHave(reportFaultDto.assetId, "Asset ID is required");
-    mustHave(reportFaultDto.reportedBy, "Reporter ID is required");
+    mustHave(reportFaultDto.assetId, 'Asset ID is required');
+    mustHave(reportFaultDto.reportedBy, 'Reporter ID is required');
 
     return this.prisma.$transaction(async (prisma) => {
       const asset = await prisma.asset.findUnique({
         where: { id: reportFaultDto.assetId },
-        select: { id: true, status: true }
+        select: { id: true, status: true },
       });
       mustHave(asset, `Asset with ID ${reportFaultDto.assetId} not found`, 404);
 
       const userExists = await prisma.user.count({
         where: { id: reportFaultDto.reportedBy },
       });
-      mustHave(userExists, `User with ID ${reportFaultDto.reportedBy} not found`, 404);
+      mustHave(
+        userExists,
+        `User with ID ${reportFaultDto.reportedBy} not found`,
+        404,
+      );
 
       const fault = await prisma.fault.create({
         data: {
@@ -230,7 +308,7 @@ export class AssetService {
       }
 
       const latestAssignment = await prisma.assignment.findFirst({
-        where: { assetId: asset.id, status: "ASSIGNED" },
+        where: { assetId: asset.id, status: 'ASSIGNED' },
         orderBy: { assignedAt: 'desc' },
       });
 
@@ -239,7 +317,7 @@ export class AssetService {
           where: { id: latestAssignment.id },
           data: {
             notes: reportFaultDto.notes,
-            condition: "FAULTY",
+            condition: 'FAULTY',
           },
         });
       }
@@ -248,23 +326,24 @@ export class AssetService {
     });
   }
 
-  async retrieveAssets(
-    dto: {
-      assetIds: string[],
-      retrievedById: string; notes?: string
-    }
-  ) {
+  async retrieveAssets(dto: {
+    assetIds: string[];
+    retrievedById: string;
+    notes?: string;
+  }) {
+    const { assetIds } = dto;
 
-    const { assetIds } = dto
-
-    mustHave(dto.retrievedById, "Retriever ID is required");
+    mustHave(dto.retrievedById, 'Retriever ID is required');
 
     return this.prisma.$transaction(async (prisma) => {
-
       const retrieverExists = await prisma.user.count({
         where: { id: dto.retrievedById },
       });
-      mustHave(retrieverExists, `User with ID ${dto.retrievedById} not found`, 404);
+      mustHave(
+        retrieverExists,
+        `User with ID ${dto.retrievedById} not found`,
+        404,
+      );
 
       for (const assetId of assetIds) {
         const asset = await prisma.asset.findUnique({
@@ -277,7 +356,7 @@ export class AssetService {
           where: {
             assetId,
             NOT: {
-              status: "RESOLVED",
+              status: 'RESOLVED',
             },
           },
         });
@@ -291,17 +370,17 @@ export class AssetService {
         });
 
         const latestAssignment = await prisma.assignment.findFirst({
-          where: { assetId, status: "ASSIGNED" },
-          orderBy: { assignedAt: "desc" },
+          where: { assetId, status: 'ASSIGNED' },
+          orderBy: { assignedAt: 'desc' },
         });
 
         if (latestAssignment) {
           await prisma.assignment.update({
             where: { id: latestAssignment.id },
             data: {
-              notes: dto.notes ?? "Asset retrieved",
-              status: "RETURNED",
-              retrievedAt: new Date()
+              notes: dto.notes ?? 'Asset retrieved',
+              status: 'RETURNED',
+              retrievedAt: new Date(),
             },
           });
         }
@@ -315,49 +394,55 @@ export class AssetService {
 
   async resolveFault(
     assetId: string,
-    dto: { resolvedById: string; notes?: string }
+    dto: { resolvedById: string; notes?: string },
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      const asset = await tx.asset.findUnique({
-        where: { id: assetId },
-      });
-      mustHave(asset, "Asset not found", 404);
+    return this.prisma
+      .$transaction(async (tx) => {
+        const asset = await tx.asset.findUnique({
+          where: { id: assetId },
+        });
+        mustHave(asset, 'Asset not found', 404);
 
-      const resolverExists = await tx.user.count({
-        where: { id: dto.resolvedById },
-      });
-      mustHave(resolverExists, `User with ID ${dto.resolvedById} not found`, 404);
+        const resolverExists = await tx.user.count({
+          where: { id: dto.resolvedById },
+        });
+        mustHave(
+          resolverExists,
+          `User with ID ${dto.resolvedById} not found`,
+          404,
+        );
 
-      const fault = await tx.fault.findFirst({
-        where: { assetId, status: { not: "RESOLVED" } },
-        orderBy: { createdAt: "desc" },
-      });
-      mustHave(fault, "No active faults found for this asset", 404);
+        const fault = await tx.fault.findFirst({
+          where: { assetId, status: { not: 'RESOLVED' } },
+          orderBy: { createdAt: 'desc' },
+        });
+        mustHave(fault, 'No active faults found for this asset', 404);
 
-      await tx.fault.update({
-        where: { id: fault.id },
-        data: {
-          status: "RESOLVED",
-          resolvedById: dto.resolvedById,
-          notes: dto.notes ?? "",
-          resolvedAt: new Date(),
-        },
-      });
+        await tx.fault.update({
+          where: { id: fault.id },
+          data: {
+            status: 'RESOLVED',
+            resolvedById: dto.resolvedById,
+            notes: dto.notes ?? '',
+            resolvedAt: new Date(),
+          },
+        });
 
-      const latestAssignment = await tx.assignment.findFirst({
-        where: { assetId, status: "ASSIGNED" },
-        orderBy: { assignedAt: "desc" },
-      });
+        const latestAssignment = await tx.assignment.findFirst({
+          where: { assetId, status: 'ASSIGNED' },
+          orderBy: { assignedAt: 'desc' },
+        });
 
-      return tx.asset.update({
-        where: { id: assetId },
-        data: {
-          status: latestAssignment ? "ASSIGNED" : "AVAILABLE",
-        },
+        return tx.asset.update({
+          where: { id: assetId },
+          data: {
+            status: latestAssignment ? 'ASSIGNED' : 'AVAILABLE',
+          },
+        });
+      })
+      .catch((error) => {
+        bad(error.message || 'Transaction failed', 500);
       });
-    }).catch((error) => {
-      bad(error.message || "Transaction failed", 500);
-    });
   }
 
   async getFaultyAssets() {
@@ -381,7 +466,7 @@ export class AssetService {
     const asset = await this.prisma.asset.findUnique({
       where: {
         id: assetId,
-        status: 'FAULTY' // Ensure we only get faulty assets
+        status: 'FAULTY', // Ensure we only get faulty assets
       },
       include: {
         faults: {
@@ -389,8 +474,8 @@ export class AssetService {
             createdAt: 'desc', // Show most recent faults first
           },
           include: {
-            reportedBy: true
-          }
+            reportedBy: true,
+          },
         },
         assignments: {
           orderBy: {
@@ -403,17 +488,17 @@ export class AssetService {
                 id: true,
                 firstName: true,
                 lastName: true,
-                email: true
-              }
-            }
-          }
-        }
-      }
+                email: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!asset) {
       throw new NotFoundException(
-        `Faulty asset with ID ${assetId} not found or asset is not in FAULTY status`
+        `Faulty asset with ID ${assetId} not found or asset is not in FAULTY status`,
       );
     }
 
@@ -421,13 +506,11 @@ export class AssetService {
     return {
       ...asset,
       latestFault: asset.faults.length > 0 ? asset.faults[0] : null,
-      assignedTo: asset.assignments.length > 0
-        ? asset.assignments[0].user
-        : null,
-      assignmentNotes: asset.assignments.length > 0
-        ? asset.assignments[0].notes
-        : null,
-      faultCount: asset.faults.length
+      assignedTo:
+        asset.assignments.length > 0 ? asset.assignments[0].user : null,
+      assignmentNotes:
+        asset.assignments.length > 0 ? asset.assignments[0].notes : null,
+      faultCount: asset.faults.length,
     };
   }
 
@@ -454,7 +537,7 @@ export class AssetService {
     const asset = await this.prisma.asset.findUnique({
       where: {
         id: assetId,
-        status: 'ASSIGNED' // Only return if currently assigned
+        status: 'ASSIGNED', // Only return if currently assigned
       },
       include: {
         assignments: {
@@ -466,21 +549,21 @@ export class AssetService {
                 firstName: true,
                 lastName: true,
                 email: true,
-                departments: true
-              }
-            }
-          }
+                departments: true,
+              },
+            },
+          },
         },
         faults: {
           orderBy: { createdAt: 'desc' },
-          take: 3 // Get last 3 fault reports
-        }
-      }
+          take: 3, // Get last 3 fault reports
+        },
+      },
     });
 
     if (!asset) {
       throw new NotFoundException(
-        `Assigned asset with ID ${assetId} not found or asset is not currently assigned`
+        `Assigned asset with ID ${assetId} not found or asset is not currently assigned`,
       );
     }
 
@@ -488,16 +571,16 @@ export class AssetService {
       ...asset,
       currentAssignment: asset.assignments[0] || null,
       previousAssignments: asset.assignments.slice(1) || [],
-      recentFaults: asset.faults
+      recentFaults: asset.faults,
     };
   }
 
-  async createMultiAssets(file: Express.Multer.File) {
+    async createMultiAssets(file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
-    // Read the Excel file
+    // Read Excel
     const workbook = XLSX.read(file.buffer);
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -510,160 +593,179 @@ export class AssetService {
     const results = [];
     const errors = [];
 
+    // Preload categories (PERFORMANCE BOOST)
+    const existingCategories = await this.prisma.aSCategory.findMany();
+    const categoryMap = new Map(
+      existingCategories.map((c) => [c.name.toLowerCase(), c])
+    );
+
+    // Serial generator
+    const generateSerial = (categoryName?: string) => {
+      const date = new Date();
+      const formattedDate = `${date.getFullYear()}${String(
+        date.getMonth() + 1
+      ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+      const prefix = categoryName
+        ? categoryName.slice(0, 3).toUpperCase()
+        : 'GEN';
+
+      return `AST-${prefix}-${formattedDate}-${random}`;
+    };
+
+
+    const assetId = 'ZCL' + Date.now().toString().slice(-6);
+
+    // Prevent duplicates inside the same file
+    const seenSerials = new Set<string>();
+
     for (const [index, row] of jsonData.entries()) {
       try {
-        // ✅ Validate required fields
-        if (!row['name']) {
+        // Normalize keys (optional but safer)
+        const name = row['name']?.toString().trim();
+        const rawSerial = row['serialNo']?.toString().trim();
+        const rawCategory = row['category']?.toString().trim().toLowerCase();
+
+        // ✅ Validate required field
+        if (!name) {
           errors.push({
             row: index + 2,
-            error: `Missing required field: name`,
+            error: 'Missing required field: name',
             data: row,
           });
           continue;
         }
 
-        // ✅ Check serialNo/name uniqueness
+        // Generate serial if missing
+        let serialNo = rawSerial || generateSerial(rawCategory);
+
+        // Prevent duplicate serials inside file
+        if (seenSerials.has(serialNo)) {
+          errors.push({
+            row: index + 2,
+            error: 'Duplicate serial number in file',
+            data: row,
+          });
+          continue;
+        }
+        seenSerials.add(serialNo);
+
+        // ✅ Check DB uniqueness
         let existing = null;
-        if (row['serialNo'] || row['name']) {
+        if (serialNo) {
           existing = await this.prisma.asset.findFirst({
-            where: {
-              OR: [
-                row['serialNo'] ? { serialNo: row['serialNo'] } : {},
-                // row['name'] ? { name: row['name'] } : {},
-              ],
-            },
+            where: { serialNo },
           });
         }
 
         if (existing) {
           errors.push({
             row: index + 2,
-            error: `Asset with this serialNo or name already exists`,
+            error: `Asset with serialNo "${serialNo}" already exists`,
             data: row,
           });
-          continue; // skip this row
+          continue;
         }
 
-        // ✅ Handle assignee safely
-        const assigneeName: string | undefined = row['assignee'];
-        let assignee = null;
+        // Handle dynamic category
+        let category = null;
 
+        if (rawCategory) {
+          category = categoryMap.get(rawCategory);
+
+          if (!category) {
+            category = await this.prisma.aSCategory.create({
+              data: {
+                name: rawCategory,
+              },
+            });
+
+            categoryMap.set(rawCategory, category); // cache it
+          }
+        }
+
+        // Handle assignee
+        let assignee = null;
+        const assigneeName: string | undefined = row['assignee'];
 
         if (assigneeName) {
           const parts = assigneeName.trim().split(/\s+/);
-          const firstName = parts[0] || null;
-          const lastName = parts.slice(1).join(" ") || null;
+          const firstName = parts[0];
+          const lastName = parts.slice(1).join(' ');
 
-          console.log(parts, firstName, lastName);
-
-          if (firstName) {
-            assignee = await this.prisma.user.findFirst({
-              where: lastName
-                ? {
-                  firstName: {
-                    contains: firstName,
-                    mode: "insensitive",
-                  },
-                  lastName: {
-                    contains: lastName,
-                    mode: "insensitive",
-                  },
+          assignee = await this.prisma.user.findFirst({
+            where: lastName
+              ? {
+                  AND: [
+                    {
+                      firstName: {
+                        contains: firstName,
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      lastName: {
+                        contains: lastName,
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
                 }
-                : {
+              : {
                   firstName: {
                     contains: firstName,
-                    mode: "insensitive",
+                    mode: 'insensitive',
                   },
                 },
+          });
+        }
+
+        // Create asset inside transaction
+        const asset = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.asset.create({
+            data: {
+              assetId,
+              name,
+              serialNo,
+              description: row['description'] || null,
+              purchaseDate: row['purchaseDate']
+                ? new Date(row['purchaseDate'])
+                : null,
+              vendor: row['vendor'] || null,
+              cost: row['cost'] ? Number(row['cost']) : null,
+
+              ...(category && {
+                assetCategory: {
+                  connect: { id: category.id },
+                },
+              }),
+            }
+          });
+
+          if (assignee) {
+            await tx.assignment.create({
+              data: {
+                asset: {
+                  connect: { id: created.id },
+                },
+                user: {
+                  connect: { id: assignee.id },
+                },
+                assignedAt: new Date(),
+              },
             });
           }
-        }
 
-
-        console.log(assignee)
-
-        // ✅ Category mapping with switch
-        const mapCategory = (raw?: string): AssetCategory => {
-          if (!raw) return AssetCategory.GENERAL;
-
-          const normalized = raw.trim().toLowerCase();
-
-          switch (normalized) {
-            // Telecom
-            case "mtn sim":
-            case "airtel sim":
-            case "cug sim":
-            case "mtn 4g lte hotspot b300":
-              return AssetCategory.TELECOM;
-
-            // Computing Hardware
-            case "laptop":
-            case "mac laptop":
-            case "hard drive":
-            case "nasco brand":
-            case "phone":
-            case "monitor":
-            case "printer":
-            case "scanner":
-            case "webcam":
-            case "mouse":
-            case "lg sound box":
-            case "pos":
-            case "rollup banner":
-            case "tripod stand":
-            case "ring light":
-            case "wireless mic":
-            case "gimbal":
-              return AssetCategory.HARDWARE;
-
-            // Office Accessories
-            case "id card":
-            case "back bag":
-            case "back pack":
-            case "keys":
-            case "stamp":
-            case "clip pad":
-              return AssetCategory.ACCESSORY;
-
-            // Safety Equipment
-            case "safety jacket":
-            case "raincoat":
-            case "toolbox":
-            case "splicer":
-              return AssetCategory.SAFETY_EQUIPMENT;
-
-            // Medical
-            case "bp monitor":
-              return AssetCategory.MEDICAL_EQUIPMENT;
-
-            // Default
-            default:
-              return AssetCategory.GENERAL;
-          }
-        };
-
-        const adjustedCategory = mapCategory(row['category']) as AssetCategory;
-
-        // ✅ Prepare asset data
-        const assetData: CreateAssetDto = {
-          name: row['name'],
-          serialNo: row['serialNo'] || `${"N/A" + index}`,
-          category: adjustedCategory,
-          description: row['description'] || null,
-        };
-
-        // ✅ Create the asset
-        const asset = await this.createAsset(assetData);
-
-        if (assignee) {
-          await this.assignAsset(asset.id, { userId: assignee.id });
-        }
+          return created;
+        });
 
         results.push(asset);
       } catch (error) {
         errors.push({
-          row: index + 2, // Excel rows start at 1, headers at row 1
-          error: error.message,
+          row: index + 2,
+          error: error instanceof Error ? error.message : String(error) || 'Unknown error',
           data: row,
         });
       }
@@ -677,23 +779,302 @@ export class AssetService {
     };
   }
 
+  // async createMultiAssets(file: Express.Multer.File) {
+  //   if (!file) {
+  //     throw new BadRequestException('No file uploaded');
+  //   }
 
+  //   // Read the Excel file
+  //   const workbook = XLSX.read(file.buffer);
+  //   const sheetName = workbook.SheetNames[0];
+  //   const worksheet = workbook.Sheets[sheetName];
+  //   const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+  //   if (!jsonData || jsonData.length === 0) {
+  //     throw new BadRequestException('Excel file is empty');
+  //   }
 
+  //   const results = [];
+  //   const errors = [];
+
+  //   for (const [index, row] of jsonData.entries()) {
+  //     try {
+  //       // ✅ Validate required fields
+  //       if (!row['name']) {
+  //         errors.push({
+  //           row: index + 2,
+  //           error: `Missing required field: name`,
+  //           data: row,
+  //         });
+  //         continue;
+  //       }
+
+  //       // ✅ Check serialNo/name uniqueness
+  //       let existing = null;
+  //       if (row['serialNo'] || row['name']) {
+  //         existing = await this.prisma.asset.findFirst({
+  //           where: {
+  //             OR: [
+  //               row['serialNo'] ? { serialNo: row['serialNo'] } : {},
+  //               // row['name'] ? { name: row['name'] } : {},
+  //             ],
+  //           },
+  //         });
+  //       }
+
+  //       if (existing) {
+  //         errors.push({
+  //           row: index + 2,
+  //           error: `Asset with this serialNo or name already exists`,
+  //           data: row,
+  //         });
+  //         continue; // skip this row
+  //       }
+
+  //       // ✅ Handle assignee safely
+  //       const assigneeName: string | undefined = row['assignee'];
+  //       let assignee = null;
+
+  //       if (assigneeName) {
+  //         const parts = assigneeName.trim().split(/\s+/);
+  //         const firstName = parts[0] || null;
+  //         const lastName = parts.slice(1).join(' ') || null;
+
+  //         console.log(parts, firstName, lastName);
+
+  //         if (firstName) {
+  //           assignee = await this.prisma.user.findFirst({
+  //             where: lastName
+  //               ? {
+  //                   firstName: {
+  //                     contains: firstName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                   lastName: {
+  //                     contains: lastName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                 }
+  //               : {
+  //                   firstName: {
+  //                     contains: firstName,
+  //                     mode: 'insensitive',
+  //                   },
+  //                 },
+  //           });
+  //         }
+  //       }
+
+  //       console.log(assignee);
+
+  //       // ✅ Category mapping with switch
+  //       const mapCategory = (raw?: string): AssetCategory => {
+  //         if (!raw) return AssetCategory.GENERAL;
+
+  //         const normalized = raw.trim().toLowerCase();
+
+  //         switch (normalized) {
+  //           // Telecom
+  //           case 'mtn sim':
+  //           case 'airtel sim':
+  //           case 'cug sim':
+  //           case 'mtn 4g lte hotspot b300':
+  //             return AssetCategory.TELECOM;
+
+  //           // Computing Hardware
+  //           case 'laptop':
+  //           case 'mac laptop':
+  //           case 'hard drive':
+  //           case 'nasco brand':
+  //           case 'phone':
+  //           case 'monitor':
+  //           case 'printer':
+  //           case 'scanner':
+  //           case 'webcam':
+  //           case 'mouse':
+  //           case 'lg sound box':
+  //           case 'pos':
+  //           case 'rollup banner':
+  //           case 'tripod stand':
+  //           case 'ring light':
+  //           case 'wireless mic':
+  //           case 'gimbal':
+  //             return AssetCategory.HARDWARE;
+
+  //           // Office Accessories
+  //           case 'id card':
+  //           case 'back bag':
+  //           case 'back pack':
+  //           case 'keys':
+  //           case 'stamp':
+  //           case 'clip pad':
+  //             return AssetCategory.ACCESSORY;
+
+  //           // Safety Equipment
+  //           case 'safety jacket':
+  //           case 'raincoat':
+  //           case 'toolbox':
+  //           case 'splicer':
+  //             return AssetCategory.SAFETY_EQUIPMENT;
+
+  //           // Medical
+  //           case 'bp monitor':
+  //             return AssetCategory.MEDICAL_EQUIPMENT;
+
+  //           // Default
+  //           default:
+  //             return AssetCategory.GENERAL;
+  //         }
+  //       };
+
+  //       const adjustedCategory = mapCategory(row['category']) as AssetCategory;
+
+  //       //Generate serial number if not provided
+  //       const generateSerial = (category: AssetCategory) => {
+  //       const date = new Date();
+  //       const formattedDate = `${date.getFullYear()}${String(
+  //         date.getMonth() + 1
+  //       ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+  //       const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  //       return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
+  //     };
+
+  //       const serialNo =
+  //         row['serialNo']?.trim() ||
+  //         generateSerial(adjustedCategory);
+
+  //       // ✅ Prepare asset data
+  //       const assetData: CreateAssetDto = {
+  //         name: row['name'],
+  //         serialNo: serialNo,
+  //         assetCategoryId: adjustedCategory,
+  //         description: row['description'] || null,
+  //       };
+
+  //       // ✅ Create the asset
+  //       const asset = await this.createAsset(assetData);
+
+  //       if (assignee) {
+  //         await this.assignAsset(asset.id, { userId: assignee.id });
+  //       }
+
+  //       results.push(asset);
+  //     } catch (error) {
+  //       errors.push({
+  //         row: index + 2, // Excel rows start at 1, headers at row 1
+  //         error: error  ,
+  //         data: row,
+  //       });
+  //     }
+  //   }
+
+  //   return {
+  //     successCount: results.length,
+  //     errorCount: errors.length,
+  //     results,
+  //     errors,
+  //   };
+  // }
 
   async deleteAsset(id: string) {
     try {
       const asset = await this.prisma.asset.findUnique({ where: { id } });
       if (!asset) {
-        throw new NotFoundException("asset Not Found");
+        throw new NotFoundException('asset Not Found');
       }
       return await this.prisma.asset.delete({
         where: { id },
       });
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to delete asset ${error.message}`);
+      throw new InternalServerErrorException(
+        `Failed to delete asset ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
+  async archiveAsset(id: string, _dto?: { reason?: string }) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          where: { status: 'ASSIGNED' },
+          take: 1,
+        },
+      },
+    });
 
+    mustHave(asset, `Asset with ID ${id} not found`, 404);
+
+    if (asset.status === AssetStatus.RETIRED) {
+      bad('Asset is already archived', 409);
+    }
+
+    if (asset.status === AssetStatus.ASSIGNED || asset.assignments.length > 0) {
+      bad('Assigned assets must be retrieved before they can be archived', 409);
+    }
+
+    return this.prisma.asset.update({
+      where: { id },
+      data: { status: AssetStatus.RETIRED },
+    });
+  }
+
+  async unarchiveAsset(id: string, _dto?: { reason?: string }) {
+    const asset = await this.prisma.asset.findUnique({
+      where: { id },
+      include: {
+        assignments: {
+          where: { status: 'ASSIGNED' },
+          take: 1,
+        },
+        faults: {
+          where: {
+            NOT: { status: 'RESOLVED' },
+          },
+          take: 1,
+        },
+      },
+    });
+
+    mustHave(asset, `Asset with ID ${id} not found`, 404);
+
+    if (asset.status !== AssetStatus.RETIRED) {
+      bad('Only archived assets can be unarchived', 409);
+    }
+
+    if (asset.assignments.length > 0) {
+      bad('Assigned assets cannot be unarchived until assignment is closed', 409);
+    }
+
+    if (asset.faults.length > 0) {
+      bad(
+        'Asset has unresolved faults. Resolve faults before unarchiving.',
+        409,
+      );
+    }
+
+    return this.prisma.asset.update({
+      where: { id },
+      data: { status: AssetStatus.AVAILABLE },
+    });
+  }
+
+
+  ///////////////////////////  HELPERS ///////////////////////////
+//   private const generateSerial = (category: AssetCategory) => {
+//   const date = new Date();
+//   const formattedDate = `${date.getFullYear()}${String(
+//     date.getMonth() + 1
+//   ).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+
+//   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+//   return `AST-${category.slice(0, 3)}-${formattedDate}-${random}`;
+// };
+
+// const serialNo =
+//   row['serialNo']?.trim() ||
+//   generateSerial(adjustedCategory);
 }

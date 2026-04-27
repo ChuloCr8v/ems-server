@@ -1,27 +1,55 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Req,
+  Res,
+  StreamableFile,
+} from '@nestjs/common';
 import { PayrollService } from './payroll.service';
-import { AddComponentDto, PayrollDto, UpdatePayrollDto } from './dto/payroll.dto';
+import {
+  AddComponentDto,
+  PayrollDto,
+  UpdatePayrollDto,
+} from './dto/payroll.dto';
 import { Response } from 'express';
+import { IAuthUser, ReqPayload } from 'src/auth/dto/auth.dto';
+import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('payroll')
 export class PayrollController {
-  constructor(private readonly payroll: PayrollService) { }
+  constructor(
+    private readonly payroll: PayrollService,
+    private readonly prisma: PrismaService,
+  ) {}
   @Post()
   async createPayroll(@Body() data: PayrollDto) {
     return await this.payroll.createPayroll(data);
   }
 
+  @Auth()
   @Get('payslips')
-  async listPayslips() {
-    return this.payroll.listPayslips();
+  async listPayslips(@AuthUser() req: IAuthUser) {
+    return this.payroll.listPayslips(req.sub);
   }
 
-  @Put("calculate")
+  @Get('payslips/user')
+  async listUserPayslips(@AuthUser() req: IAuthUser) {
+    return this.payroll.listUserPayslips(req.sub);
+  }
+
+  @Put('calculate')
   calculatePayroll(@Body() data: PayrollDto) {
     return this.payroll.calculatePayRoll(data);
   }
 
-  @Get("deductions")
+  @Get('deductions')
   listDeductions() {
     return this.payroll.listDeductions();
   }
@@ -33,69 +61,84 @@ export class PayrollController {
   }
 
   @Get(':payrollId')
-  async findOnePayroll(@Param('payrollId') payrollId: string, @Res() res: Response) {
+  async findOnePayroll(
+    @Param('payrollId') payrollId: string,
+    @Res() res: Response,
+  ) {
     const payroll = await this.payroll.findOnePayroll(payrollId);
     return res.status(200).json(payroll);
   }
 
-
   @Patch(':payrollId')
-  async updatePayroll(@Param('payrollId') payrollId: string, @Body() update: UpdatePayrollDto, @Res() res: Response) {
+  async updatePayroll(
+    @Param('payrollId') payrollId: string,
+    @Body() update: UpdatePayrollDto,
+    @Res() res: Response,
+  ) {
     const payroll = await this.payroll.updatePayroll(payrollId, update);
-    return res.status(200).json({ message: `Payroll Has Been Updated`, payroll });
+    return res
+      .status(200)
+      .json({ message: `Payroll Has Been Updated`, payroll });
   }
 
   @Post(':payrollId/custom-component')
-  async createCustomComponent(@Param('payrollId') payrollId: string, @Body() data: AddComponentDto, @Res() res: Response) {
+  async createCustomComponent(
+    @Param('payrollId') payrollId: string,
+    @Body() data: AddComponentDto,
+    @Res() res: Response,
+  ) {
     const component = await this.payroll.createCustomComponent(payrollId, data);
-    return res.status(200).json({ message: `A Custom Component Has Been Added`, component });
+    return res
+      .status(200)
+      .json({ message: `A Custom Component Has Been Added`, component });
   }
 
   @Delete(':componentId')
-  async removeCustomComponent(@Param('componentId') componentId: string, @Res() res: Response) {
+  async removeCustomComponent(
+    @Param('componentId') componentId: string,
+    @Res() res: Response,
+  ) {
     const component = await this.payroll.removeCustomComponent(componentId);
-    return res.status(200).json({ message: `Custom Component Has Been Removed`, component });
+    return res
+      .status(200)
+      .json({ message: `Custom Component Has Been Removed`, component });
   }
 
-
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
   @Post('generate')
-  async generatePayslip() {
-    return this.payroll.generatePayslips();
+  async generatePayslipsForPeriod(
+    @Req() req: ReqPayload,
+    @Body() data: { month: number },
+  ) {
+    return this.payroll.queuePayslipsForPeriod(req.user.id, data.month);
   }
 
-  // @Post('generate/:userId')
-  // async generatePayslipForUser(@Param('userId') userId: string) {
-  //   return this.payroll.generatePayslipForUser(userId);
-  // }
-
+  @Auth()
   @Get('download/:payslipId')
-  async downloadPayslip(@Param('payslipId') payslipId: string, @Res() res: Response) {
-    const pdfBuffer = await this.payroll.downloadPayslip(payslipId, res)
-    return res.send(pdfBuffer);
+  downloadPayslip(
+    @Param('payslipId') payslipId: string,
+  ): Promise<StreamableFile> {
+    return this.payroll.downloadPayslip(payslipId);
   }
 
   @Get('deductions/download/:id')
-  async downloadDeductionsExcel(@Param('id') id: string, @Res() res: Response): Promise<void> {
+  async downloadDeductionsExcel(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
     return this.payroll.downloadDeductionsExcel(id, res);
   }
 
-  //   @Get('test-simple/:userId')
-  // async testSimplePayslip(@Param('userId') userId: string, @Res() res: Response) {
-  //     try {
-  //         const PDFDocument = await import('pdfkit');
-  //         const doc = new PDFDocument();
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
+  @Post('/notify/:id')
+  async notify(@Param('id') id: string) {
+    return this.payroll.notify(id);
+  }
 
-  //         res.setHeader('Content-Type', 'application/pdf');
-  //         res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
-
-  //         doc.pipe(res);
-  //         doc.fontSize(25).text('TEST PAYSLIP', 100, 100);
-  //         doc.fontSize(12).text('This is a test PDF generated directly without Puppeteer', 100, 150);
-  //         doc.end();
-
-  //     } catch (error) {
-  //         // this.logger.error('Simple PDF test failed:', error);
-  //         throw error;
-  //     }
-  // }
+  @Auth(['ADMIN', 'HR', 'SUPERADMIN'])
+  @Delete('delete/payslip')
+  async delete() {
+    await this.prisma.payslip.deleteMany();
+    return { message: 'successful' };
+  }
 }

@@ -1,13 +1,12 @@
 import { Module } from '@nestjs/common';
-import { KpiService } from './kpi.service';
+import { PrismaModule } from 'src/prisma/prisma.module';
 import { KpiController } from './kpi.controller';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { MailModule } from 'src/mail/mail.module';
-import { UserModule } from 'src/user/user.module';
+import { KpiService } from './kpi.service';
 
 @Module({
-  imports: [MailModule, UserModule],
+  imports: [PrismaModule],
   controllers: [KpiController],
-  providers: [KpiService, PrismaService],
+  providers: [KpiService],
+  exports: [KpiService],
 })
 export class KpiModule {}

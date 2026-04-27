@@ -1,52 +1,35 @@
 import { KpiCategoryType } from '@prisma/client';
+import {
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-import { IsString, IsOptional, IsNumber, Min, Max, IsBoolean, IsUUID, IsArray, ValidateNested } from 'class-validator';
 
-export class CreateKpiObjectiveDto {
+export class CreateKpiTemplateObjectiveDto {
+  @IsString()
+  name: string;
+}
+
+export class CreateKpiTemplateCategoryDto {
   @IsString()
   name: string;
 
-  @IsNumber()
-  @IsOptional()
-  @Min(1)
-  @Max(5)
-  rating?: number;
-
-  @IsString()
-  @IsOptional()
-  comment?: string;
-
-  @IsString()
-  @IsOptional()
-  categoryId?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateKpiTemplateObjectiveDto)
+  objectives: CreateKpiTemplateObjectiveDto[];
 }
 
-
-export class CreateKpiCategoryDto {
-  @IsString()
-  name: string;
-
+export class CreateKpiTemplateDto {
   @IsString()
   @IsOptional()
-  type?: KpiCategoryType;
+  department?: string;
 
-  @IsBoolean()
-  @IsOptional()
-  isGlobal?: boolean = true;
-
-  @IsUUID()
-  @IsOptional()
-  departmentId?: string;
-
-  @IsArray() 
-  @ValidateNested({ each: true }) 
-  @Type(() => CreateKpiObjectiveDto)
-  objectives: CreateKpiObjectiveDto[];
-}
-
-export class CreateKpiDto {
-  @IsArray() 
-  @ValidateNested({ each: true }) 
-  @Type(() => CreateKpiCategoryDto)
-  categories: CreateKpiCategoryDto[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateKpiTemplateCategoryDto)
+  categories: CreateKpiTemplateCategoryDto[];
 }
