@@ -79,16 +79,20 @@ export class UploadHandoverSignatureDto {
 export class FinanceClearanceDto {
   @IsBoolean()
   @IsNotEmpty()
-  isLoan: boolean;
+  isDebt: boolean;
 
-  @IsOptional()
-  @IsNumber()
-  loanAmount: number;
+  // @IsString()
+  // @IsOptional()
+  // title?: string;
+
+  // @IsOptional()
+  // @IsNumber()
+  // amount?: number;
   
   @IsString()
   @IsOptional()
   comment?: string;
-} 
+}
 
 export class BulkReturnDto {
   @IsArray()

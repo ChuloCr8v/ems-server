@@ -236,7 +236,7 @@ export class AppraisalService {
         error,
       );
       throw new BadRequestException(
-        'Failed to generate quarterly appraisal templates: ' + error.message,
+        'Failed to generate quarterly appraisal templates: ' + (error instanceof Error ? error.message : String(error)),
       );
     }
   }
@@ -1388,7 +1388,7 @@ export class AppraisalService {
       data: developmentNeeds.map((a) => ({
         title: a.title,
         supportRequired: a.supportRequired,
-        timeline: a.timeline,
+        timeline: String(a.timeline),
         appraisalId
       })),
     });
