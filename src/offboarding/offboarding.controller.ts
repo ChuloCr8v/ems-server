@@ -6,22 +6,13 @@ import {
   Patch,
   Post,
   Res,
-  UploadedFiles,
-  UseInterceptors,
-  Req,
-  Header,
-  UploadedFile,
 } from '@nestjs/common';
 import { OffboardingService } from './offboarding.service';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-// import { DebtPaymentDto, InitiateExit, ReturnAsset } from './dto/offboarding.dto';
 import { Response } from 'express';
 import { Auth, AuthUser } from 'src/auth/decorators/auth.decorator';
-import { Role } from '@prisma/client';
+import { FinanceClearance, Role } from '@prisma/client';
 import { IAuthUser } from 'src/auth/dto/auth.dto';
-import { join } from 'path';
-import { createReadStream } from 'fs';
-import { BulkReturnDto, DepartmentClearanceDto, HandoverTaskDto, InitiateExit, ReportAssetDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
+import { BulkReturnDto, DepartmentClearanceDto, FinanceClearanceDto, HandoverTaskDto, InitiateExit, ReportAssetDto, UploadHandoverSignatureDto } from './dto/offboarding.dto';
 
 @Controller('offboarding')
 export class OffboardingController {
@@ -62,13 +53,6 @@ export class OffboardingController {
     return res.status(200).json(result);
   }
 
-  // @Auth([Role.DEPT_MANAGER])
-  // @Get(':empoyeeId/handover-doc')
-  // async getHandoverDocuments(@AuthUser() user: IAuthUser, @Param('employeeId') employeeId: string) {
-  //   const userId = user.sub;
-  //   return await this.offboarding.getHandoverDocuments(userId, employeeId);
-  // }
-
   @Auth([Role.DEPT_MANAGER])
   @Post(':userId/department-clearance')
   async departmentClearance(
@@ -108,16 +92,16 @@ export class OffboardingController {
     return await this.offboarding.getReceiverHandover(userId);
   }
 
-  @Auth([Role.DEPT_MANAGER])
-  @Patch(':clearanceId/complete')
-  async completeDepartmentClearance(
-    @Param('clearanceId') clearanceId: string,
-    @AuthUser() user: IAuthUser
-  ) {
-    const managerId = user.sub;
-    const result = await this.offboarding.completeDepartmentClearance(clearanceId, managerId);
-    return result;
-  }
+  // @Auth([Role.DEPT_MANAGER])
+  // @Patch(':clearanceId/complete')
+  // async completeDepartmentClearance(
+  //   @Param('clearanceId') clearanceId: string,
+  //   @AuthUser() user: IAuthUser
+  // ) {
+  //   const managerId = user.sub;
+  //   const result = await this.offboarding.completeDepartmentClearance(clearanceId, managerId);
+  //   return result;
+  // }
 
   @Auth()
   @Post('return-assets')
@@ -149,6 +133,40 @@ export class OffboardingController {
       const managerId = manager.sub
       const asset = await this.offboarding.reportAsset(managerId, assignmentId, data);
       return res.status(200).json({ message: `A Report Has Been Made On This Asset`, asset})
+    }
+
+    @Auth([Role.HR, Role.ADMIN])
+    @Post(':userId/finance-clearance')
+    async initiateFinanceClearance(
+      @Param('userId') userId: string,
+      @Body() data: FinanceClearanceDto,
+      @Res() res: Response
+    ) {
+      const result = await this.offboarding.initiateFinanceClearance(userId, data);
+      return res.status(200).json(result);
+    }
+
+    @Auth([Role.HR, Role.ADMIN])
+    @Get(':financeId/manual-debt')
+    async addManualDebt(
+      @Param('financeId') financeId: string,
+      @Body() data: { title: string; amount: number }, 
+      @Res() res: Response
+    ) {
+      const result = await this.offboarding.addManualDebt(financeId, data);
+      return res.status(200).json(result);
+    }
+
+    @Auth()
+    @Get(':userId/finance-clearance')
+    async getFinanceClearance(
+      @AuthUser() user: IAuthUser,
+      @Param('employeeId') employeeId: string,
+      @Res() res: Response
+    ) {
+      const userId = user.sub;
+      const finance = await this.offboarding.getFinanceClearance(userId, employeeId);
+      return res.status(200).json(finance);
     }
 
   // @Get()

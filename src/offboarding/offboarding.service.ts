@@ -427,69 +427,7 @@ export class OffboardingService {
     }
   }
 
-  async completeDepartmentClearance(userId: string, clearanceId: string) {
 
-    try {
-
-      const user = await this.findUserById(userId);
-
-      if (!user) throw bad("User not found");
-
-      const clearance = await this.findClearanceById(clearanceId);
-
-      if (!clearance) throw bad("Clearance Not Found");
-
-      if (clearance.type !== "DEPARTMENT") {
-        throw bad("Invalid clearance type");
-      }
-
-      // Ensure tasks handed over
-
-      const deptClearance = clearance.department;
-
-      if (!deptClearance?.tasksHandedOver) {
-        throw bad("Tasks must be handed over before completing clearance");
-      }
-
-    // Validate signatures
-
-      const signatures = clearance.signatures;
-
-      const signedRoles = new Set(signatures.map(s => s.role));
-
-      const requiredRoles: SignatureRole[] = ["USER", "DEPT_MANAGER", "RECEIVER"];
-
-      const missingRoles = requiredRoles.filter(role => !signedRoles.has(role));
-
-        if (missingRoles.length > 0) {
-          throw bad(
-            `Missing required signatures: ${missingRoles.join(", ")}`
-          );
-        }
-
-    // Authorization check
-      const canComplete = this.userHasRole(user, Role.DEPT_MANAGER)
-        if (!canComplete) {
-          throw bad("You are not authorized to complete this clearance");
-        }
-
-    // Complete clearance
-        return await this.prisma.clearance.update({
-          where: { id: clearanceId },
-          data: {
-            status: "COMPLETED",
-            completedAt: new Date(),
-          },
-        });
-
-    } catch (error) {
-
-      console.log(error);
-
-      throw bad(`Failed to complete department clearance: ${error instanceof Error ? error.message : String(error)}`);
-
-    }
- }
 
   async getReceiverHandover(userId: string) {
       console.log("User ID:", userId);
@@ -525,11 +463,75 @@ export class OffboardingService {
     }
   }
 
-  async initiateFinanceClearance(userId: string, employeeId: string, data: FinanceClearanceDto) {
+  async generateAssetDebt(tx: any, userId: string, financeId: string) {
     try {
-      const { isLoan, loanAmount, comment } = data;
+      const assessments = await this.prisma.assetAssesment.findMany({
+      where: {
+        assignment: { userId },
+        isCleared: false,
+        liabilityCost: { gt: 0 },
+      },
+    });
+    if(!assessments.length) {
+      throw bad("No valid assessments found");
+    }
+
+    //Calculate total liability
+    const total = assessments.reduce(
+      (sum, aa) => sum + (aa.liabilityCost || 0),
+      0
+    );
+    if(total <= 0) return;
+
+    //Prevent Duplicate asset debts 
+    const existing = await tx.debt.findFirst({
+      where: { 
+        financeId,
+        type: 'ASSET',
+      },
+    });
+    if(existing) return;
+
+    await tx.debt.create({
+      data: {
+        title: "Asset Liability",
+        amount: total,
+        remainingAmount: total,
+        type: 'ASSET',
+        finance: { connect: { id: financeId } },
+          aa: {
+          connect: assessments.map((a) => ({ id: a.id })),
+        },
+      },
+    }); 
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to create aggregate debt: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+  }
+
+  async addManualDebt(financeId: string, input: { title: string; amount: number }) {
+    const { title, amount } = input;
+
+    if (amount <= 0) throw bad("Invalid amount");
+
+    return this.prisma.debt.create({
+      data: {
+        title,
+        amount,
+        remainingAmount: amount,
+        type: "MANUAL",
+        finance: { connect: { id: financeId } },
+      },
+    });
+  }
+
+  async initiateFinanceClearance( userId: string, data: FinanceClearanceDto) {
+    try {
+      const { isDebt, comment } = data;
       return await this.prisma.$transaction(async (tx) => {
-        const employee = await this.findUserById(employeeId);
+        const employee = await this.findUserById(userId);
 
         //Find finanace clearance record linked to user's offboarding
         const clearance = await this.prisma.clearance.findFirst({
@@ -537,41 +539,105 @@ export class OffboardingService {
             offboarding: { userId: employee.id },
             type: "FINANCE",
           },
-          include: { finance: true },
+          include: {
+            finance: {
+              include: {
+                debts: true,
+                claims: true,
+              },
+            },
+          },
         });
         if(!clearance) {
           throw bad("Finance clearance not found for user's offboarding");
         }
 
         //Get all pending claims for the user
-        const pendingClaims = await this.getAllPendingClaims(employeeId);
+        const pendingClaims = await this.getAllPendingClaims(employee.id);
 
-        if(clearance.finance?.id) {
-          return clearance.finance.id;
+        let finance = clearance.finance;
+        if(!finance) {
+          finance = await tx.financeClearance.create({
+            data: {
+              employee: { connect: { id: employee.id } },
+              clearance: { connect: { id: clearance.id } },
+              ...(comment && {
+                comment:{ create: { comment } },
+              }),
+              ...(pendingClaims.length > 0 && {
+                claims: {
+                  connect: pendingClaims.map((c) => ({ id: c.id })),
+                },
+              }),
+            },
+            include: {
+              debts: true,
+              claims: true,
+            },
+          });
         }
-        const created = await tx.financeClearance.create({
-          data: {
-            employee: { connect: { id: employee.id } },
-            clearance: { connect: { id: clearance.id } },
-            isLoan,
-            loanAmount: isLoan ? loanAmount : null,
-            ...(comment && {
-              comment: {
-                create: { comment }
-              }
-            }),
-            ...(pendingClaims.length > 0 && {
-              claims: {
-                connect: pendingClaims.map(c => ({ id: c.id }))
-              }
-            })
-          }
+        //Generate asset debt if any
+        await this.generateAssetDebt(tx, employee.id, finance.id);
+
+        //Refech updated finance state
+        const updatedFinance = await tx.financeClearance.findUnique({
+          where: { id: finance.id },
+          include: {
+            debts: true,
+            claims: true,
+            clearance: true,
+          },
         });
-        return created.id;
       });
     } catch (error) {
       console.log(error);
       bad(`Failed to initiate finance clearance: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async evaluateFinanceCompletion(tx: any, finance: any) {
+    const hasOutstandingDebt = finance.debts.some(
+      (d: any) => (d.remainingAmount ?? d.amount) > 0,
+    );
+
+    const hasPendingClaims = finance.claims.length > 0;
+
+    // ✅ Nothing to settle → auto-complete
+    if (!hasOutstandingDebt && !hasPendingClaims) {
+      await tx.clearance.update({
+        where: { id: finance.clearanceId },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+        },
+      });
+    }
+  }
+
+   async getFinanceClearance(userId: string, employeeId: string) {
+    try {
+      const user = await this.findUserById(employeeId);
+
+      const clearance = await this.prisma.clearance.findFirst({
+        where: {
+          offboarding: { userId: user.id },
+          type:  "FINANCE"
+        },
+        include: {
+          finance: {
+            include: {
+              claims: true,
+              debts: true,
+              aa: true,
+              comment: true,
+            },
+          },
+        },
+      });
+      return clearance?.finance;
+    } catch (error) {
+      console.log(error);
+      bad(`Failed to get finance clearance: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
         

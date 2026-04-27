@@ -122,6 +122,7 @@ model User {
   signature                    Signatures[]
   createdKpiTemplateCategories KpiTemplateCategory[] @relation("KpiTemplateCategoryCreator")
   assessment                   AssetAssesment[]
+  transactions                 Transaction[]
 
   @@index([email])
   @@index([id])
@@ -532,32 +533,60 @@ model DepartmentClearance {
 }
 
 model FinanceClearance {
-  id              String          @id @default(uuid()) @db.Uuid
-  isLoan          Boolean         @default(false)
-  loanAmount      Float?
-  employeeId      String          @db.Uuid
-  employee        User            @relation(fields: [employeeId], references: [id])
-  clearanceId     String?         @unique @db.Uuid
-  clearance       Clearance?      @relation(fields: [clearanceId], references: [id])
-  aaId            String?         @db.Uuid
-  aa              AssetAssesment? @relation(fields: [aaId], references: [id])
-  claims          Claim[]
-  comment         Comment[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id          String     @id @default(uuid()) @db.Uuid
+  isDebt      Boolean    @default(false)
+  employeeId  String     @db.Uuid
+  employee    User       @relation(fields: [employeeId], references: [id])
+  clearanceId String?    @unique @db.Uuid
+  clearance   Clearance? @relation(fields: [clearanceId], references: [id])
+  debts       Debt[]
+  claims      Claim[]
+  comment     Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Debt {
+  id              String           @id @default(uuid()) @db.Uuid
+  title           String
+  amount          Float
+  remainingAmount Float?
+  status          DebtStatus       @default(PENDING)
+  type            DebtType
+  financeId       String           @db.Uuid
+  finance         FinanceClearance @relation(fields: [financeId], references: [id])
+ 
+  aa              AssetAssesment[] @relation("DebtAssessments")
+  // transactions Transaction[]
+  createdAt       DateTime         @default(now())
+}
+
+model Transaction {
+  id         String            @id @default(uuid()) @db.Uuid
+  reference  String            @unique
+  amount     Float
+  type       TransactionType
+  status     TransactionStatus @default(PENDING)
+  userId     String            @db.Uuid
+  user       User              @relation(fields: [userId], references: [id])
+  // entityId   String?           @db.Uuid
+  // entityType EntityType?
+  metadata   Json?
+
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 }
 
 model FacilityClearance {
-  id          String          @id @default(uuid()) @db.Uuid
-  employeeId  String          @db.Uuid
-  employee    User            @relation(fields: [employeeId], references: [id])
-  clearanceId String?         @unique @db.Uuid
-  clearance   Clearance?      @relation(fields: [clearanceId], references: [id])
-  aaId        String?         @db.Uuid
-  aa          AssetAssesment? @relation(fields: [aaId], references: [id])
-  assignment  Assignment[]
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id               String           @id @default(uuid()) @db.Uuid
+  employeeId       String           @db.Uuid
+  employee         User             @relation(fields: [employeeId], references: [id])
+  clearanceId      String?          @unique @db.Uuid
+  clearance        Clearance?       @relation(fields: [clearanceId], references: [id])
+  assetAssessments AssetAssesment[]
+  assignment       Assignment[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 }
 
 model AssetAssesment {
@@ -572,7 +601,7 @@ model AssetAssesment {
   assessedBy    User                @relation(fields: [assessedById], references: [id])
   assessedAt    DateTime            @default(now())
   facility      FacilityClearance[]
-  finance       FinanceClearance[]
+  debts         Debt[]              @relation("DebtAssessments")
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 }
@@ -838,8 +867,8 @@ model Claim {
   pipId    String?   @unique @db.Uuid
   pip      Pip?      @relation(fields: [pipId], references: [id], onDelete: SetNull)
 
-  financeId  String?  @db.Uuid
-  finance    FinanceClearance? @relation(fields: [financeId], references: [id], onDelete: SetNull)
+  financeId String?           @db.Uuid
+  finance   FinanceClearance? @relation(fields: [financeId], references: [id], onDelete: SetNull)
 
   createdAt DateTime? @default(now())
   updatedAt DateTime? @updatedAt
@@ -1556,6 +1585,16 @@ enum TaxStatus {
   PAID
 }
 
+enum TransactionType {
+  PAYSTACK
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 enum SignatureRole {
   USER
   DEPT_MANAGER
@@ -1585,6 +1624,16 @@ enum AppraisalStatus {
   COMPLETED // Final state after HR review
 
   REVIEWED
+}
+
+enum DebtStatus {
+  PENDING
+  CLEARED
+}
+
+enum DebtType {
+  ASSET   // from AssetAssessment
+  MANUAL  // loans, fines, etc.
 }
 
 enum KpiCategoryStatus {
