@@ -678,7 +678,7 @@ export class PipService {
         where: { id: departmentId },
       });
       if(!department) throw bad("Department Not Found");
-      if(department.pipStatus !== 'SUBMITTED') {
+      if(department.pipStatus !== 'MANAGER_APPROVED') {
         throw bad("Department PIPs are not awaiting HR approval");
       }
 
@@ -755,7 +755,7 @@ export class PipService {
         where: { id: departmentId },
       });
       if(!department) throw bad("Department Not Found");
-      if(department.pipStatus !== 'SUBMITTED') {
+      if(department.pipStatus !== 'MANAGER_APPROVED') {
         throw bad("Department PIPs are not awaiting HR approval");
       }
 
