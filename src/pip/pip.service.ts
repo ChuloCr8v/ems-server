@@ -1278,6 +1278,10 @@ export class PipService {
               }
             : undefined,
         },
+        include: {
+          uploads: true,
+          comment: true,
+        }
       });
 
       // Notify the recommender (Manager) that PIP is completed
