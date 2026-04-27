@@ -639,11 +639,11 @@ export class PipService {
       //Calculate total cost
       const totalCost = pips.reduce((sum, pip) => sum + (pip.cost || 0), 0);
 
-      // //Update department status
-      // await this.prisma.department.update({
-      //   where: { id: departmentId },
-      //   data: { pipStatus: 'SUBMITTED' },
-      // });
+      //Update department status
+      await this.prisma.department.update({
+        where: { id: departmentId },
+        data: { pipStatus: 'MANAGER_APPROVED' },
+      });
 
       // //Update PIP status
       // await this.prisma.pip.updateMany({
