@@ -678,9 +678,9 @@ export class PipService {
         where: { id: departmentId },
       });
       if(!department) throw bad("Department Not Found");
-      if(department.pipStatus !== 'MANAGER_APPROVED') {
-        throw bad("Department PIPs are not awaiting HR approval");
-      }
+      // if(department.pipStatus !== 'MANAGER_APPROVED') {
+      //   throw bad("Department PIPs are not awaiting HR approval");
+      // }
 
       const { pipIds } = data;
       if(!pipIds || pipIds.length === 0) {
@@ -755,9 +755,9 @@ export class PipService {
         where: { id: departmentId },
       });
       if(!department) throw bad("Department Not Found");
-      if(department.pipStatus !== 'MANAGER_APPROVED') {
-        throw bad("Department PIPs are not awaiting HR approval");
-      }
+      // if(department.pipStatus !== 'MANAGER_APPROVED') {
+      //   throw bad("Department PIPs are not awaiting HR approval");
+      // }
 
       const { pipIds, reason } = data;
       if(!pipIds || pipIds.length === 0) {
