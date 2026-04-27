@@ -627,8 +627,7 @@ export class OffboardingService {
           finance: {
             include: {
               claims: true,
-              debts: true,
-              aa: true,
+              debts: true,           
               comment: true,
             },
           },

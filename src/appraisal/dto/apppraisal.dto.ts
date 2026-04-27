@@ -61,7 +61,7 @@ export class GoalsDto {
   outcome: string;
 
   @IsNumber()
-  timeline: number;
+  timeline: string;
 
 }
 
@@ -111,7 +111,7 @@ export class DevelopmentNeedsDto {
 
   @IsOptional()
   @IsNumber()
-  timeline?: number;
+  timeline?: string;
 }
 
 export class SendToDepartmentDto {
